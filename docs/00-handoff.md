@@ -1,9 +1,11 @@
 # Palabras — handoff (read this first)
 
 Status date: 2026-10-17. Written at the end of run `T-20261017-1516` (M0 scaffold + mock UI).
-Repo docs are the source of truth. Run reports referenced below live **outside** the repo at
-`D:\Visual Studio Repo\Personal\.opencode\runs\T-20261017-1516\` (abbreviated `runs/NN-*.md`).
-They are evidence for state claims, not living docs.
+Repo docs are the source of truth. Run reports referenced below are copied into the repo under
+`docs/runs/` (see `docs/runs/README.md` for reading order and staleness). They are historical
+evidence for state claims, not living docs. Raw `.log` files were not copied; any citation to a
+`.log` file (e.g. `runs/11-impl.log`) points at command output that only exists in the original
+run workspace, not in this repo.
 
 ## 1. Index of `docs/`
 
@@ -12,8 +14,8 @@ They are evidence for state claims, not living docs.
 | `00-handoff.md` | This file. Project summary, locked decisions, current state, constraints. |
 | `01-next-steps.md` | Ordered work queue with "done when" tests, MVP vs later. |
 | `02-open-questions.md` | Unresolved items, each with a recommended default. |
-| `design.md` | Original design (verbatim copy of `runs/01-spanish-pwa-design.md`). |
-| `design-amendment.md` | Amendment ΔA–ΔJ that supersedes parts of `design.md` (verbatim copy of `runs/02-design-amendment.md`). Where the two disagree, the amendment wins. |
+| `design.md` | Original design (verbatim copy of run report 01; frozen original in `runs/01-spanish-pwa-design.md`). |
+| `design-amendment.md` | Amendment ΔA–ΔJ that supersedes parts of `design.md` (verbatim copy of run report 02; frozen original in `runs/02-design-amendment.md`). Where the two disagree, the amendment wins. |
 
 Other repo docs: `README.md` (setup/deploy; partly stale, see §6), `AGENTS.md` (agent rules),
 `content/style-guide.md` (Spanish content rules), `tools/content-lint/` README (lint usage).
