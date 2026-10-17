@@ -6,6 +6,8 @@
     <Version>0.0.1</Version>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Fsrs.Sharp" Version="[2.0.0]" />
+    <PackageReference Include="JsonSchema.Net" Version="[7.4.0]" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
     <!-- Patched native SQLite; EF's default transitive 2.1.11 has GHSA-2m69-gcr7-jv3q. -->
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.14" />
@@ -16,6 +18,7 @@
     <InternalsVisibleTo Include="Palabras.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="../../content/schema/word.schema.json" Link="content/schema/word.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- Local dotnet run and the test project keep the development settings; a published image must not ship them. -->
     <Content Update="appsettings.Development.json">
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>
