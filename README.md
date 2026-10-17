@@ -57,17 +57,19 @@ Expected health JSON: `{"status":"ok","version":"0.0.1.0"}`. `/api/ping` returns
 
 ## Deploy on Unraid
 
-**User-run only; M0 has not been deployed. Do not expose this unauthenticated scaffold publicly.**
-Run these commands yourself as root on Unraid. Agents only performed read-only discovery.
+User authorized server setup and poll-based deployment on 2026-10-17. Setup is currently
+**blocked on adding the read-only GitHub deploy key**; no app container has started.
+Target URLs: https://palabras.siebentower.nl/ and https://palabras.siebentower.nl/healthz.
+Do not treat a configured URL as proof that deployment or proxy routing works.
 
 ### Layout and prerequisites
 
 Verified 2026-10-17: `/mnt/user/repos` exists (shfs user-share path; `/mnt/cache/repos` does not).
 It contains separate Git checkouts `SoftwareFactory`, `VaporEngine` and `budgeteer`.
-`/mnt/user/docker` and `/mnt/cache/appdata` also exist; `palabras` is not yet deployed.
+`/mnt/user/docker/palabras` and `/mnt/cache/appdata/palabras` were created during setup.
 
 - Source: `/mnt/user/repos/palabras`, cloned from private GitHub repo.
-- Compose project: `/mnt/user/docker/palablras/docker-compose.yml` and adjacent `.env` (historical spelling).
+- Compose project: `/mnt/user/docker/palabras/docker-compose.yml` and adjacent `.env`.
 - Persistent data: `/mnt/cache/appdata/palabras`, bind-mounted to `/data`.
 
 The Docker share holds the standalone compose, as requested; it builds from the separate repos
@@ -78,16 +80,10 @@ No registry, GHCR publishing or CI image push; `docker login` is not needed.
 Only Git, Docker and Docker Compose are needed on Unraid: the Dockerfile's multi-stage build
 provides Node and the .NET SDK. Local dev and CI keep using the root compose/Dockerfile.
 
-**Folder verification warning (2026-10-17):** fresh read-only checks found neither
-`/mnt/user/docker/palablras/docker-compose.yml` nor the corrected `palabras` path. The earlier
-discovery reported `palablras`; confirm the actual app folder before proceeding. Reuse whichever
-spelling already exists rather than creating a second project. Commands below preserve the earlier
-spelling; if no app folder exists, only the user creates it after checking. Container name and
-`sieben` alias must remain `palabras` regardless of folder spelling.
-
-The typo is cosmetic. If the user later renames the existing folder, with the app stopped and no
-destination folder present: `mv /mnt/user/docker/palablras /mnt/user/docker/palabras`.
-Then use the corrected path below; `name: palabras` keeps the Compose project stable.
+**Single source of truth:** `deploy/unraid/docker-compose.yml` in the source checkout.
+`deploy/unraid-deploy.sh` copies it to the Docker share before each rebuild. Never edit the
+Docker-share mirror; change and push the versioned template instead. The deployed `.env` is
+server-owned and never overwritten by updates. The root compose is local-development only.
 
 SQLite must not use the shfs/FUSE `/mnt/user` layer: locking semantics can cause errors or
 corruption. `/mnt/user/repos` and `/mnt/user/docker` are fine for source/configuration; use the
@@ -96,14 +92,13 @@ later does not move data; stop the app and migrate SQLite sidecars, keys and bac
 
 ### One-time private GitHub authentication
 
-Recommended: a dedicated **read-only deploy key for this repository only**, not an account-wide key.
-On the server:
+Default GitHub SSH authentication failed; no Git credential helper/store was present. A dedicated
+**read-only deploy key for this repository only** now exists at `/root/.ssh/id_ed25519_palabras`.
+`/root/.ssh` is the server's existing symlink to `/boot/config/ssh/root`, so the key/config persist
+across reboots. Do not overwrite the key or use a personal PAT.
 
 ```bash
-mkdir -p /root/.ssh
-chmod 700 /root/.ssh
-ssh-keygen -t ed25519 -C "palabras-unraid-readonly" -f /root/.ssh/id_ed25519_palabras -N ''
-chmod 600 /root/.ssh/id_ed25519_palabras
+ssh-keygen -y -f /root/.ssh/id_ed25519_palabras
 ```
 
 Do not overwrite an existing key. Copy the contents of `/root/.ssh/id_ed25519_palabras.pub` to
@@ -112,31 +107,23 @@ unchecked**. This public key belongs in GitHub's deploy-key settings, not Unraid
 Never share the private key or store it in the repo or `.env`.
 
 ```bash
-export GIT_SSH_COMMAND='ssh -i /root/.ssh/id_ed25519_palabras -o IdentitiesOnly=yes'
-ssh -i /root/.ssh/id_ed25519_palabras -o IdentitiesOnly=yes -T git@github.com
+ssh -T github-palabras
 ```
 
 Verify GitHub's host-key fingerprint against its published SSH fingerprints before accepting it.
 GitHub's successful authentication greeting exits with code 1 because it offers no shell.
-Repeat the `export` in each new shell before pull, or configure a dedicated SSH host alias using
-this identity. Persist `/root/.ssh` securely across Unraid reboots using your existing SSH setup;
-root's home may be rebuilt at boot.
-
-Alternative: a fine-grained PAT restricted to `sunmsieben/palabras`, **Contents: Read-only**.
-Use `https://github.com/sunmsieben/palabras.git` for clone, enter your GitHub username and PAT at
-Git's password prompt, and authenticate again on pull as needed. Do not embed PAT in clone URL,
-shell history, Git config or `.env`.
+The installed `github-palabras` SSH alias selects only this key (`IdentitiesOnly yes`), enables
+batch mode and requires the existing GitHub host key. No token is stored or requested.
 
 ### Clone and first run, in order
 
 ```bash
 cd /mnt/user/repos
-git clone git@github.com:sunmsieben/palabras.git palabras
+git clone git@github-palabras:sunmsieben/palabras.git palabras
 cd palabras
 cp .env.example .env
-# Confirm/reuse the existing app folder before this user-run mkdir.
-mkdir -p /mnt/user/docker/palablras
-cp deploy/unraid/docker-compose.yml /mnt/user/docker/palablras/docker-compose.yml
+mkdir -p /mnt/user/docker/palabras
+cp deploy/unraid/docker-compose.yml /mnt/user/docker/palabras/docker-compose.yml
 # Edit checkout .env as below, then copy it beside the deployed compose.
 ```
 
@@ -152,9 +139,10 @@ APP_BASE_URL=https://palabras.siebentower.nl
 credentials. Unraid compose rejects a blank data path. Protect `.env` when secrets are added.
 
 ```bash
-cp /mnt/user/repos/palabras/.env /mnt/user/docker/palablras/.env
-chmod 600 /mnt/user/repos/palabras/.env /mnt/user/docker/palablras/.env
-cd /mnt/user/docker/palablras
+# First setup only: preserve an existing server .env.
+test -f /mnt/user/docker/palabras/.env || cp /mnt/user/repos/palabras/.env /mnt/user/docker/palabras/.env
+chmod 600 /mnt/user/repos/palabras/.env /mnt/user/docker/palabras/.env
+cd /mnt/user/docker/palabras
 mkdir -p /mnt/cache/appdata/palabras
 chown 1654:1654 /mnt/cache/appdata/palabras
 docker compose config
@@ -166,44 +154,51 @@ curl --fail https://palabras.siebentower.nl/healthz
 
 Expected JSON includes `"status":"ok"` (also `version`). The non-root image uses UID/GID 1654;
 bind mounts hide the image's directory ownership, so `chown` is needed for future writes.
-Compose Manager may manage `/mnt/user/docker/palablras/docker-compose.yml` as project `palabras`;
+Compose Manager may manage `/mnt/user/docker/palabras/docker-compose.yml` as project `palabras`;
 point it at that folder/file and use its build action, not a registry pull. Do not create a second
 project for the same container. Keep its working directory here so `.env` is read correctly.
 
-### Update, rollback and stop
+### Automatic updates, pause and rollback
 
-Update (repeat the Git SSH export above in a new shell):
+User Scripts plugin runs `palabras-auto-deploy` on custom cron `*/5 * * * *` (every five minutes).
+Persistent wrapper: `/boot/config/plugins/user.scripts/scripts/palabras-auto-deploy/script`.
+It executes the versioned `deploy/unraid-deploy.sh`; until clone exists, a bootstrap copy in the
+Docker share logs the missing-checkout blocker. No inbound webhook or GitHub runner is used.
+
+The script locks concurrent runs, fetches `origin/main`, accepts fast-forwards only, refuses
+tracked local edits/detached HEAD, and skips rebuilding an unchanged healthy deployment.
+An unchanged run rejects a divergent Docker-share compose instead of silently accepting it;
+restore the canonical file, or remove `deployed.sha` and run the wrapper to force a rebuild.
+After build/up it retries Docker health plus host `/healthz` for up to 36 attempts at five-second
+intervals. Failure exits non-zero and retains the last healthy SHA; there is no automatic rollback.
+
+- Log: `/mnt/user/docker/palabras/deploy.log`, rotated at 1 MiB, three historical files.
+- Last healthy deployed commit: `/mnt/user/docker/palabras/deployed.sha`.
+- Immediate manual poll: `bash /boot/config/plugins/user.scripts/scripts/palabras-auto-deploy/script`.
+- Pause: `touch /mnt/user/docker/palabras/paused`; scheduled runs exit without fetching/building.
+- Resume: `rm /mnt/user/docker/palabras/paused`, then run the wrapper manually.
+- Disable: User Scripts → Palabras auto deploy → schedule Disabled → Apply. This persists over reboot.
+
+Rollback first pauses polling. Replace `<previous-sha>` with a trusted commit from the deployment
+log; future DB migrations may also require a backup restore. Nothing deletes `/data`:
 
 ```bash
-cd /mnt/user/repos/palabras
-git rev-parse HEAD   # record previous SHA for rollback
-git pull --ff-only && (cd /mnt/user/docker/palablras && docker compose up -d --build)
-# If the deployment template changed, refresh it and rebuild again:
-cp deploy/unraid/docker-compose.yml /mnt/user/docker/palablras/docker-compose.yml
-cd /mnt/user/docker/palablras
-docker compose config
-docker compose up -d --build
-curl --fail http://127.0.0.1:18480/healthz
-```
-
-Preserve the deployed `.env`; do not overwrite it during updates. Reapply any deliberate local
-compose edits after copying the template. For rollback, replace `<previous-sha>` with the recorded
-commit, then rebuild (future DB migrations may require a backup restore as well):
-
-```bash
+touch /mnt/user/docker/palabras/paused
 cd /mnt/user/repos/palabras
 git checkout --detach <previous-sha>
 # Use the retained deployed compose if this SHA predates the template.
-cp deploy/unraid/docker-compose.yml /mnt/user/docker/palablras/docker-compose.yml
-cd /mnt/user/docker/palablras
+cp deploy/unraid/docker-compose.yml /mnt/user/docker/palabras/docker-compose.yml
+cd /mnt/user/docker/palabras
 docker compose up -d --build
 curl --fail http://127.0.0.1:18480/healthz
 ```
 
-Return to `main` before the next normal pull. To stop:
+Keep polling paused during rollback. Return to `main`, then remove `paused` and run the wrapper to
+resume updates to the newest `origin/main`. To stop without the scheduler restarting the app:
 
 ```bash
-cd /mnt/user/docker/palablras
+touch /mnt/user/docker/palabras/paused
+cd /mnt/user/docker/palabras
 docker compose down
 ```
 
