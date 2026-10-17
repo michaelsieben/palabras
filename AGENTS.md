@@ -9,5 +9,5 @@ Private Peninsular Spanish vocabulary PWA. M0 contains only an API/SPA scaffold.
 - Verify from root: `dotnet build Backend/Palabras.slnx`, `dotnet test Backend/Palabras.slnx`, `npm --prefix Frontend ci`, `npm --prefix Frontend run lint`, `npm --prefix Frontend run build`, `docker build -t palabras:local .`.
 - Persist future SQLite, keys and backups under `/data`. Never commit `.env` or data.
 - Unraid deployment is user-run only. Existing nginx proxy owns DNS/TLS; no proxy container here.
-- Compose binds loopback :18480. A containerized proxy cannot reach host loopback directly: user must join a suitable shared Docker bridge network before public routing.
+- Compose publishes `0.0.0.0:18480` (LAN-only, never WAN-forwarded) because the existing `nginx-proxy-manager` is a container on macvlan `br0` and cannot reach host loopback; proxy forwards `http://192.168.68.66:18480`.
 - Future layers and browser features are added only in their milestones. Android Chrome only.

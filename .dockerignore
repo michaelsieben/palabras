@@ -7,8 +7,8 @@
 **/obj
 .env
 .env.*
-data
-appdata
+/data/
+/appdata/
 **/*.db
 **/*.db-shm
 **/*.db-wal

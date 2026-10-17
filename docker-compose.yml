@@ -2,9 +2,14 @@ services:
   palabras:
     image: palabras:local
     build: .
-    ports: ["127.0.0.1:18480:8080"]
+    ports:
+      # 18480: chosen because it is absent from the Unraid host-port scan (2026-10-17;
+      # :8080 is already sabnzbd). Override with APP_PORT if it is ever taken.
+      # 0.0.0.0, not 127.0.0.1: nginx-proxy-manager is a container on macvlan br0, so it
+      # cannot reach the Unraid host's loopback. LAN-only; never forwarded on the WAN side.
+      - "0.0.0.0:${APP_PORT:-18480}:8080"
     volumes:
-      - palabras-appdata:/data
+      - "${APPDATA_PATH:-./data}:/data"
     restart: unless-stopped
     env_file: .env
     healthcheck:
@@ -13,6 +18,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
-
-volumes:
-  palabras-appdata:

@@ -57,30 +57,54 @@ Expected health JSON: `{"status":"ok","version":"0.0.1.0"}`. `/api/ping` returns
 
 ## Deploy on Unraid
 
-**User-run only; M0 has not been deployed.** Existing nginx proxy handles DNS/TLS. Compose has no proxy and publishes neither 80 nor 443. Host :18480 was absent from the read-only container port scan on 2026-10-17 (:8080 is already used by sabnzbd). Recheck before deployment; the scan cannot detect every host process.
+**User-run only; M0 has not been deployed.** The existing proxy is the container `nginx-proxy-manager` (`jc21/nginx-proxy-manager`), attached to macvlan `br0` at `192.168.68.2`; it publishes no host ports and handles DNS/TLS itself. Compose has no proxy and publishes neither 80 nor 443.
+
+Because that proxy lives in another container on a macvlan network, it cannot reach the Unraid host's `127.0.0.1`, so M0 publishes the app on all host interfaces: `0.0.0.0:18480` → container `:8080`. Port 18480 was absent from the read-only container port scan on 2026-10-17 (:8080 is already used by sabnzbd); recheck before deployment, since the scan cannot detect every host process. Override with `APP_PORT` if it is ever taken. 18480 is LAN-only and must never be forwarded on the WAN side; all public traffic arrives through the proxy on 443.
 
 Run on Unraid in a user-chosen project directory (requires Git and authenticated access to this private repo):
+
+**Before the first deploy**, set `APPDATA_PATH=/mnt/user/appdata/palabras` in `.env`. Leaving it blank is for local dev only: Compose binds repo-local `./data` to `/data`. Changing `APPDATA_PATH` later does not migrate data; stop the app and move the DB file manually (and any SQLite sidecars, keys and backups) before restarting with the new path.
+
+The runtime uses non-root `app` (UID/GID 1654 in the current .NET image). Prepare the Unraid directory with ownership matching that user before deployment; the Dockerfile's `/data` ownership is hidden by the bind mount. These are user-run commands, not operations performed by M0:
 
 ```bash
 git clone git@github.com:sunmsieben/palabras.git
 cd palabras
 cp .env.example .env
+# Edit .env: APPDATA_PATH=/mnt/user/appdata/palabras (BEFORE first deploy).
+mkdir -p /mnt/user/appdata/palabras
+chown 1654:1654 /mnt/user/appdata/palabras
 docker compose config --quiet
 docker compose up -d --build
 curl --fail http://127.0.0.1:18480/healthz
 docker compose ps
 ```
 
-Compose creates the named volume `palabras-appdata`, mounted at `/data`; no credentials are needed at M0. `APPDATA` is a reserved placeholder and does not change this named volume. Never use `docker compose down -v` when data matters.
+Compose bind-mounts `APPDATA_PATH` at `/data`; no named volume remains and no credentials are needed at M0. Local `data/` is excluded from Git and Docker build context. For local Linux containers, also ensure the bind directory is writable by UID/GID 1654 before M2 introduces writes. Never use `docker compose down -v` once data matters: it no longer deletes this bind-mounted data, but can delete other volumes added later. Deleting the host directory (for example with `rm -rf`) still destroys the data.
 
-Loopback binding is deliberate. A proxy in another container cannot route to the Unraid host's `127.0.0.1:18480`. Before later public deployment, identify the proxy's actual network and choose an existing **bridge** network shared by both containers; do not assume `br0` (macvlan) supports this. User may attach the running app to that verified network:
+Loopback binding was replaced by the all-interfaces binding above, so the proxy needs no shared Docker network and no `docker network connect`. Leave it as is until a deployment proves otherwise.
+
+### Configure the proxy (nginx-proxy-manager)
+
+Proxy Host, in NPM → Hosts → Proxy Hosts → Add Proxy Host:
+
+- Domain Names: `palabras.siebentower.nl`
+- Scheme: `http`
+- Forward Hostname / IP: `192.168.68.66` (Unraid LAN IP)
+- Forward Port: `18480`
+- Block Common Exploits: on
+- Websockets Support: off (no WS/SignalR; push is delivered by FCM, not this origin)
+- SSL: the existing Let's Encrypt certificate for `palabras.siebentower.nl`, Force SSL on, HTTP/2 on, HSTS on
+
+The proxy can be configured now, but it returns 502 until the container is deployed. Deploying to Unraid is a user-run step, not an agent step.
+
+Alternative upstream `http://palabras:8080` (container name, no host port) applies only if the app later joins the proxy's Docker network (for example `sieben`, `172.18.0.0/16`); persist that in a Compose override before recreating the container.
+
+The proxy sits on macvlan `br0`, so reaching the host LAN IP is the expected path. If it returns 502, check from inside the proxy container:
 
 ```bash
-# Replace <verified-proxy-bridge-network> after inspecting the existing proxy.
-docker network connect --alias palabras <verified-proxy-bridge-network> "$(docker compose ps -q palabras)"
+docker exec nginx-proxy-manager curl -H "Host: palabras.siebentower.nl" http://192.168.68.66:18480/healthz
 ```
-
-Then configure the existing proxy upstream as `http://palabras:8080`, and wire DNS/TLS yourself. Persist shared network membership in a later Compose override before recreating the container. This step is not automated or performed by M0; unauthenticated M0 must remain private.
 
 ## Install as PWA
 
@@ -88,7 +112,13 @@ Android Chrome only (OnePlus 15 and OnePlus Tab 3). Manifest, icons, service wor
 
 ## Backup/restore
 
-No database or backup implementation in M0. `/data` is reserved for SQLite, keys and backups. Automated backup and a tested restore procedure arrive in M8; include named volumes in your Unraid backup strategy.
+No database or backup implementation in M0. `/data` is reserved for SQLite, keys and backups. On Unraid, include `/mnt/user/appdata/palabras` in the appdata backup strategy. Automated backup and a tested restore procedure arrive in M8. Container recreation and `docker compose down` preserve the bind directory; do not delete it.
+
+## Milestone implementation notes
+
+- **M1 proxy/auth groundwork:** confirm the source IP seen through the published LAN port before setting `FORWARDED_KNOWN_NETWORK`. Configure `UseForwardedHeaders` for XFF and XFP with explicit `KnownNetworks`/`KnownProxies`, first in the pipeline, before auth and rate limiting. Never enable blanket `ASPNETCORE_FORWARDEDHEADERS_ENABLED`. Use cookies with `Secure=Always`, `__Host-` name, `Path=/`, no Domain and `SameSite=Lax`; proxy-to-app HTTP must not weaken cookie security. Rate-limit partitions must use post-forwarded `RemoteIpAddress`. Replace wildcard `AllowedHosts` with the real host. No M0 runtime changes needed.
+- **M2 local DB:** add an `appsettings.Development.json` connection-string override using `./data/palabras.db` before DB access is implemented. Extend Docker restore COPY inputs when additional projects or shared MSBuild/NuGet props appear.
+- **Before M7 service worker:** serve root `/sw.js` and `index.html` with `Cache-Control: no-cache`; hashed `/assets/*` with `immutable, max-age=31536000` via `StaticFileOptions.OnPrepareResponse`.
 
 ## Feedback export
 

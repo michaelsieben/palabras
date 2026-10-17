@@ -9,8 +9,8 @@ Backend/Palabras/wwwroot/*
 .env
 .env.*
 !.env.example
-data/
-appdata/
+/data/
+/appdata/
 *.db
 *.db-shm
 *.db-wal

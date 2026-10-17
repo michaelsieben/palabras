@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -29,4 +30,18 @@ jobs:
         working-directory: Frontend
       - run: npm run build
         working-directory: Frontend
-      - run: docker build -t palabras:ci .
+      - name: Build and smoke-test container
+        run: |
+          docker build -t palabras:ci .
+          docker run -d --name palabras-ci-smoke -p 127.0.0.1:18080:8080 palabras:ci
+          body=$(curl --retry-all-errors --retry 30 --retry-delay 1 --fail http://127.0.0.1:18080/healthz)
+          [[ "$body" == *'"status":"ok"'* ]]
+          [[ "$(curl --silent --show-error -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/api/nope)" == "404" ]]
+          [[ "$(curl --silent --show-error -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/anything)" == "200" ]]
+      - name: Container logs and cleanup
+        if: always()
+        run: |
+          if docker container inspect palabras-ci-smoke > /dev/null 2>&1; then
+            docker logs palabras-ci-smoke || true
+            docker rm -f palabras-ci-smoke
+          fi
