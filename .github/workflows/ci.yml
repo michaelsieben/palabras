@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.401'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+      - run: dotnet restore Backend/Palabras.slnx
+      - run: dotnet build Backend/Palabras.slnx --no-restore -c Release
+      - run: dotnet test Backend/Palabras.slnx --no-build -c Release
+      - run: npm ci
+        working-directory: Frontend
+      - run: npm run lint
+        working-directory: Frontend
+      - run: npm run build
+        working-directory: Frontend
+      - run: docker build -t palabras:ci .

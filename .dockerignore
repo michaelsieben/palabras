@@ -1,0 +1,15 @@
+.git
+.github
+.opencode
+**/node_modules
+**/dist
+**/bin
+**/obj
+.env
+.env.*
+data
+appdata
+**/*.db
+**/*.db-shm
+**/*.db-wal
+Backend/Palabras/wwwroot
