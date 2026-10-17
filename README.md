@@ -57,10 +57,12 @@ Expected health JSON: `{"status":"ok","version":"0.0.1.0"}`. `/api/ping` returns
 
 ## Deploy on Unraid
 
-User authorized server setup and poll-based deployment on 2026-10-17. Setup is currently
-**blocked on adding the read-only GitHub deploy key**; no app container has started.
-Target URLs: https://palabras.siebentower.nl/ and https://palabras.siebentower.nl/healthz.
-Do not treat a configured URL as proof that deployment or proxy routing works.
+User authorized server setup and poll-based deployment on 2026-10-17. The private checkout is
+cloned and container `palabras` is running healthy. Verified that day: host and container `/healthz`
+returned HTTP 200 with `{"status":"ok","version":"0.0.1.0"}`; proxy `/` and `/healthz` both returned
+HTTP 200. Manual polls proved first rebuild/healthy deployment and then no-change exit 0.
+URLs: https://palabras.siebentower.nl/ and https://palabras.siebentower.nl/healthz.
+These are dated deployment checks, not a login-readiness claim: no auth users are configured yet.
 
 ### Layout and prerequisites
 
@@ -92,34 +94,65 @@ later does not move data; stop the app and migrate SQLite sidecars, keys and bac
 
 ### One-time private GitHub authentication
 
-Default GitHub SSH authentication failed; no Git credential helper/store was present. A dedicated
-**read-only deploy key for this repository only** now exists at `/root/.ssh/id_ed25519_palabras`.
+One **account-level authentication key** is registered on `sunmsieben` as
+`unraid-sieben (generic)`, with the private half at `/root/.ssh/id_ed25519_github`.
+All `github.com` SSH clones on this server use it, including other private personal repositories
+that this account can access. This is not a per-repository read-only deploy key: it is
+**write-capable wherever the account has write permission**. Server/root compromise can expose
+account-wide repository access and allow pushes. The user explicitly accepted this trade-off
+on 2026-10-17. Polling only fetches, but that does not reduce the key's GitHub permissions.
+
 `/root/.ssh` is the server's existing symlink to `/boot/config/ssh/root`, so the key/config persist
-across reboots. Do not overwrite the key or use a personal PAT.
+across reboots. The unused, never-registered `id_ed25519_palabras` key pair was removed.
+Original `config.before-palabras` and fresh `config.before-generic-20261017-23` backups were retained.
+Never copy the private key off the server, store it in Git/.env, or overwrite an existing identity.
 
 ```bash
-ssh-keygen -y -f /root/.ssh/id_ed25519_palabras
+# Only when creating a new identity; first check that neither file already exists.
+ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519_github -N "" -C "unraid-sieben-generic"
 ```
 
-Do not overwrite an existing key. Copy the contents of `/root/.ssh/id_ed25519_palabras.pub` to
-GitHub → `sunmsieben/palabras` → Settings → Deploy keys → Add deploy key; leave **Allow write access
-unchecked**. This public key belongs in GitHub's deploy-key settings, not Unraid's `authorized_keys`.
-Never share the private key or store it in the repo or `.env`.
+Register **only the public half** in GitHub account Settings → SSH and GPG keys → New SSH key,
+type Authentication Key, title `unraid-sieben (generic)`. Alternatively, from a trusted local
+machine with the authenticated GitHub CLI, copy only `.pub` locally and run
+`gh ssh-key add <public-key-file> --title "unraid-sieben (generic)"`.
+Do not add it to repository Deploy keys or Unraid's `authorized_keys`.
+
+The server SSH config selects this identity for every GitHub repository:
+
+```sshconfig
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile /root/.ssh/id_ed25519_github
+    IdentitiesOnly yes
+    BatchMode yes
+    StrictHostKeyChecking yes
+```
 
 ```bash
-ssh -T github-palabras
+ssh -T git@github.com
 ```
 
 Verify GitHub's host-key fingerprint against its published SSH fingerprints before accepting it.
 GitHub's successful authentication greeting exits with code 1 because it offers no shell.
-The installed `github-palabras` SSH alias selects only this key (`IdentitiesOnly yes`), enables
-batch mode and requires the existing GitHub host key. No token is stored or requested.
+Require `Hi sunmsieben! You've successfully authenticated` before cloning; stop on another account
+or a permission error. No PAT is needed.
+
+**Rotate:** pause each affected repository's auto-deploy job, generate a new key at a different
+server path, register its public half as an account authentication key, back up SSH config and
+update `IdentityFile`. Verify the expected account greeting and private clone/fetch access before
+resuming jobs. Delete the old account key in GitHub Settings → SSH and GPG keys (or from the trusted
+local machine with `gh ssh-key delete <old-key-id>`), then remove its server key pair after validation.
+**Revoke after compromise:** immediately delete the account key in GitHub; this disables all server
+GitHub access using it, not just Palabras. Pause polling, investigate the host, then provision a new
+identity on a trusted host. Existing running containers continue running; future fetches fail.
 
 ### Clone and first run, in order
 
 ```bash
 cd /mnt/user/repos
-git clone git@github-palabras:sunmsieben/palabras.git palabras
+git clone git@github.com:sunmsieben/palabras.git palabras
 cd palabras
 cp .env.example .env
 mkdir -p /mnt/user/docker/palabras
@@ -145,7 +178,7 @@ chmod 600 /mnt/user/repos/palabras/.env /mnt/user/docker/palabras/.env
 cd /mnt/user/docker/palabras
 mkdir -p /mnt/cache/appdata/palabras
 chown 1654:1654 /mnt/cache/appdata/palabras
-docker compose config
+docker compose config --quiet
 docker compose up -d --build
 curl --fail http://127.0.0.1:18480/healthz
 docker inspect palabras --format '{{json .NetworkSettings.Networks.sieben}}'
