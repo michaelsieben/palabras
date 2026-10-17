@@ -358,12 +358,12 @@ Muting **never** touches the skip, the streak or FSRS. A muted day without a ses
 - Every version is snapshotted in `word_revisions`, so "original preserved" is a row, not a column.
 - **Stall mitigation without the badge:**
   - the session runs with reviews only when no approved new words are left (still a valid "done" day; the refuerzo floor `01:169` applies);
-  - the owner sees "Cola aprobada: N palabras nuevas restantes (≈ N/8 días)" and gets an in-app warning below 14 days;
+  - the owner sees "Cola aprobada: N palabras nuevas restantes (≈ N/12 días)" and gets an in-app warning below 14 days;
   - batch-approve (E.4) keeps her throughput high.
 
 ### E.2 Council CLI — `tools/council/`, **TypeScript Node CLI**
 Choice: TS over a `dotnet` verb.
-- It sits next to the existing node tools (`tools/fsrs-golden`, `tools/content-lint`, `01:456-458`).
+- It sits next to the other tools (`tools/fsrs-golden`, Python/py-fsrs since T-20261018-0124; `tools/content-lint`; `01:456-458`).
 - It reuses the same `content/schema/word.schema.json` (via ajv) and the lint module directly.
 - It uses the Vercel AI SDK (`ai` + `@ai-sdk/*` providers), which gives one structured-output interface across providers.
 - Physically separate from `Backend/`, so the runtime invariant (E.0) is structural, not a convention.
@@ -448,7 +448,7 @@ raw/<model-id>.<phase>.json   # gitignored; provider raw responses for local deb
 #### E.2.2 Import into the app (no runtime LLM)
 - The `content/` folder, including `council/*`, is copied into the image at `/app/content`, as data only.
 - `ContentSyncService` runs at startup. It imports every bundle whose `run_id` is not yet in `council_runs`, after verifying `candidates_sha256`. The import is idempotent.
-- Manual verb: `dotnet Palabras.dll import-council <dir>`. The original `import <dir>` (`01:297`) stays for hand-written `content/words/*.json` and lands those words in `draft`.
+- Manual verb: `dotnet Palabras.dll import-council <dir>`. The original `import <dir>` (`01:297`) stays for hand-written `content/words/*.json` and lands those words in ~~`draft`~~ `pending_review` (locked 2026-10-18, T-20261018-0124; matches the files and `01-next-steps.md` M2). A file `status` of `approved` is downgraded to `pending_review`. Approval comes from the M4 reviewer UI or, before M4, from the owner CLI `content approve <key…|--all-pending>` (M2), which writes the same `word_revisions` row.
 - Import order: `council_runs` row, `council_model_results` rows, then per candidate the `words` (status per E.1), `senses`, `word_alternatives`, `word_provenance` and the `word_revisions` v1 snapshot.
   - An existing `key` with status `approved` is **never** overwritten by a `propose` bundle; the duplicate is logged and skipped.
   - Only `rework` bundles may version an existing word.
@@ -667,7 +667,7 @@ EF note: SQLite `ALTER` limits don't matter, because these are edits to the firs
 | M2 | Content schema v2 + lifecycle state machine + importer (`import`, `import-council`, `ContentSyncService`) + lint + revisions | State-transition unit tests (all E.1 rows; illegal transitions 409); import idempotent; `approved` never overwritten by `propose`; planted "carro" flagged; a hand-written 20-word dev bundle imports to `pending_review`; the CI "no LLM in image" test (E.0) passes | ✓ |
 | M3 | **Council CLI** (`tools/council`: propose + critique + merge + lint + bundle + validate; `--dry-run`) | Real run with ≥ 3 vendors → bundle of ~150 candidates across 4 topics; kill one provider (bad key) → `reduced_confidence`; set `COUNCIL_MIN_MODELS` above the healthy count → exit ≠ 0, no `candidates.jsonl`; privacy guard blocks a planted name (ΔH); every candidate has ≥ 2 gloss alternatives | ✓ |
 | M4 | **Reviewer gate** `/revisar` (phone **and** wide layout for her screens) + alternatives sheet/drawer + edit-in-place + batch approve + Aprobadas/demote + offline verdicts + feedback export v2 | She reviews 20 words on the OnePlus 15 in < 5 min; chip pick applies instantly offline; batch-approve 10; a demoted word's cards are suspended with FSRS state intact; the tablet landscape grid renders 2–3 columns | ✓ |
-| M5 | FSRS-6 port + cards-on-approval + review API (was M3) | Golden vectors (`01:149`); attempts idempotent; cards exist **only** for approved words; re-approval with an unchanged meaning keeps S/D; a changed meaning bumps the epoch | ✓ |
+| M5 | FSRS-6 (Fsrs.Sharp 2.0.0 behind `IScheduler`, vendored fallback; ~~port~~) + cards-on-approval + review API (was M3) | Golden vectors (`01:149`: py-fsrs 6.3.2 via `tools/fsrs-golden/`); attempts idempotent; cards exist **only** for approved words; re-approval with an unchanged meaning keeps S/D; a changed meaning bumps the epoch | ✓ |
 | M6 | Session composer + exercises 1–4 + offline queue, phone layout (was M4) | `01:408` criteria; learner queries return 0 non-approved words (test with a planted `pending_review` word) | ✓ |
 | M7 | Day status, streak, **rolling-7-day explicit skip**, refund, rollover (was M5) | ΔD test list | ✓ |
 | M8 | Web Push daily 22:00 + `Saltar hoy`/`Silenciar` actions + mute sheet + TTL/window + tz handling (was M7) | Received on the real OnePlus 15 with the screen off (Chrome battery set to Unrestricted); skip from the notification works without opening the app; the skip-used variant shows 1 action; phone in airplane mode 21:50 → 00:30, then back online → **no** notification; restart at 22:05 → sends once; restart at 23:45 → `window_missed` | ✓ |
@@ -682,7 +682,7 @@ EF note: SQLite `ALTER` limits don't matter, because these are edits to the firs
 
 - **Parallelism:** M5 (FSRS) depends only on M2's schema and can run alongside M3/M4.
 - The phone layout comes in M4/M6. The wide layout comes for her screens in M4, because she reviews on the tablet too and the grid is that screen's core, and for the learner screens in M9. Every component from M4 on uses container queries, so M9 is composition, not rework.
-- **MVP = M0–M10.** The learner can't see anything until M4 has produced approved words, which is the point of the gate.
+- **MVP = M0–M10.** The learner can't see anything until words are approved, which is the point of the gate. Before M4 the owner approves with the `content approve` CLI (M2, locked 2026-10-18); from M4 on, the reviewer does.
 
 **Top risks — REPLACES `01:419-426`:**
 1. **Her queue gates everything** (no badge bypass anymore).

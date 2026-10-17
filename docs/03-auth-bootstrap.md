@@ -185,7 +185,7 @@ Configuration only, never credentials:
 
 - `APPDATA_PATH` → `/data` bind mount (`/mnt/cache/appdata/palabras`; never `/mnt/user`, FUSE breaks
   SQLite WAL locking — `00-handoff.md` §3, `.env.example:20-23`).
-- `APP_PORT` (18480, `deploy/unraid/docker-compose.yml`), `TZ` (Europe/Amsterdam).
+- `APP_PORT` (18480, `deploy/unraid/docker-compose.yml`), `TZ` (Europe/Madrid; container clock only, `design-amendment.md` ΔA).
 - `APP_BASE_URL` (used once reminders and Web Push exist — ΔG M8).
 - Cookie/session settings: the cookie name is fixed as `__Host-palabras` (`00-handoff.md` §8.5,
   `design.md:209`). Because of the `__Host-` prefix the cookie must carry `Secure`, `Path=/` and

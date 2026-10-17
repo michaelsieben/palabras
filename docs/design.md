@@ -17,13 +17,13 @@ Environment checks: the shell tool was denied for this subagent, so `node -v`, `
 
 Assumptions:
 - A1. Two users only: owner (learner + admin) and fiancée (reviewer). No third user, ever.
-- A2. Owner's timezone is Europe/Amsterdam (UNVERIFIED; it is a per-user setting, so nothing hard-codes it).
+- A2. ~~Owner's timezone is Europe/Amsterdam (UNVERIFIED; it is a per-user setting, so nothing hard-codes it).~~ Superseded by `design-amendment.md` ΔC.4/ΔF: per-user timezone captured from the device at first login, fallback `Europe/Madrid`; container `TZ` defaults to `Europe/Madrid` (ΔA).
 - A3. Phones: unknown OS for either user. The design covers both and includes a fallback.
 
 ## 1. Stack recommendation
 
 **Recommended: the "Budgeteer shape".** React 19 + TS + Vite + `vite-plugin-pwa` (Workbox) SPA, served by an ASP.NET Core (.NET 10) minimal-API backend in **one container**, with SQLite via EF Core, cookie auth, an in-process `BackgroundService` scheduler and Web Push.
-- Trade-off: it reuses a proven Dockerfile, compose and conventions the user already ships (`Budgeteer/Dockerfile:1-38`). The cost is porting FSRS-6 to C# (about 150 LOC), which golden vectors from the official `ts-fsrs` guard (§3).
+- Trade-off: it reuses a proven Dockerfile, compose and conventions the user already ships (`Budgeteer/Dockerfile:1-38`). ~~The cost is porting FSRS-6 to C# (about 150 LOC), which golden vectors from the official `ts-fsrs` guard (§3).~~ Superseded (T-20261018-0124): FSRS-6 comes from the Fsrs.Sharp 2.0.0 package behind `IScheduler`, gated by py-fsrs 6.3.2 golden vectors (§3).
 
 **Fallback: all-TypeScript.** Same React PWA plus a Hono (Node 22) API, Drizzle + better-sqlite3, the official `ts-fsrs` lib, and `web-push` npm.
 - Trade-off: one language and an official FSRS library with no port, but the backend drops the user's .NET/EF/Budgeteer conventions and DI/testing habits.
@@ -50,13 +50,13 @@ All timestamps are `DateTimeOffset` UTC. `local_date` is a `TEXT yyyy-MM-dd` in 
 ```
 users
   id PK, username UNIQUE NOT NULL, display_name, role TEXT CHECK(role IN ('owner','reviewer')),
-  password_hash, failed_login_count INT DEFAULT 0, locked_until NULL, timezone TEXT DEFAULT 'Europe/Amsterdam',
+  password_hash, failed_login_count INT DEFAULT 0, locked_until NULL, timezone TEXT NULL (ΔF: was DEFAULT 'Europe/Amsterdam'; set from device, fallback 'Europe/Madrid'),
   created_at
 user_settings                        -- learner only (1:1 users)
-  user_id PK FK users, desired_retention REAL DEFAULT 0.90, new_per_day INT DEFAULT 8,
+  user_id PK FK users, desired_retention REAL DEFAULT 0.90, new_per_day INT DEFAULT 12,
   max_reviews_per_day INT DEFAULT 60, session_target_s INT DEFAULT 600, session_max_s INT DEFAULT 900,
   reminder_time TEXT DEFAULT '19:00', last_call_time TEXT DEFAULT '21:30',
-  fsrs_weights TEXT(JSON array[21]), fsrs_weights_version INT DEFAULT 1, max_interval_days INT DEFAULT 365,
+  fsrs_weights TEXT(JSON array[21]), fsrs_weights_version INT DEFAULT 1, max_interval_days INT DEFAULT 730,
   learning_steps TEXT DEFAULT '["1m","10m"]', relearning_steps TEXT DEFAULT '["10m"]'
 
 topics           id PK, key UNIQUE ('food','transport','home','fiestas-navarra',...), name_es, name_en
@@ -141,12 +141,12 @@ Plus EF's `__EFMigrationsHistory`. Data Protection keys are stored as files in `
 
 ## 3. SRS algorithm: FSRS-6
 
-**Algorithm:** FSRS-6 (21 weights, `w0..w20`), server-authoritative, ported to C# from `ts-fsrs` v5.x (open-spaced-repetition).
-- Default weights: copy them verbatim from `ts-fsrs` `default_w` at implementation time. From memory, which is UNVERIFIED and must not be used as-is: `[0.212, 1.2931, 2.3065, 8.2956, 6.4133, 0.8334, 3.0194, 0.001, 1.8722, 0.1666, 0.796, 1.4835, 0.0614, 0.2629, 1.6483, 0.6014, 1.8729, 0.5425, 0.0912, 0.0658, 0.1542]`.
+**Algorithm:** FSRS-6 (21 weights, `w0..w20`), server-authoritative, ~~ported to C# from `ts-fsrs` v5.x (open-spaced-repetition)~~ provided by the Fsrs.Sharp 2.0.0 NuGet package (pinned `[2.0.0]`) behind an `IScheduler` seam, with a vendored-source fallback (T-20261018-0124). The formulas below describe FSRS-6; the library supplies the default weights and fuzz.
+- Default weights: ~~copy them verbatim from `ts-fsrs` `default_w` at implementation time~~ use the Fsrs.Sharp 2.0.0 defaults. From memory, which is UNVERIFIED and must not be used as-is: `[0.212, 1.2931, 2.3065, 8.2956, 6.4133, 0.8334, 3.0194, 0.001, 1.8722, 0.1666, 0.796, 1.4835, 0.0614, 0.2629, 1.6483, 0.6014, 1.8729, 0.5425, 0.0912, 0.0658, 0.1542]`.
 - Retrievability: `R(t,S) = (1 + F·t/S)^(-w20)`, with `F = 0.9^(-1/w20) - 1`.
 - Next interval: `I = S/F · (r^(-1/w20) - 1)`, where `r = desired_retention`. Round it, clamp to `[1, max_interval_days]`, and apply fuzz (±, ts-fsrs fuzz ranges) so cards don't clump.
-- Stability/difficulty updates, same-day short-term stability (`w17..w19`) and the difficulty mean-reversion follow ts-fsrs exactly.
-- **Correctness gate:** `tools/fsrs-golden/` (Node script) uses ts-fsrs to generate about 500 random review sequences into `golden.json`. A C# xUnit test replays them and asserts S/D within 1e-6 and equal `scheduled_days` with fuzz disabled.
+- Stability/difficulty updates, same-day short-term stability (`w17..w19`) and the difficulty mean-reversion follow ~~ts-fsrs~~ the library (validated against py-fsrs 6.3.2) exactly.
+- **Correctness gate:** `tools/fsrs-golden/` (Python script, py-fsrs 6.3.2 pinned in `requirements.txt`; ~~Node script with ts-fsrs~~) generates about 500 seeded random review sequences into `Backend/Palabras.Tests/Srs/golden.json`, which is committed so CI needs no Python. A C# xUnit test replays them through the `IScheduler` implementation and asserts S/D within 1e-6 and due equal to the second with fuzz disabled.
 
 **Storage:** weights live in `user_settings.fsrs_weights` (JSON) plus `fsrs_weights_version`, and each `review_log` row records the version used. Card memory state lives in the `cards` columns (§2).
 
@@ -164,7 +164,7 @@ Learning steps happen *inside the session*: a failed or new card is re-queued by
 **Target retention:** 0.90 (setting, 0.85–0.95).
 
 **Session sizing (assumptions):** new card ≈ 30 s total (intro + 2 learning reps); review card ≈ 8 s (typed ≈ 12 s, flip ≈ 6 s).
-- Defaults `new_per_day = 8` and `max_reviews_per_day = 60` give 8×30 + 45×8 ≈ 600 s, which is 10 min.
+- Defaults `new_per_day = 12` and `max_reviews_per_day = 60`: 12 new + 30 due reviews give 12×30 + 30×8 = 600 s, which is 10 min. With 45 due reviews the full 12 new would be 12×30 + 45×8 = 720 s, so the budget rule below trims new cards to 8 (8×30 + 45×8 = 600 s).
 - **Budget rule:** session composer target is `session_target_s = 600`, with a hard cap of `session_max_s = 900`. Due reviews come first (most overdue / lowest R first). New cards are then added only while `est ≤ target`. If due reviews alone exceed 900 s, new cards drop to 0 and overflow reviews stay due (FSRS tolerates lateness).
 - **Floor:** if est < 300 s, the composer pads with "refuerzo" cards (lowest R not yet due, `counts_for_srs = true`, which is legitimate early review in FSRS) up to 300 s.
 - Per-type seconds are re-estimated from the rolling median of `review_log.response_ms` over the last 14 days, so sizing self-calibrates.
@@ -186,10 +186,10 @@ Cards come in two directions: `es_en` (recognition) and `en_es` (production). Th
 Exercise types:
 1. **Presentación + Parejas (memory match)**: new cards only. A batch of up to 6 new words is shown first (ES with article, EN, example, TTS es-ES), then a 6-pair flip-match grid (ES ↔ EN). `counts_for_srs = false` (exposure). The first correct recall comes in the next exercise.
 2. **Opción múltiple ES→EN**: Learning/Relearning cards. 4 options, distractors from the same POS and topic. Correct → Good; wrong → Again. Recognition only, so Easy is never given.
-3. **Tarjeta ES→EN (flip, self-graded)**: Review `es_en`. Shows ES (+ TTS). User reveals and taps Again/Hard/Good/Easy. Default buttons are Again/Good, with Hard/Easy reachable by long-press (keeps it fast).
+3. **Tarjeta ES→EN (flip, self-graded)**: Review `es_en`. Shows ES (+ TTS). User reveals and taps Again/Hard/Good/Easy: four directly visible buttons with a "forgot → Again" hint (locked 2026-10-18). ~~Default buttons are Again/Good, with Hard/Easy reachable by long-press (keeps it fast).~~
 4. **Escribe EN→ES (typed production)**: Review `en_es`, and Learning `en_es`. Auto-graded after normalising (trim, lowercase, optional article):
-   - exact match → Good (Easy if < 4 s);
-   - accent or `ñ` missing only → Hard, with diff shown;
+   - exact match → Good ~~(Easy if < 4 s)~~; slower than 12 s → Hard. The 12 s typed / 8 s recognition-reveal thresholds are provisional, kept as named constants in one place and revisited after the first real sessions (O-4, T-20261018-0124);
+   - ~~accent or `ñ` missing only → Hard, with diff shown;~~ accent-only miss → accepted as correct (Good) with the difference shown, unless the card sets `accentsAreThePoint` (then Again). `ñ` is not folded, so `n` for `ñ` is not an accent miss. Verdicts are Spanish, explanations English (locked 2026-10-18);
    - gender/article wrong → Hard, with the article highlighted;
    - otherwise → Again.
    - Accepted answers = `lemma` + `senses.es_accepted`.
@@ -259,7 +259,7 @@ Exercise types:
     - Free text records `proposed_text` with `status = needs_change`, `resolution = open`. The owner applies it in the admin view (one tap "Aplicar") → `version++`, `status = pending_review`, so she sees it again for a final OK.
     - A reject with no alternative and no text → `status = rejected`, cards suspended.
 - The reviewer queue is cached offline. Verdicts queue in IndexedDB and sync like review attempts (`client_review_id` idempotency; add a UNIQUE column `client_review_id` to `word_reviews`).
-- **Non-stalling rule:** learner new cards come from `approved` first. If fewer than `new_per_day` approved words are unseen, `pending_review` words fill the gap with a "sin verificar" badge. A later reject suspends them, and a chosen alternative swaps them in place (reset to New). Her backlog therefore never blocks his daily session.
+- ~~**Non-stalling rule:** learner new cards come from `approved` first. If fewer than `new_per_day` approved words are unseen, `pending_review` words fill the gap with a "sin verificar" badge. A later reject suspends them, and a chosen alternative swaps them in place (reset to New). Her backlog therefore never blocks his daily session.~~ Superseded by `design-amendment.md` ΔE.1 (approved-only gate): removed, not built. Before M4, the owner `content approve` CLI (M2) supplies approved words.
 
 **Captured events (model training signal):** every `word_reviews` row, plus derived signals from the learner's `review_log`: per-word lapse rate, and typed answers matching `latam_equivalent`.
 
@@ -303,7 +303,7 @@ The app never calls an LLM. **Privacy:** her free-text `note` may contain person
 - Lexical scope: the Instituto Cervantes *Plan Curricular* A1–A2 "Nociones específicas" topic inventory (a peninsular-Spanish reference; UNVERIFIED: exact current URL). Use it only as a topic and word checklist, not copied text.
 - An LLM drafts entries offline in batches of about 50, following `content/style-guide.md`. Each entry gets ≥ 3 alternatives: ≥ 2 example sentences and 1 gloss or lemma alternative, generated **at authoring time** so rejection in her view is instant and offline.
 - She validates via `/revisar`.
-- Target seed size: about 400 words (8/day ≈ 50 days of new material). Topic order: daily life, food & bar, home, transport, time/weather, fiestas, Navarra.
+- Target seed size: about 400 words (12/day ≈ 33 days of new material; was 8/day ≈ 50 days). Topic order: daily life, food & bar, home, transport, time/weather, fiestas, Navarra.
 
 **Spain-not-LatAm enforcement:**
 - `region ∈ {ES, ES-NA}` is required. There is no LatAm region value at all, and `latam_equivalent` exists only as a contrast to display and to grade "Hard" on.
@@ -343,7 +343,7 @@ services:
     environment:
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__Default=Data Source=/data/palabras.db
-      - TZ=${TZ:-Europe/Amsterdam}
+      - TZ=${TZ:-Europe/Madrid}              # was Europe/Amsterdam; container clock only (design-amendment.md ΔA)
     volumes:
       - ${APPDATA:-/mnt/user/appdata/palabras}:/data      # db, backups/, keys/
     networks: [proxy]
@@ -393,28 +393,28 @@ The restore drill is part of M8.
 
 **PWA install/offline:**
 - Manifest `display: standalone`, `start_url: /`, 192/512 + maskable icons, `theme_color`.
-- The SW precaches the app shell (Workbox) and runtime-caches `GET /api/learn/session/plan` and `/api/review/queue` (NetworkFirst, 3 s timeout).
+- The SW precaches the app shell (Workbox) and runtime-caches `GET /api/learn/session/plan` (the learner session plan, M6; this is what offline learning depends on) and, for the reviewer, `/api/review/queue` (the reviewer's content queue, M4; not the learner SRS queue) (NetworkFirst, 3 s timeout).
 - Attempts and verdicts queue in IndexedDB and flush on `online`, on app focus, or via Background Sync where available. There is no reliance on Background Sync on iOS.
 - iOS: install via Safari Share → Add to Home Screen, then enable notifications from in-app settings.
 
-## 10. Delivery plan
+## 10. Delivery plan — superseded by `design-amendment.md` ΔG (table struck; ΔG numbering is authoritative)
 
 | # | Milestone | Done when | MVP |
 |---|---|---|---|
-| M0 | Repo + skeleton + CI + deploy hello | Private repo exists; CI green; `https://palabras.<domain>/healthz` 200 via the existing proxy; manifest installable | ✓ |
-| M1 | Auth + roles | Both seeded users log in; reviewer gets 403 on `/api/learn/*`; 6th login in a minute gets 429; lockout test; cookie survives restart (keys persisted) | ✓ |
-| M2 | Content schema + importer + lint + 150 seed words | Import is idempotent (2nd run = 0 changes); lint flags a planted "carro"; words visible in admin list | ✓ |
-| M3 | FSRS-6 port + cards + review API | Golden-vector test passes (500 sequences); attempts idempotent by `client_attempt_id` | ✓ |
-| M4 | Session composer + exercises 1–4 + offline queue | A 10-min session completes in airplane mode and syncs; est. duration within ±20% of actual over 3 sessions | ✓ |
-| M5 | Day status, streak, weekly skip, rollover job | Unit tests: 2nd skip → 409; missed day with skip available → frozen; Sunday/Monday ISO boundary in tz; DST day | ✓ |
-| M6 | Reviewer view + alternatives + auto-apply + admin apply | She reviews 20 words on her phone in under 5 min; chip pick applies instantly; offline verdicts sync; learner not blocked when her queue is empty | ✓ |
-| M7 | Web Push + ICS + optional webhook | Daily + last-call received on the owner's actual phone; skip action works (Android) or degrades (iOS); no duplicate after restart | ✓ |
-| M8 | Backups + restore drill | Nightly file appears; restore on a copy reproduces the session state | ✓ |
-| L1 | Listening exercise (TTS) | Feature-detected; disabled when no es-ES voice | later |
-| L2 | Feedback export + style-guide loop | JSONL export passes schema; one offline regeneration round imported | later (export endpoint can ship in M6) |
-| L3 | Stats (retention curve, stage counts, streak calendar) | — | later |
-| L4 | FSRS optimiser on own review_log (offline, `fsrs-rs`/py) once ≥ 1000 reviews | New weights version stored; RMSE logged | later |
-| L5 | Passkeys | — | later |
+| ~~M0~~ | ~~Repo + skeleton + CI + deploy hello~~ | ~~Private repo exists; CI green; `https://palabras.<domain>/healthz` 200 via the existing proxy; manifest installable~~ | ~~✓~~ |
+| ~~M1~~ | ~~Auth + roles~~ | ~~Both seeded users log in; reviewer gets 403 on `/api/learn/*`; 6th login in a minute gets 429; lockout test; cookie survives restart (keys persisted)~~ | ~~✓~~ |
+| ~~M2~~ | ~~Content schema + importer + lint + 150 seed words~~ | ~~Import is idempotent (2nd run = 0 changes); lint flags a planted "carro"; words visible in admin list~~ | ~~✓~~ |
+| ~~M3~~ | ~~FSRS-6 port + cards + review API~~ | ~~Golden-vector test passes (500 sequences); attempts idempotent by `client_attempt_id`~~ | ~~✓~~ |
+| ~~M4~~ | ~~Session composer + exercises 1–4 + offline queue~~ | ~~A 10-min session completes in airplane mode and syncs; est. duration within ±20% of actual over 3 sessions~~ | ~~✓~~ |
+| ~~M5~~ | ~~Day status, streak, weekly skip, rollover job~~ | ~~Unit tests: 2nd skip → 409; missed day with skip available → frozen; Sunday/Monday ISO boundary in tz; DST day~~ | ~~✓~~ |
+| ~~M6~~ | ~~Reviewer view + alternatives + auto-apply + admin apply~~ | ~~She reviews 20 words on her phone in under 5 min; chip pick applies instantly; offline verdicts sync; learner not blocked when her queue is empty~~ | ~~✓~~ |
+| ~~M7~~ | ~~Web Push + ICS + optional webhook~~ | ~~Daily + last-call received on the owner's actual phone; skip action works (Android) or degrades (iOS); no duplicate after restart~~ | ~~✓~~ |
+| ~~M8~~ | ~~Backups + restore drill~~ | ~~Nightly file appears; restore on a copy reproduces the session state~~ | ~~✓~~ |
+| ~~L1~~ | ~~Listening exercise (TTS)~~ | ~~Feature-detected; disabled when no es-ES voice~~ | ~~later~~ |
+| ~~L2~~ | ~~Feedback export + style-guide loop~~ | ~~JSONL export passes schema; one offline regeneration round imported~~ | ~~later (export endpoint can ship in M6)~~ |
+| ~~L3~~ | ~~Stats (retention curve, stage counts, streak calendar)~~ | ~~—~~ | ~~later~~ |
+| ~~L4~~ | ~~FSRS optimiser on own review_log (offline, `fsrs-rs`/py) once ≥ 1000 reviews~~ | ~~New weights version stored; RMSE logged~~ | ~~later~~ |
+| ~~L5~~ | ~~Passkeys~~ | ~~—~~ | ~~later~~ |
 
 **Top risks:**
 1. **iOS push reliability.** It needs Home-Screen install, 16.4+ and permission, and iOS may silently drop pushes.
@@ -422,7 +422,7 @@ The restore drill is part of M8.
 2. **Content quality: Castilian vs LatAm, and A2 fit.** LLM drafts can leak LatAm lexicon or unnatural register.
    - Mitigation: denylist lint in CI, required `latam_equivalent`/vosotros fields, a style guide that evolves from her feedback, and her review as the gate. Seed small (150) before scaling to 400.
 3. **Fiancée review queue stalls.**
-   - Mitigation: the non-stalling rule (pending words are learnable with a badge), small daily review asks (optional reviewer reminder later), chip-based instant alternatives so a review takes about 10 s per word.
+   - Mitigation: ~~the non-stalling rule (pending words are learnable with a badge),~~ (removed by ΔE.1) small daily review asks (optional reviewer reminder later), chip-based instant alternatives so a review takes about 10 s per word.
 - Secondary risk: an FSRS port bug (mitigated by golden vectors), and proxy unknowns (mitigated by the M0 verification step).
 
 ## 11. Repo plan
@@ -454,7 +454,7 @@ Palabras/
 │   ├── lint/latam-denylist.json
 │   └── words/*.json
 └── tools/
-    ├── fsrs-golden/           # node + ts-fsrs → Backend/Palabras.Tests/golden.json
+    ├── fsrs-golden/           # python + py-fsrs 6.3.2 → Backend/Palabras.Tests/Srs/golden.json (was node + ts-fsrs)
     └── content-lint/          # node script, runs in CI
 ```
 - **Branching:** trunk (`main`) with short feature branches and PRs (self-merge). Protect `main` from force-push only.

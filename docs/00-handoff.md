@@ -15,8 +15,8 @@ run workspace, not in this repo.
 | `01-next-steps.md` | Ordered work queue with "done when" tests, MVP vs later. |
 | `02-open-questions.md` | Unresolved items, each with a recommended default. |
 | `03-auth-bootstrap.md` | ADR: the two accounts come from the CLI `user create` / `set-username` / `set-password` / `list` group run inside the container — never from `.env` seeding — and the login name is renamable because every FK keys on `users.id`. Historical step-25 context; shipped commands/auth in `04-accounts.md` / `05-auth.md`. |
-| `design.md` | Original design (verbatim copy of run report 01; frozen original in `runs/01-spanish-pwa-design.md`). |
-| `design-amendment.md` | Amendment ΔA–ΔJ that supersedes parts of `design.md` (verbatim copy of run report 02; frozen original in `runs/02-design-amendment.md`). Where the two disagree, the amendment wins. |
+| `design.md` | Original design (copy of run report 01 with T-20261018-0124 corrections struck through or marked inline; frozen original in `runs/01-spanish-pwa-design.md`). |
+| `design-amendment.md` | Amendment ΔA–ΔJ that supersedes parts of `design.md` (copy of run report 02 with T-20261018-0124 corrections marked inline; frozen original in `runs/02-design-amendment.md`). Where the two disagree, the amendment wins. `01:NNN` references point at the frozen original. |
 
 Other repo docs: `README.md` (setup/deploy; partly stale, see §6), `AGENTS.md` (agent rules),
 `content/style-guide.md` (Spanish content rules), `tools/content-lint/` README (lint usage).
@@ -46,7 +46,7 @@ Do not reopen these without the user.
 | Stack | .NET 10 minimal API + React 19 / TypeScript strict / Vite PWA, one container; API serves the SPA from `wwwroot` | `design.md`, `runs/03-m0-scaffold.md` |
 | Storage | SQLite (WAL) via EF Core, from M2 | `design.md`, ΔG |
 | Auth | Cookie auth, `PasswordHasher`, roles `learner` / `reviewer` | `design.md`, ΔG M1 |
-| SRS | FSRS-6 ported to C#, 21 weights, golden vectors from `ts-fsrs` | `design.md`, ΔG M5 |
+| SRS | FSRS-6 via Fsrs.Sharp 2.0.0 (pinned `[2.0.0]`) behind `IScheduler`, vendored-source fallback; 21 default weights; golden vectors from py-fsrs 6.3.2 via `tools/fsrs-golden/`; 4 grades (Again/Hard/Good/Easy), desired retention 0.90, 12 new/day | `design.md`, ΔG M5, T-20261018-0124 retention plan |
 | Port | **18480** on host and in container. Never 8080 (`git grep 8080` returns nothing) | `runs/08-port-18480.md`, `runs/11-impl.log` |
 | Deploy | Clone the private repo `git@github-personal:michaelsieben/palabras.git` to `/mnt/user/repos/palabras` on Unraid, build there with compose | `README.md`, `deploy/unraid-deploy.sh`, `deploy/unraid/docker-compose.yml` |
 | Data path | `APPDATA_PATH=/mnt/cache/appdata/palabras` → `/data`. **Never `/mnt/user/...` for SQLite** (FUSE breaks WAL locking) | `README.md`, `design.md` |

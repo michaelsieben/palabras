@@ -3,9 +3,9 @@
 Ordered queue. Take items top to bottom; each has a "done when" test. Milestone IDs follow
 `design-amendment.md` ΔG. MVP = M0–M10. Context and constraints: `00-handoff.md`.
 
-## 0. Finish M0: first real deploy (MVP)
+## 0. M0: first real deploy (MVP) — done
 
-Small, but every later item assumes a running container behind NPM.
+Done in T-20261017-1516. Kept for reference; every later item assumes a running container behind NPM.
 
 - Decide the compose folder name (`02-open-questions.md` Q1, recommended `palabras`).
 - On Unraid: clone to `/mnt/user/repos/palabras`, create `/mnt/cache/appdata/palabras`,
@@ -17,9 +17,10 @@ Small, but every later item assumes a running container behind NPM.
 `https://palabras.siebentower.nl/healthz` from the LAN both return 200, and the mock UI loads
 on the OnePlus 15.
 
-## 1. M1 — auth, roles, edge (MVP)
+## 1. M1 — auth, roles, edge (MVP) — done
 
-Follow the ordering in `00-handoff.md` §8 exactly.
+Done in T-20261017-1516 (`b4fa213` SQLite cookie auth, `0cb23fa` login UI; migration `InitialAccounts`). Kept for
+reference; the ordering in `00-handoff.md` §8 still describes the shipped edge.
 
 - `UseForwardedHeaders` first; `KnownIPNetworks` = `172.18.0.0/16`; no HTTPS redirection or HSTS.
 - `AllowedHosts` = `palabras.siebentower.nl;localhost;127.0.0.1`.
@@ -45,7 +46,9 @@ unauthenticated request to a non-public route returns 401/redirect instead of re
 - SQLite in WAL mode at `/data/palabras.db`; EF Core model for content (words, sentences,
   translations, alternatives) with lifecycle `draft / pending_review / approved / needs_change /
   rejected / retired`, revisions, `suspended_reason` and `epoch` (ΔD).
-- Importer: `content/**/*.json` → DB as `pending_review`, idempotent.
+- Importer: `content/**/*.json` → DB as `pending_review`, idempotent (matches `design-amendment.md` ΔE.2.2, locked
+  2026-10-18). Owner-only CLI `content approve <key…|--all-pending>` ships here, ahead of M4, so approved words (and
+  later their cards) exist before the reviewer UI; it writes the same revision row the M4 UI will write.
 - Wire `tools/content-lint` into `.github/workflows/ci.yml` (step text in its README).
 - ~~Fix the schema enum typo~~ Done in T-20261017-1516: the misspelt scope `"paninsular-generic"`
   (`content/schema/word.schema.json:68`, also used by the word files) is now `"peninsular-generic"`
@@ -59,18 +62,24 @@ on startup in the container without manual steps.
 
 Can run in parallel with M3/M4 once M2 is in.
 
-- Port FSRS-6 to C# (21 default weights). Cards are created only when content is approved (ΔD).
-- Golden-vector tests generated from `ts-fsrs`.
+- FSRS-6 from the Fsrs.Sharp 2.0.0 NuGet package (pinned `[2.0.0]`) behind an `IScheduler` seam, with a
+  vendored-source fallback (MIT source in `Backend/Palabras/Srs/Vendor/`) if the package cannot take an explicit
+  review time. Default 21 weights, 4 grades (Again/Hard/Good/Easy), desired retention 0.90, 12 new cards/day,
+  `max_interval_days` 730. Cards are created only when content is approved (ΔD).
+- Golden-vector tests: `tools/fsrs-golden/` (Python, py-fsrs 6.3.2, seeded; created in step S4 of T-20261018-0124)
+  writes `Backend/Palabras.Tests/Srs/golden.json`, which is committed so CI needs no Python.
 
-**Done when:** C# scheduler matches the `ts-fsrs` golden vectors for stability, difficulty and
-due date (tolerance documented in the test); approving a word creates its cards, retiring it
+**Done when:** the `IScheduler` implementation matches the py-fsrs golden vectors (stability and
+difficulty within 1e-6, due equal to the second, fuzz off); approving a word creates its cards, retiring it
 suspends them.
 
 ## 4. M6 — session and exercise UI (MVP)
 
 - Session composer: `session_target_s = 600`, hard cap `session_max_s = 900`; due reviews
-  first, new cards only while the estimate stays under target (`design.md` budget rule).
-- Exercises 1–4 from `design.md`, replacing `Frontend/src/mock/demo.ts` with API calls.
+  first, new cards (at most 12/day) only while the estimate stays under target (`design.md` budget rule).
+- Exercises 1–4 from `design.md`, replacing `Frontend/src/mock/demo.ts` with API calls. Feedback shows a Spanish
+  verdict with an English explanation; accent-only misses are accepted unless the card sets `accentsAreThePoint`;
+  the slow-answer thresholds (12 s typed, 8 s recognition reveal) are provisional named constants in one place.
 - Offline: IndexedDB queue for answers made without network, replayed on reconnect.
 - Then M7: day status, streak and the rolling skip (1 per 7 days, refunded on same-day
   completion, ΔC). Then M9: confirm the tablet layout on the real OnePlus Tab 3.
@@ -112,7 +121,8 @@ container passes the M1 login test.
 ## 8. Council tooling and other later work (L1–L6)
 
 - L2 council report/rework loop, L1 listening exercises, L3 stats, L4 FSRS optimiser,
-  L5 passkeys, L6 ICS/webhook reminder fallback.
+  L5 passkeys, L6 ICS/webhook reminder fallback. Listening is the only later learner exercise; pronunciation
+  scoring and sentence mining are dropped from the roadmap (locked 2026-10-18).
 
 **Done when:** defined per item when it is picked up; not in MVP.
 

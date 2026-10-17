@@ -1,9 +1,9 @@
 # Palabras
 
-Private Peninsular Spanish vocabulary PWA. M0 contains only an API/SPA scaffold.
+Private Peninsular Spanish vocabulary PWA. M0–M1 shipped: API/SPA scaffold, SQLite accounts, cookie auth.
 
 - React 19, strict TypeScript, Vite; .NET 10 minimal API; one Linux container.
-- SQLite + EF Core are planned for M2+. No DB, auth, SRS or push code in M0.
+- SQLite + EF Core (accounts, migration `InitialAccounts`) and cookie auth exist. Content schema lands in M2, SRS in M5/M6, push in M8.
 - Run backend: `dotnet run --project Backend/Palabras --urls http://localhost:5080`.
 - Run frontend: `cd Frontend && npm ci && npm run dev` (API proxy to :5080).
 - Verify from root: `dotnet build Backend/Palabras.slnx`, `dotnet test Backend/Palabras.slnx`, `npm --prefix Frontend ci`, `npm --prefix Frontend run lint`, `npm --prefix Frontend run build`, `docker build -t palabras:local .`.
