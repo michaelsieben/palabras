@@ -3,11 +3,9 @@ services:
     image: palabras:local
     build: .
     ports:
-      # 18480: unused on the Unraid host (port scan 2026-10-17) and not a common
-      # application default. APP_PORT changes host and container port together.
-      # 0.0.0.0, not 127.0.0.1: nginx-proxy-manager is a container on macvlan br0, so it
-      # cannot reach the Unraid host's loopback. LAN-only; never forwarded on the WAN side.
-      - "0.0.0.0:${APP_PORT:-18480}:${APP_PORT:-18480}"
+      # Host-side checks only. Unraid's proxy uses container DNS on `sieben`.
+      # APP_PORT changes host and container port together.
+      - "127.0.0.1:${APP_PORT:-18480}:${APP_PORT:-18480}"
     environment:
       # Keep the in-container listen port equal to the published port.
       ASPNETCORE_URLS: "http://+:${APP_PORT:-18480}"
