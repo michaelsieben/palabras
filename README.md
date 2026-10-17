@@ -67,15 +67,27 @@ It contains separate Git checkouts `SoftwareFactory`, `VaporEngine` and `budgete
 `/mnt/user/docker` and `/mnt/cache/appdata` also exist; `palabras` is not yet deployed.
 
 - Source: `/mnt/user/repos/palabras`, cloned from private GitHub repo.
-- Compose project: `/mnt/user/docker/palabras/docker-compose.yml` and adjacent `.env`.
+- Compose project: `/mnt/user/docker/palablras/docker-compose.yml` and adjacent `.env` (historical spelling).
 - Persistent data: `/mnt/cache/appdata/palabras`, bind-mounted to `/data`.
 
 The Docker share holds the standalone compose, as requested; it builds from the separate repos
 checkout through an absolute `build.context`. The versioned template is
-`deploy/unraid/docker-compose.yml`. No Unraid override, registry, GHCR publishing or CI image push.
+`deploy/unraid/docker-compose.yml`; `docker-compose.unraid.yml` is an equivalent standalone variant,
+not an override. No registry, GHCR publishing or CI image push; `docker login` is not needed.
 `image: palabras:local` names the image built by `docker compose up -d --build` on this server.
 Only Git, Docker and Docker Compose are needed on Unraid: the Dockerfile's multi-stage build
 provides Node and the .NET SDK. Local dev and CI keep using the root compose/Dockerfile.
+
+**Folder verification warning (2026-10-17):** fresh read-only checks found neither
+`/mnt/user/docker/palablras/docker-compose.yml` nor the corrected `palabras` path. The earlier
+discovery reported `palablras`; confirm the actual app folder before proceeding. Reuse whichever
+spelling already exists rather than creating a second project. Commands below preserve the earlier
+spelling; if no app folder exists, only the user creates it after checking. Container name and
+`sieben` alias must remain `palabras` regardless of folder spelling.
+
+The typo is cosmetic. If the user later renames the existing folder, with the app stopped and no
+destination folder present: `mv /mnt/user/docker/palablras /mnt/user/docker/palabras`.
+Then use the corrected path below; `name: palabras` keeps the Compose project stable.
 
 SQLite must not use the shfs/FUSE `/mnt/user` layer: locking semantics can cause errors or
 corruption. `/mnt/user/repos` and `/mnt/user/docker` are fine for source/configuration; use the
@@ -121,13 +133,14 @@ shell history, Git config or `.env`.
 cd /mnt/user/repos
 git clone git@github.com:sunmsieben/palabras.git palabras
 cd palabras
-mkdir -p /mnt/user/docker/palabras
-cp deploy/unraid/docker-compose.yml /mnt/user/docker/palabras/docker-compose.yml
-cp .env.example /mnt/user/docker/palabras/.env
-cd /mnt/user/docker/palabras
+cp .env.example .env
+# Confirm/reuse the existing app folder before this user-run mkdir.
+mkdir -p /mnt/user/docker/palablras
+cp deploy/unraid/docker-compose.yml /mnt/user/docker/palablras/docker-compose.yml
+# Edit checkout .env as below, then copy it beside the deployed compose.
 ```
 
-Edit `/mnt/user/docker/palabras/.env` **before first run**:
+Edit `/mnt/user/repos/palabras/.env` **before first run**:
 
 ```dotenv
 APPDATA_PATH=/mnt/cache/appdata/palabras
@@ -139,6 +152,9 @@ APP_BASE_URL=https://palabras.siebentower.nl
 credentials. Unraid compose rejects a blank data path. Protect `.env` when secrets are added.
 
 ```bash
+cp /mnt/user/repos/palabras/.env /mnt/user/docker/palablras/.env
+chmod 600 /mnt/user/repos/palabras/.env /mnt/user/docker/palablras/.env
+cd /mnt/user/docker/palablras
 mkdir -p /mnt/cache/appdata/palabras
 chown 1654:1654 /mnt/cache/appdata/palabras
 docker compose config
@@ -150,7 +166,7 @@ curl --fail https://palabras.siebentower.nl/healthz
 
 Expected JSON includes `"status":"ok"` (also `version`). The non-root image uses UID/GID 1654;
 bind mounts hide the image's directory ownership, so `chown` is needed for future writes.
-Compose Manager may manage `/mnt/user/docker/palabras/docker-compose.yml` as project `palabras`;
+Compose Manager may manage `/mnt/user/docker/palablras/docker-compose.yml` as project `palabras`;
 point it at that folder/file and use its build action, not a registry pull. Do not create a second
 project for the same container. Keep its working directory here so `.env` is read correctly.
 
@@ -161,9 +177,10 @@ Update (repeat the Git SSH export above in a new shell):
 ```bash
 cd /mnt/user/repos/palabras
 git rev-parse HEAD   # record previous SHA for rollback
-git pull --ff-only
-cp deploy/unraid/docker-compose.yml /mnt/user/docker/palabras/docker-compose.yml
-cd /mnt/user/docker/palabras
+git pull --ff-only && (cd /mnt/user/docker/palablras && docker compose up -d --build)
+# If the deployment template changed, refresh it and rebuild again:
+cp deploy/unraid/docker-compose.yml /mnt/user/docker/palablras/docker-compose.yml
+cd /mnt/user/docker/palablras
 docker compose config
 docker compose up -d --build
 curl --fail http://127.0.0.1:18480/healthz
@@ -175,9 +192,10 @@ commit, then rebuild (future DB migrations may require a backup restore as well)
 
 ```bash
 cd /mnt/user/repos/palabras
-git checkout <previous-sha>
-cp deploy/unraid/docker-compose.yml /mnt/user/docker/palabras/docker-compose.yml
-cd /mnt/user/docker/palabras
+git checkout --detach <previous-sha>
+# Use the retained deployed compose if this SHA predates the template.
+cp deploy/unraid/docker-compose.yml /mnt/user/docker/palablras/docker-compose.yml
+cd /mnt/user/docker/palablras
 docker compose up -d --build
 curl --fail http://127.0.0.1:18480/healthz
 ```
@@ -185,7 +203,7 @@ curl --fail http://127.0.0.1:18480/healthz
 Return to `main` before the next normal pull. To stop:
 
 ```bash
-cd /mnt/user/docker/palabras
+cd /mnt/user/docker/palablras
 docker compose down
 ```
 
@@ -205,14 +223,14 @@ container name `palabras` (name was free at discovery). Existing NPM proxy host:
 
 Upstream is `http://palabras:18480`. A 502 before the first successful `up -d` is expected.
 If NPM cached a failed lookup, save/reload the existing proxy host after the app is running.
-The published `127.0.0.1:18480` port is debug/host-health only; proxy traffic uses `sieben`, not
+Exactly one published `127.0.0.1:18480:18480` port is debug/host-health only; plain HTTP is never
+exposed to the LAN. Proxy traffic uses `sieben`, not
 host loopback. `APP_PORT` changes both listen/published ports; update NPM's port if it changes.
 
-**Fallback upstream:** `http://192.168.68.66:18480` is not reachable with the default loopback
-publish. To use it deliberately, edit the deployed compose's **single** ports entry to
-`"192.168.68.66:${APP_PORT:-18480}:${APP_PORT:-18480}"`, recreate with `docker compose up -d --build`,
-then change NPM's upstream hostname to `192.168.68.66`. This exposes the app on the host's LAN
-address; never WAN-forward it, and restore loopback/container-DNS routing after fixing `sieben`.
+**Previously discussed fallback upstream:** `http://192.168.68.66:18480` is not reachable with the
+required loopback-only publishing. Do not broaden the binding or switch to this fallback as a
+workaround; repair the `sieben` attachment/DNS instead. LAN HTTP exposure requires a separate,
+explicit user-approved security change.
 
 ## Install as PWA
 
