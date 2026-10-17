@@ -94,56 +94,42 @@ later does not move data; stop the app and migrate SQLite sidecars, keys and bac
 
 ### One-time private GitHub authentication
 
-One **account-level authentication key** is registered on `sunmsieben` as
-`unraid-sieben (generic)`, with the private half at `/root/.ssh/id_ed25519_github`.
-All `github.com` SSH clones on this server use it, including other private personal repositories
-that this account can access. This is not a per-repository read-only deploy key: it is
-**write-capable wherever the account has write permission**. Server/root compromise can expose
-account-wide repository access and allow pushes. The user explicitly accepted this trade-off
-on 2026-10-17. Polling only fetches, but that does not reduce the key's GitHub permissions.
-
-`/root/.ssh` is the server's existing symlink to `/boot/config/ssh/root`, so the key/config persist
-across reboots. The unused, never-registered `id_ed25519_palabras` key pair was removed.
-Original `config.before-palabras` and fresh `config.before-generic-20261017-23` backups were retained.
-Never copy the private key off the server, store it in Git/.env, or overwrite an existing identity.
-
-```bash
-# Only when creating a new identity; first check that neither file already exists.
-ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519_github -N "" -C "unraid-sieben-generic"
-```
-
-Register **only the public half** in GitHub account Settings → SSH and GPG keys → New SSH key,
-type Authentication Key, title `unraid-sieben (generic)`. Alternatively, from a trusted local
-machine with the authenticated GitHub CLI, copy only `.pub` locally and run
-`gh ssh-key add <public-key-file> --title "unraid-sieben (generic)"`.
-Do not add it to repository Deploy keys or Unraid's `authorized_keys`.
-
-The server SSH config selects this identity for every GitHub repository:
+This project's repository is `https://github.com/michaelsieben/palabras`.
+Use the dedicated `github-personal` SSH host alias on both local and Unraid machines.
+On Unraid, the identity is `/root/.ssh/id_ed25519_michaelsieben`, comment `unraid-michaelsieben`.
+Register only its public `.pub` half at https://github.com/settings/keys while signed in as
+`michaelsieben`, type Authentication Key. It must not reuse another account's key.
+This account authentication key is write-capable wherever `michaelsieben` has write permission;
+server/root compromise can expose that access. Polling only fetches, but does not limit permissions.
+The existing `Host github.com` identity and `backup.unraid.net` entry belong to other server uses
+and must not be changed for this project. `/root/.ssh` persists via `/boot/config/ssh/root`.
 
 ```sshconfig
-Host github.com
+Host github-personal
     HostName github.com
     User git
-    IdentityFile /root/.ssh/id_ed25519_github
+    IdentityFile /root/.ssh/id_ed25519_michaelsieben
     IdentitiesOnly yes
     BatchMode yes
     StrictHostKeyChecking yes
 ```
 
 ```bash
-ssh -T git@github.com
+ssh -T git@github-personal
 ```
+
+Never copy the private key off the server, store it in Git/.env, or overwrite an existing identity.
 
 Verify GitHub's host-key fingerprint against its published SSH fingerprints before accepting it.
 GitHub's successful authentication greeting exits with code 1 because it offers no shell.
-Require `Hi sunmsieben! You've successfully authenticated` before cloning; stop on another account
+Require `Hi michaelsieben! You've successfully authenticated` before cloning; stop on another account
 or a permission error. No PAT is needed.
 
 **Rotate:** pause each affected repository's auto-deploy job, generate a new key at a different
 server path, register its public half as an account authentication key, back up SSH config and
 update `IdentityFile`. Verify the expected account greeting and private clone/fetch access before
-resuming jobs. Delete the old account key in GitHub Settings → SSH and GPG keys (or from the trusted
-local machine with `gh ssh-key delete <old-key-id>`), then remove its server key pair after validation.
+resuming jobs. Delete only the replaced personal account key in GitHub Settings → SSH and GPG keys,
+then remove its server key pair after validation. Never remove another account's shared server key.
 **Revoke after compromise:** immediately delete the account key in GitHub; this disables all server
 GitHub access using it, not just Palabras. Pause polling, investigate the host, then provision a new
 identity on a trusted host. Existing running containers continue running; future fetches fail.
@@ -152,7 +138,7 @@ identity on a trusted host. Existing running containers continue running; future
 
 ```bash
 cd /mnt/user/repos
-git clone git@github.com:sunmsieben/palabras.git palabras
+git clone git@github-personal:michaelsieben/palabras.git palabras
 cd palabras
 cp .env.example .env
 mkdir -p /mnt/user/docker/palabras

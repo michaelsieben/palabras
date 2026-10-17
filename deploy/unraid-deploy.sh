@@ -39,8 +39,8 @@ git diff --quiet && git diff --cached --quiet || fail 'tracked local edits; refu
 # Refuse credential-bearing URLs so git output cannot accidentally disclose a PAT.
 origin=$(git remote get-url origin)
 case "$origin" in
-    git@github-palabras:sunmsieben/palabras.git|git@github.com:sunmsieben/palabras.git) ;;
-    *) fail 'unexpected origin URL; use repository SSH deploy key' ;;
+    git@github-personal:michaelsieben/palabras.git) ;;
+    *) fail 'unexpected origin URL; use github-personal SSH identity' ;;
 esac
 previous=none
 [[ ! -f "$STATE" ]] || read -r previous < "$STATE"

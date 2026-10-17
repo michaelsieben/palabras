@@ -22,7 +22,7 @@ printf 'APPDATA_PATH=/data\n' > /mnt/user/docker/palabras/.env
 cat > /fixture/bin/git <<'GIT'
 #!/bin/bash
 if [[ "$*" == 'remote get-url origin' ]]; then
-    printf 'git@github-palabras:sunmsieben/palabras.git\n'
+    printf 'git@github-personal:michaelsieben/palabras.git\n'
 elif [[ "$1" == fetch ]]; then
     exec /usr/bin/git fetch --prune /fixture/origin.git refs/heads/main:refs/remotes/origin/main
 else

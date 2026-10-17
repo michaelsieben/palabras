@@ -48,7 +48,7 @@ Do not reopen these without the user.
 | Auth | Cookie auth, `PasswordHasher`, roles `learner` / `reviewer` | `design.md`, ΔG M1 |
 | SRS | FSRS-6 ported to C#, 21 weights, golden vectors from `ts-fsrs` | `design.md`, ΔG M5 |
 | Port | **18480** on host and in container. Never 8080 (`git grep 8080` returns nothing) | `runs/08-port-18480.md`, `runs/11-impl.log` |
-| Deploy | Clone the private repo `https://github.com/sunmsieben/palabras` to `/mnt/user/repos/palabras` on Unraid, build there with compose | `runs/03-m0-scaffold.md`, `deploy/unraid/docker-compose.yml` |
+| Deploy | Clone the private repo `git@github-personal:michaelsieben/palabras.git` to `/mnt/user/repos/palabras` on Unraid, build there with compose | `README.md`, `deploy/unraid-deploy.sh`, `deploy/unraid/docker-compose.yml` |
 | Data path | `APPDATA_PATH=/mnt/cache/appdata/palabras` → `/data`. **Never `/mnt/user/...` for SQLite** (FUSE breaks WAL locking) | `README.md`, `design.md` |
 | Container | Name and network alias `palabras`; runs as UID 1654 (`chown 1654:1654` the data dir) | `deploy/unraid/docker-compose.yml`, `runs/07-m0-fixes.md` |
 | Edge | Nginx Proxy Manager (jc21) host `palabras.siebentower.nl` → `http://palabras:18480` over the external `sieben` bridge network | `deploy/unraid/docker-compose.yml`, `README.md` |
