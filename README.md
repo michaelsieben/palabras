@@ -72,8 +72,8 @@ It contains separate Git checkouts `SoftwareFactory`, `VaporEngine` and `budgete
 
 The Docker share holds the standalone compose, as requested; it builds from the separate repos
 checkout through an absolute `build.context`. The versioned template is
-`deploy/unraid/docker-compose.yml`; `docker-compose.unraid.yml` is an equivalent standalone variant,
-not an override. No registry, GHCR publishing or CI image push; `docker login` is not needed.
+`deploy/unraid/docker-compose.yml`, a standalone deployment variant, not an override.
+No registry, GHCR publishing or CI image push; `docker login` is not needed.
 `image: palabras:local` names the image built by `docker compose up -d --build` on this server.
 Only Git, Docker and Docker Compose are needed on Unraid: the Dockerfile's multi-stage build
 provides Node and the .NET SDK. Local dev and CI keep using the root compose/Dockerfile.
