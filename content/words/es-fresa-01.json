@@ -1,0 +1,26 @@
+{
+  "id": "es-fresa-01",
+  "headword": "fresa",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "strawberry",
+      "example": "Las fresas están de rebajas en el mercado.",
+      "exampleGloss": "The strawberries are on offer at the market."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "frutilla", "gloss": "strawberry", "reason": "Southern Cone/Andean form; not Peninsular." },
+    { "kind": "different-sense", "value": "frambuesa", "gloss": "raspberry", "reason": "A different soft fruit with a similar look; keep the senses separate." },
+    { "kind": "different-sense", "value": "fresón", "gloss": "large strawberry", "reason": "Peninsular word for a bigger, often sweeter variety of fresa." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

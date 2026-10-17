@@ -1,0 +1,27 @@
+{
+  "id": "es-fregona-01",
+  "headword": "fregona",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "mop",
+      "example": "Paso la fregona por el suelo de la cocina.",
+      "exampleGloss": "I mop the kitchen floor."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "mopa", "gloss": "mop", "reason": "Flat mop; common in Spain for the modern flat kind, while fregona is the classic string mop." },
+    { "kind": "regional", "value": "trapeador", "gloss": "mop", "reason": "Mexican form; not Peninsular, shown for the reviewer to reject." },
+    { "kind": "regional", "value": "mocho", "gloss": "mop", "reason": "Andean/Colombian form; not Peninsular." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "fregona is firmly Peninsular and understood across Spain; the verb fregar is equally common.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

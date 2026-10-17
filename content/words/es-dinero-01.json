@@ -1,0 +1,26 @@
+{
+  "id": "es-dinero-01",
+  "headword": "dinero",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping"],
+  "senses": [
+    {
+      "gloss": "money",
+      "example": "No llevo dinero encima.",
+      "exampleGloss": "I have no money on me."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "pasta", "gloss": "money, cash", "reason": "Very common Peninsular slang for money; warm but informal." },
+    { "kind": "regional", "value": "plata", "gloss": "money", "reason": "LatAm word for money; in Spain plata is the metal silver." },
+    { "kind": "different-sense", "value": "efectivo", "gloss": "cash", "reason": "Physical cash only, as opposed to card; a useful everyday contrast." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

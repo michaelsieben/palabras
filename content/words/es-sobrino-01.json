@@ -1,0 +1,26 @@
+{
+  "id": "es-sobrino-01",
+  "headword": "sobrino",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "nephew",
+      "example": "Mi sobrino tiene cinco años.",
+      "exampleGloss": "My nephew is five years old."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "nieto", "gloss": "grandson", "reason": "Different generation; a common family word the learner needs." },
+    { "kind": "different-sense", "value": "primo", "gloss": "cousin", "reason": "Different branch of the family." },
+    { "kind": "different-sense", "value": "ahijado", "gloss": "godson", "reason": "Godparent link, not blood; still used in Spanish families." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

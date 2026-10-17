@@ -1,0 +1,26 @@
+{
+  "id": "es-acera-01",
+  "headword": "acera",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "pavement, sidewalk",
+      "example": "Camina por la acera, es más seguro.",
+      "exampleGloss": "Walk on the pavement, it is safer."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "vereda", "gloss": "pavement", "reason": "Sidewalk sense is LatAm; in Spain vereda is a country path." },
+    { "kind": "regional", "value": "banqueta", "gloss": "pavement", "reason": "Mexican form; not Peninsular." },
+    { "kind": "different-sense", "value": "arcén", "gloss": "road shoulder", "reason": "The edge strip of a road outside town, not the city pavement." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

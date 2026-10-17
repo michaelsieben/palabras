@@ -1,0 +1,13 @@
+{
+  "name": "@palabras/content-lint",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Schema + Peninsular-Spanish denylist validator for content/words. Zero dependencies, no network, no LLM.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "node index.js"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-cena-01",
+  "headword": "cena",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "time"],
+  "senses": [
+    {
+      "gloss": "dinner, evening meal",
+      "example": "La cena es a las nueve.",
+      "exampleGloss": "Dinner is at nine."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "comida", "gloss": "lunch, midday meal", "reason": "In Spain comida is the main midday meal; in LatAm it can mean dinner, so the sense split matters." },
+    { "kind": "different-sense", "value": "merienda", "gloss": "afternoon snack", "reason": "The small meal between lunch and dinner; typical Peninsular schedule." },
+    { "kind": "different-sense", "value": "cena de Nochevieja", "gloss": "New Year's Eve dinner", "reason": "A fixed festive collocation; useful cultural extension." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Spanish dinner is late, around 21:00-22:00; the example keeps that Peninsular schedule.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

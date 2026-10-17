@@ -1,0 +1,27 @@
+{
+  "id": "es-nevera-01",
+  "headword": "nevera",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "fridge",
+      "example": "La leche está en la nevera.",
+      "exampleGloss": "The milk is in the fridge."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "frigorífico", "gloss": "fridge", "reason": "Full Peninsular synonym, slightly more technical; both are natural in Spain." },
+    { "kind": "regional", "value": "heladera", "gloss": "fridge", "reason": "Rioplatense form; listed so the reviewer can compare, never taught as the variant." },
+    { "kind": "regional", "value": "refrigerador", "gloss": "fridge", "reason": "LatAm form, not Peninsular; offered only as a reject alternative." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "nevera is the everyday word at home in Pamplona; frigorífico is understood across Spain.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

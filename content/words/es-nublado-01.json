@@ -1,0 +1,25 @@
+{
+  "id": "es-nublado-01",
+  "headword": "nublado",
+  "partOfSpeech": "adjective",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "cloudy",
+      "example": "Hoy el cielo está nublado.",
+      "exampleGloss": "The sky is cloudy today."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "encapotado", "gloss": "overcast", "reason": "Heavily clouded sky; Peninsular and a little more literary than nublado." },
+    { "kind": "synonym", "value": "cubierto", "gloss": "overcast", "reason": "Standard Peninsular weather-report word for a fully clouded sky." },
+    { "kind": "near-synonym", "value": "gris", "gloss": "grey", "reason": "Colloquial for a cloudy grey day; not a weather term proper." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Gender forms nublado/nublada agree with the noun; examples keep cielo (masc) for clarity at A2.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

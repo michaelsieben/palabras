@@ -1,0 +1,27 @@
+{
+  "id": "es-pincho-01",
+  "headword": "pincho",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "navarre" },
+  "register": "neutral",
+  "topics": ["food", "navarre-culture"],
+  "senses": [
+    {
+      "gloss": "small snack served on bread in a bar",
+      "example": "Tomamos pinchos en la calle Estafeta.",
+      "exampleGloss": "We have pinchos on Calle Estafeta."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "pintxo", "gloss": "pincho (Basque spelling)", "reason": "How menus spell it in Pamplona and Navarre; same food, local flavour." },
+    { "kind": "different-sense", "value": "tapa", "gloss": "tapa", "reason": "Spain-wide word for a small bar portion, traditionally included with a drink." },
+    { "kind": "different-sense", "value": "ración", "gloss": "full portion", "reason": "A plate-sized portion, not a single pincho." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Navarre-specific culture word; the example uses the real Calle Estafeta in Pamplona.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

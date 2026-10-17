@@ -1,0 +1,25 @@
+{
+  "id": "es-apetecer-01",
+  "headword": "apetecer",
+  "partOfSpeech": "verb",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk", "food"],
+  "senses": [
+    {
+      "gloss": "to fancy, to feel like",
+      "example": "¿Te apetece un café?",
+      "exampleGloss": "Do you fancy a coffee?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "querer", "gloss": "to want", "reason": "Broader and more direct; apetecer is softer and about appetite/desire." },
+    { "kind": "different-sense", "value": "gustar", "gloss": "to please, to like", "reason": "Expresses liking in general, not a current urge." },
+    { "kind": "register", "value": "antojarse", "gloss": "to get a craving for", "reason": "LatAm/register-heavy for a sudden craving; not the neutral Peninsular form." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Used like gustar (me apetece, te apetece); very natural in a Spanish household when offering food.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-patata-01",
+  "headword": "patata",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "potato",
+      "example": "He comprado patatas para la tortilla.",
+      "exampleGloss": "I have bought potatoes for the omelette."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "papa", "gloss": "potato", "reason": "LatAm form for the vegetable; in Spain papa is the Pope, so it is never taught here." },
+    { "kind": "different-sense", "value": "boniato", "gloss": "sweet potato", "reason": "The Peninsular word for sweet potato; a real near-miss to keep separate." },
+    { "kind": "register", "value": "patata", "gloss": "potato", "reason": "In colloquial Spain patata can also mean a clumsy mistake; leave that sense out of A2." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "patata is the standard Peninsular form; tortilla de patatas is the canonical Navarre household dish.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

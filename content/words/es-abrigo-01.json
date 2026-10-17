@@ -1,0 +1,26 @@
+{
+  "id": "es-abrigo-01",
+  "headword": "abrigo",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "coat, overcoat",
+      "example": "Necesitas un abrigo para el invierno.",
+      "exampleGloss": "You need a coat for the winter."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "chaquetón", "gloss": "long jacket", "reason": "Peninsular word for a longer, heavier jacket; warmer than a chaqueta, lighter than an abrigo." },
+    { "kind": "different-sense", "value": "gabardina", "gloss": "raincoat, trench coat", "reason": "Rainproof coat; a type of abrigo but a distinct word." },
+    { "kind": "different-sense", "value": "cazadora", "gloss": "bomber jacket", "reason": "Short casual jacket, typically not warm enough for a Navarre winter." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

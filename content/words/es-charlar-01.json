@@ -1,0 +1,24 @@
+{
+  "id": "es-charlar-01",
+  "headword": "charlar",
+  "partOfSpeech": "verb",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "to chat",
+      "example": "Nos gusta charlar en la cocina.",
+      "exampleGloss": "We like chatting in the kitchen."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "hablar", "gloss": "to speak, to talk", "reason": "The general verb; charlar is specifically relaxed conversation." },
+    { "kind": "register", "value": "conversar", "gloss": "to converse", "reason": "More formal/neutral; charlar is the everyday choice." },
+    { "kind": "regional", "value": "platicar", "gloss": "to chat", "reason": "Mexican/Central American form; not Peninsular." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "es-llave-01",
+  "headword": "llave",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["household", "city"],
+  "senses": [
+    {
+      "gloss": "key",
+      "example": "He perdido las llaves de casa.",
+      "exampleGloss": "I have lost the keys to the flat."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "llavín", "gloss": "latchkey", "reason": "Peninsular word for a small flat key; narrower than llave." },
+    { "kind": "different-sense", "value": "cerradura", "gloss": "lock", "reason": "The lock itself, not the key; common confusion." },
+    { "kind": "different-sense", "value": "llavero", "gloss": "keyring", "reason": "Where the keys hang, not the key." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

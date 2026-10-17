@@ -1,0 +1,27 @@
+{
+  "id": "es-nieve-01",
+  "headword": "nieve",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "navarre" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "snow",
+      "example": "En Navarra hay nieve en invierno.",
+      "exampleGloss": "There is snow in Navarre in winter."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "nevada", "gloss": "snowfall", "reason": "The event of snow falling, not the substance." },
+    { "kind": "different-sense", "value": "aguanieve", "gloss": "sleet", "reason": "Rain and snow mixed; common on Navarre winter days." },
+    { "kind": "different-sense", "value": "granizo", "gloss": "hail", "reason": "Ice pellets; a different weather noun." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Scope navarre because snow is a real topic around Pamplona and the Pyrenees; the word itself is paninsular.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

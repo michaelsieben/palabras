@@ -1,0 +1,27 @@
+{
+  "id": "es-calor-01",
+  "headword": "calor",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "heat; the weather being hot",
+      "example": "Hoy hace mucho calor en Pamplona.",
+      "exampleGloss": "It is very hot in Pamplona today."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "bochorno", "gloss": "muggy, close heat", "reason": "Humid, stifling heat; stronger and more colloquial than calor." },
+    { "kind": "different-sense", "value": "temperatura", "gloss": "temperature", "reason": "Measured temperature, not the felt heat." },
+    { "kind": "register", "value": "sofoco", "gloss": "flushed, stifling feeling", "reason": "The personal feeling of being overwhelmed by heat; narrower." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "hace calor is the fixed Peninsular pattern; do not translate 'it is hot' as es caliente.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

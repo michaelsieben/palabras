@@ -1,0 +1,25 @@
+{
+  "id": "es-fin-de-semana-01",
+  "headword": "fin de semana",
+  "partOfSpeech": "phrase",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["time", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "weekend",
+      "example": "El fin de semana vamos al pueblo.",
+      "exampleGloss": "At the weekend we go to the village."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "finde", "gloss": "weekend", "reason": "Peninsular colloquial shortening; extremely common in fast speech." },
+    { "kind": "different-sense", "value": "puente", "gloss": "long weekend", "reason": "A weekend extended by a holiday; not an ordinary weekend." },
+    { "kind": "different-sense", "value": "semana", "gloss": "week", "reason": "The whole week; the pair is easy to confuse for a beginner." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine noun phrase: el fin de semana; plural los fines de semana. Going to el pueblo at weekends is a real Navarre habit.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

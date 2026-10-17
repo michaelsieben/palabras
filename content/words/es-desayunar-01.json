@@ -1,0 +1,25 @@
+{
+  "id": "es-desayunar-01",
+  "headword": "desayunar",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "to have breakfast",
+      "example": "Desayuno café con leche y tostada.",
+      "exampleGloss": "I have coffee with milk and toast for breakfast."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "tomar el desayuno", "gloss": "to have breakfast", "reason": "Fuller phrase, more formal/LatAm in feel; desayunar alone is the Peninsular norm." },
+    { "kind": "different-sense", "value": "almorzar", "gloss": "to have lunch", "reason": "Midday meal in Spain; in parts of LatAm it means a late breakfast, so the sense differs." },
+    { "kind": "different-sense", "value": "comer", "gloss": "to eat, to have lunch", "reason": "The main midday meal in Spain; a different meal slot." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Meal times differ between Spain and LatAm; the examples keep the Peninsular schedule.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

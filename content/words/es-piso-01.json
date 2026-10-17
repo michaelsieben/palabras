@@ -1,0 +1,33 @@
+{
+  "id": "es-piso-01",
+  "headword": "piso",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["household", "city"],
+  "senses": [
+    {
+      "gloss": "flat, apartment",
+      "example": "Alquilamos un piso en el centro.",
+      "exampleGloss": "We are renting a flat in the centre."
+    },
+    {
+      "gloss": "floor, storey",
+      "example": "Vivimos en el tercer piso.",
+      "exampleGloss": "We live on the third floor.",
+      "notes": "Same word, second real meaning; kept separate so the senses do not merge."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "apartamento", "gloss": "apartment", "reason": "Shared word in Spain, usually a rented or holiday flat; piso is the normal home." },
+    { "kind": "regional", "value": "departamento", "gloss": "apartment", "reason": "LatAm form; not Peninsular." },
+    { "kind": "register", "value": "vivienda", "gloss": "dwelling", "reason": "Formal/administrative term covering houses and flats." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Two senses are genuinely common in Spain (home and storey); both are A2 and worth teaching together.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

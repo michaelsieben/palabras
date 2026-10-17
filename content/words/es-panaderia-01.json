@@ -1,0 +1,26 @@
+{
+  "id": "es-panaderia-01",
+  "headword": "panadería",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "city", "shopping"],
+  "senses": [
+    {
+      "gloss": "bakery",
+      "example": "Bajo a la panadería por el pan.",
+      "exampleGloss": "I am popping down to the bakery for the bread."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "tahona", "gloss": "traditional bakery", "reason": "Older Peninsular word for a bakery; charming but less common today." },
+    { "kind": "different-sense", "value": "pastelería", "gloss": "cake shop", "reason": "Sells cakes and pastries, not only bread; easy to mix up." },
+    { "kind": "different-sense", "value": "obrador", "gloss": "bakery workshop", "reason": "Where the bread is baked, often behind the shop; not the shop itself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

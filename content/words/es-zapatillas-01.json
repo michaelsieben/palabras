@@ -1,0 +1,33 @@
+{
+  "id": "es-zapatillas-01",
+  "headword": "zapatillas",
+  "article": "las",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "trainers, sports shoes",
+      "example": "Me he comprado unas zapatillas nuevas.",
+      "exampleGloss": "I have bought myself some new trainers."
+    },
+    {
+      "gloss": "slippers",
+      "example": "Me pongo las zapatillas en casa.",
+      "exampleGloss": "I put my slippers on at home.",
+      "notes": "Same word, two real Peninsular senses resolved by context (fuera de casa vs en casa)."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "deportivas", "gloss": "trainers", "reason": "Very common Peninsular synonym for sports shoes; both are natural." },
+    { "kind": "regional", "value": "tenis", "gloss": "trainers", "reason": "LatAm form for trainers; in Spain tenis is the sport." },
+    { "kind": "regional", "value": "playeras", "gloss": "trainers", "reason": "Mexican form; not Peninsular." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Two senses are both standard Peninsular; the pair matters because zapatillas alone is ambiguous. Plural-only noun.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

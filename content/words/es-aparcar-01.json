@@ -1,0 +1,25 @@
+{
+  "id": "es-aparcar-01",
+  "headword": "aparcar",
+  "partOfSpeech": "verb",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport", "city"],
+  "senses": [
+    {
+      "gloss": "to park",
+      "example": "No encuentro sitio para aparcar.",
+      "exampleGloss": "I cannot find a place to park."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "estacionar", "gloss": "to park", "reason": "LatAm/formal form; not everyday Peninsular." },
+    { "kind": "regional", "value": "parquear", "gloss": "to park", "reason": "LatAm colloquial form; never Peninsular." },
+    { "kind": "different-sense", "value": "dejar el coche", "gloss": "to leave the car", "reason": "Colloquial Peninsular alternative to aparcar; slightly different nuance." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "aparcar is also used for parking your attention (aparca el móvil); that sense is left out at A2.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

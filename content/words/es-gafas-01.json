@@ -1,0 +1,27 @@
+{
+  "id": "es-gafas-01",
+  "headword": "gafas",
+  "article": "las",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing", "health"],
+  "senses": [
+    {
+      "gloss": "glasses, spectacles",
+      "example": "No encuentro las gafas por ninguna parte.",
+      "exampleGloss": "I cannot find my glasses anywhere."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "lentillas", "gloss": "contact lenses", "reason": "Peninsular word for contacts; often confused with gafas de sol or gafas." },
+    { "kind": "regional", "value": "lentes", "gloss": "glasses", "reason": "LatAm form; not Peninsular for everyday glasses." },
+    { "kind": "regional", "value": "anteojos", "gloss": "glasses", "reason": "LatAm/formal form; uncommon in Spain." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Plural-only noun; gafas de sol and gafas de cerca are the two everyday collocations.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

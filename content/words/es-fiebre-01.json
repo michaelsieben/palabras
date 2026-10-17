@@ -1,0 +1,27 @@
+{
+  "id": "es-fiebre-01",
+  "headword": "fiebre",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "fever, temperature",
+      "example": "Tiene fiebre, dale una pastilla.",
+      "exampleGloss": "He has a temperature, give him a pill."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "calentura", "gloss": "fever", "reason": "LatAm/colloquial form; in Spain it sounds old-fashioned." },
+    { "kind": "different-sense", "value": "temperatura", "gloss": "temperature", "reason": "The measured number; tener temperatura is the neutral way to say someone has a fever." },
+    { "kind": "register", "value": "destemplanza", "gloss": "slight fever, malaise", "reason": "Older Peninsular word for feeling off-colour; not for teaching." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "tener fiebre is the fixed pattern; the example keeps dale as an indirect object, not a leísmo.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

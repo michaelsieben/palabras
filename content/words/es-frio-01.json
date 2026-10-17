@@ -1,0 +1,27 @@
+{
+  "id": "es-frio-01",
+  "headword": "frío",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "cold; the weather being cold",
+      "example": "Hace frío, ponte el abrigo.",
+      "exampleGloss": "It is cold, put your coat on."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "fresquito", "gloss": "pleasantly cool", "reason": "Mild, pleasant cold; diminutive and colloquial." },
+    { "kind": "different-sense", "value": "helada", "gloss": "frost", "reason": "Frozen ground or a freezing night; a stronger, different noun." },
+    { "kind": "different-sense", "value": "escalofrío", "gloss": "chill, shiver", "reason": "A shiver from illness or fear, not the weather." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Same word is also an adjective (agua fría); this entry teaches the noun with hacer frío.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

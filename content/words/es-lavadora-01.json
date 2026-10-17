@@ -1,0 +1,25 @@
+{
+  "id": "es-lavadora-01",
+  "headword": "lavadora",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "washing machine",
+      "example": "Pongo la ropa en la lavadora los sábados.",
+      "exampleGloss": "I put the washing in the machine on Saturdays."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "lavarropas", "gloss": "washing machine", "reason": "Rioplatense form; rejected for this app, kept so the reviewer sees the contrast." },
+    { "kind": "different-sense", "value": "lavavajillas", "gloss": "dishwasher", "reason": "Different appliance; useful only to check the learner does not confuse the two." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

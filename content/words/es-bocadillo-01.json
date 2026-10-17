@@ -1,0 +1,26 @@
+{
+  "id": "es-bocadillo-01",
+  "headword": "bocadillo",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "sandwich in a crusty roll",
+      "example": "Me apetece un bocadillo de jamón.",
+      "exampleGloss": "I fancy a ham sandwich."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "sándwich", "gloss": "sandwich (sliced bread)", "reason": "Peninsular too, but made with sliced bread; bocadillo is the crusty roll." },
+    { "kind": "regional", "value": "emparedado", "gloss": "sandwich", "reason": "LatAm/formal form; uncommon in a Pamplona bar." },
+    { "kind": "different-sense", "value": "montado", "gloss": "small sandwich served on a plate", "reason": "A Peninsular bar format; different size and setting from a bocadillo." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

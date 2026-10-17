@@ -1,0 +1,27 @@
+{
+  "id": "es-melocoton-01",
+  "headword": "melocotón",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "peach",
+      "example": "El melocotón está muy dulce.",
+      "exampleGloss": "The peach is very sweet."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "durazno", "gloss": "peach", "reason": "LatAm form for a peach; never Peninsular." },
+    { "kind": "different-sense", "value": "nectarina", "gloss": "nectarine", "reason": "Smooth-skinned peach; easy to confuse with melocotón." },
+    { "kind": "different-sense", "value": "albaricoque", "gloss": "apricot", "reason": "A different stone fruit with a Spanish word worth knowing." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Navarre grows peaches; melocotón is the everyday word at the market.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

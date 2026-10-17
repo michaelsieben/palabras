@@ -1,0 +1,27 @@
+{
+  "id": "es-abuela-01",
+  "headword": "abuela",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "grandmother",
+      "example": "Mi abuela hace unas magdalenas buenísimas.",
+      "exampleGloss": "My grandmother makes really good little sponge cakes."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "yaya", "gloss": "granny", "reason": "Affectionate Peninsular form many families use; informal and warm." },
+    { "kind": "register", "value": "abuelita", "gloss": "granny", "reason": "Diminutive, common in LatAm and also affectionate in Spain but less usual." },
+    { "kind": "different-sense", "value": "bisabuela", "gloss": "great-grandmother", "reason": "One generation further; different person." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "magdalenas are the Peninsular little sponge cakes; the example is a real home-baking scene.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

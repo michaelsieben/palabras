@@ -1,0 +1,27 @@
+{
+  "id": "es-farmacia-01",
+  "headword": "farmacia",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["health", "city"],
+  "senses": [
+    {
+      "gloss": "pharmacy, chemist's",
+      "example": "La farmacia está al lado del ambulatorio.",
+      "exampleGloss": "The pharmacy is next to the health centre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "botica", "gloss": "chemist's", "reason": "Older Peninsular word; charming but rarely used now." },
+    { "kind": "different-sense", "value": "droguería", "gloss": "household goods shop", "reason": "Cleaning products, not medicines; a common confusion." },
+    { "kind": "different-sense", "value": "parafarmacia", "gloss": "para-pharmacy", "reason": "Non-prescription goods shop; a related but distinct place." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "ambulatorio is the Peninsular health centre; keeping it in the example teaches the everyday pairing.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

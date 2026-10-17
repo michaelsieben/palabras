@@ -1,0 +1,27 @@
+{
+  "id": "es-encierro-01",
+  "headword": "encierro",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "pamplona" },
+  "register": "neutral",
+  "topics": ["navarre-culture", "city"],
+  "senses": [
+    {
+      "gloss": "the running of the bulls",
+      "example": "El encierro de San Fermín es en julio.",
+      "exampleGloss": "The running of the bulls at San Fermín is in July."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "corrida", "gloss": "bullfight", "reason": "The afternoon bullfight, not the morning run; related festival but different event." },
+    { "kind": "different-sense", "value": "sanfermines", "gloss": "the San Fermín festival", "reason": "The whole festival week, of which the encierro is one event." },
+    { "kind": "different-sense", "value": "chupinazo", "gloss": "opening rocket of the festival", "reason": "The noon start of San Fermín; a different single moment." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Highly local to Pamplona; encierro also means confinement in general, but only the San Fermín sense is taught.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-bombilla-01",
+  "headword": "bombilla",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "light bulb",
+      "example": "Hay que cambiar la bombilla del pasillo.",
+      "exampleGloss": "We need to change the bulb in the hallway."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "bombillo", "gloss": "light bulb", "reason": "Caribbean/Andean form; not Peninsular." },
+    { "kind": "regional", "value": "foco", "gloss": "light bulb", "reason": "Southern Cone form for a bulb; in Spain foco is a spotlight." },
+    { "kind": "different-sense", "value": "lámpara", "gloss": "lamp", "reason": "The fixture, not the bulb; useful near-miss." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "In Spain bombilla is only the light bulb; the straw for drinking mate is also called bombilla but that sense is not relevant here.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

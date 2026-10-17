@@ -1,0 +1,26 @@
+{
+  "id": "es-suegra-01",
+  "headword": "suegra",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "mother-in-law",
+      "example": "Mi suegra cocina muy bien.",
+      "exampleGloss": "My mother-in-law cooks very well."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "madre política", "gloss": "mother-in-law", "reason": "Formal/administrative synonym; almost never used in speech." },
+    { "kind": "different-sense", "value": "nuera", "gloss": "daughter-in-law", "reason": "The reverse relationship; easy to mix up." },
+    { "kind": "different-sense", "value": "cuñada", "gloss": "sister-in-law", "reason": "Same generation, different in-law." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

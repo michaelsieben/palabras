@@ -1,0 +1,27 @@
+{
+  "id": "es-medico-01",
+  "headword": "médico",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "doctor",
+      "example": "Vamos al médico esta tarde.",
+      "exampleGloss": "We are going to the doctor this afternoon."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "doctor", "gloss": "doctor", "reason": "Common synonym, also used as a title; médico is the neutral everyday word." },
+    { "kind": "register", "value": "facultativo", "gloss": "physician", "reason": "Formal/administrative; used on forms and in hospitals, not at home." },
+    { "kind": "different-sense", "value": "enfermero", "gloss": "nurse", "reason": "A different role at the ambulatorio; useful in a health lesson." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "médico is also the adjective medical (seguro médico); this entry teaches only the person.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

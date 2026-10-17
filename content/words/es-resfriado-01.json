@@ -1,0 +1,27 @@
+{
+  "id": "es-resfriado-01",
+  "headword": "resfriado",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "cold (illness)",
+      "example": "Tengo un resfriado desde el lunes.",
+      "exampleGloss": "I have had a cold since Monday."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "catarro", "gloss": "cold", "reason": "Everyday Peninsular synonym; often the more colloquial choice." },
+    { "kind": "different-sense", "value": "gripe", "gloss": "flu", "reason": "A heavier illness than a resfriado; not interchangeable." },
+    { "kind": "near-synonym", "value": "constipado", "gloss": "blocked up with a cold", "reason": "Peninsular false friend for a blocked nose; in LatAm it can mean constipated." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "The resfriado/constipado/gripe triangle is a classic Peninsular trap; keeping the three together is deliberate.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

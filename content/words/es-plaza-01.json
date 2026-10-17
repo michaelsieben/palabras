@@ -1,0 +1,27 @@
+{
+  "id": "es-plaza-01",
+  "headword": "plaza",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "pamplona" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "square, plaza",
+      "example": "Nos vemos en la plaza del Castillo.",
+      "exampleGloss": "See you at Plaza del Castillo."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "plazoleta", "gloss": "small square", "reason": "Diminutive for a little square; a different scale." },
+    { "kind": "different-sense", "value": "glorieta", "gloss": "roundabout", "reason": "Peninsular word for a traffic roundabout; not a pedestrian square." },
+    { "kind": "different-sense", "value": "parque", "gloss": "park", "reason": "Green space, not a paved square." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Example uses the real Plaza del Castillo in Pamplona; scope pamplona is for the example, the word is paninsular.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

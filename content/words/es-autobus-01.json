@@ -1,0 +1,27 @@
+{
+  "id": "es-autobus-01",
+  "headword": "autobús",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport", "city"],
+  "senses": [
+    {
+      "gloss": "bus",
+      "example": "Voy al centro en autobús.",
+      "exampleGloss": "I go to the centre by bus."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "colectivo", "gloss": "bus", "reason": "Rioplatense bus sense; in Spain colectivo means collective." },
+    { "kind": "regional", "value": "guagua", "gloss": "bus", "reason": "Canary/Caribbean form; not mainland Peninsular." },
+    { "kind": "register", "value": "bus", "gloss": "bus", "reason": "Common colloquial shortening in Spain; autobús is the neutral form." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Pamplona has the villavesa, the city bus; that local nickname is not taught as a general word.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

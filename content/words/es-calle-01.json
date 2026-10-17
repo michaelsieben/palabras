@@ -1,0 +1,27 @@
+{
+  "id": "es-calle-01",
+  "headword": "calle",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "street",
+      "example": "Vivo en una calle muy tranquila.",
+      "exampleGloss": "I live on a very quiet street."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "vía", "gloss": "road, thoroughfare", "reason": "Formal/administrative; neutral calle is what people say." },
+    { "kind": "different-sense", "value": "avenida", "gloss": "avenue", "reason": "A wide main street; a type of calle, not a synonym." },
+    { "kind": "different-sense", "value": "callejón", "gloss": "alley", "reason": "Narrow side passage; a different street type." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "en la calle is the Peninsular pattern; the learner should also know the address pattern calle Mayor.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

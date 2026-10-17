@@ -1,0 +1,24 @@
+{
+  "id": "es-llover-01",
+  "headword": "llover",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "to rain",
+      "example": "Está lloviendo, coge el paraguas.",
+      "exampleGloss": "It is raining, take the umbrella."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "chispear", "gloss": "to drizzle", "reason": "Light rain only; a useful step below llover." },
+    { "kind": "register", "value": "diluviar", "gloss": "to pour with rain", "reason": "Same idea at high intensity; more colloquial and emphatic." },
+    { "kind": "different-sense", "value": "nevar", "gloss": "to snow", "reason": "Different precipitation; easy to confuse in a weather lesson." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

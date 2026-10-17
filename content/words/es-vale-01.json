@@ -1,0 +1,26 @@
+{
+  "id": "es-vale-01",
+  "headword": "vale",
+  "partOfSpeech": "interjection",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "colloquial",
+  "registerNotes": "Friendly and extremely common in Spain in every informal setting; safe with the family.",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "OK, alright",
+      "example": "Vale, nos vemos a las ocho.",
+      "exampleGloss": "OK, see you at eight."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "de acuerdo", "gloss": "agreed", "reason": "Formal equivalent; right for a shop assistant or a form, stiff with family." },
+    { "kind": "synonym", "value": "venga", "gloss": "come on, all right", "reason": "Peninsular agreement/encouragement; slightly more energetic than vale." },
+    { "kind": "different-sense", "value": "guay", "gloss": "cool", "reason": "Expresses approval, not agreement; a different reaction word." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "The single most characteristic Peninsular discourse marker; the learner will hear it daily in Pamplona.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-tortilla-01",
+  "headword": "tortilla",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "Spanish omelette (with potato)",
+      "example": "Esta noche cenamos tortilla de patatas.",
+      "exampleGloss": "Tonight we are having Spanish potato omelette for dinner."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "tortilla francesa", "gloss": "plain omelette", "reason": "Egg-only omelette; the sense a LatAm speaker often means by tortilla." },
+    { "kind": "different-sense", "value": "revuelto", "gloss": "scrambled eggs dish", "reason": "Scrambled, not set; common on Peninsular menus." },
+    { "kind": "different-sense", "value": "pincho de tortilla", "gloss": "slice of omelette on bread", "reason": "The bar format of the same dish; useful everyday collocation." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "In Spain tortilla alone usually means the potato omelette; the LatAm maize flatbread sense is not taught here.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "es-movil-01",
+  "headword": "móvil",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "mobile phone",
+      "example": "Mira el móvil, te ha llamado.",
+      "exampleGloss": "Check your phone, it has rung you."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "celular", "gloss": "mobile phone", "reason": "LatAm form; never Peninsular." },
+    { "kind": "different-sense", "value": "teléfono", "gloss": "telephone", "reason": "The general word; needs fijo to mean a landline in Spain." },
+    { "kind": "register", "value": "smartphone", "gloss": "smartphone", "reason": "Loanword used in Spain for a modern device; less everyday than móvil." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

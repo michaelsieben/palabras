@@ -1,0 +1,27 @@
+{
+  "id": "es-paraguas-01",
+  "headword": "paraguas",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "umbrella",
+      "example": "Coge el paraguas, que está lloviendo.",
+      "exampleGloss": "Take the umbrella, it is raining."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "sombrilla", "gloss": "sun umbrella", "reason": "For sun, not rain; same shape, opposite weather." },
+    { "kind": "different-sense", "value": "chubasquero", "gloss": "rain jacket", "reason": "Worn instead of carried; a rain item worth knowing." },
+    { "kind": "different-sense", "value": "paragüero", "gloss": "umbrella stand", "reason": "Where the umbrella lives by the door; a household near-miss." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "paraguas is el even though it is plural in form; useful irregular gender point but not a grammar-only word.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

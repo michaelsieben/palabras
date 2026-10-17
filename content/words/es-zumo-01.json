@@ -1,0 +1,26 @@
+{
+  "id": "es-zumo-01",
+  "headword": "zumo",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "juice",
+      "example": "Me tomo un zumo de naranja natural.",
+      "exampleGloss": "I am having a fresh orange juice."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "jugo", "gloss": "juice", "reason": "LatAm word for juice; in Spain jugo means a body fluid, so it is never taught for a drink." },
+    { "kind": "different-sense", "value": "mosto", "gloss": "grape must", "reason": "Grape juice before it becomes wine; a different drink." },
+    { "kind": "different-sense", "value": "refresco", "gloss": "soft drink", "reason": "Fizzy drink, not fruit juice; useful contrast." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

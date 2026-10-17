@@ -1,0 +1,26 @@
+{
+  "id": "es-mercado-01",
+  "headword": "mercado",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "shopping", "city"],
+  "senses": [
+    {
+      "gloss": "market",
+      "example": "Compramos fruta en el mercado del barrio.",
+      "exampleGloss": "We buy fruit at the neighbourhood market."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "supermercado", "gloss": "supermarket", "reason": "Chain shop, not the covered market; both are everyday in Pamplona." },
+    { "kind": "near-synonym", "value": "plaza de abastos", "gloss": "covered market hall", "reason": "Traditional Peninsular/Navarre name for a market hall." },
+    { "kind": "different-sense", "value": "feria", "gloss": "fair", "reason": "Travelling or seasonal fair, not the weekly market." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "createdAt": "2026-10-17T15:30:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-cunado-01",
+  "headword": "cuñado",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "brother-in-law",
+      "example": "Mi cuñado vive en Pamplona.",
+      "exampleGloss": "My brother-in-law lives in Pamplona."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "concuñado", "gloss": "spouse's sister's husband", "reason": "A different in-law link; common in big Navarre families." },
+    { "kind": "different-sense", "value": "yerno", "gloss": "son-in-law", "reason": "Different in-law direction; useful to keep separate." },
+    { "kind": "different-sense", "value": "suegro", "gloss": "father-in-law", "reason": "Parent of the spouse; easy to confuse with cuñado." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "In-laws are central here: the learner meets a Spanish family, so the whole -astro/-in-law set matters.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

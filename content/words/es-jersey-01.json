@@ -1,0 +1,27 @@
+{
+  "id": "es-jersey-01",
+  "headword": "jersey",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "jumper, sweater",
+      "example": "Ponte un jersey, que hace frío.",
+      "exampleGloss": "Put a jumper on, it is cold."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "suéter", "gloss": "jumper", "reason": "LatAm/borrowed form; not the Peninsular word." },
+    { "kind": "regional", "value": "pulóver", "gloss": "jumper", "reason": "Rioplatense form; understood in Spain but uncommon." },
+    { "kind": "different-sense", "value": "chaqueta", "gloss": "jacket, cardigan", "reason": "Often used in Spain for a cardigan; a related but different garment." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Spelled jersey in Spanish, plural jerséis; the English word is the origin but the Spanish spelling is fixed.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

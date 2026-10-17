@@ -1,0 +1,27 @@
+{
+  "id": "es-coche-01",
+  "headword": "coche",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport", "city"],
+  "senses": [
+    {
+      "gloss": "car",
+      "example": "Aparco el coche cerca de casa.",
+      "exampleGloss": "I park the car near home."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "carro", "gloss": "car", "reason": "LatAm car sense; in Spain carro is a cart, so it is never taught as a vehicle here." },
+    { "kind": "regional", "value": "auto", "gloss": "car", "reason": "Rioplatense form; not Peninsular." },
+    { "kind": "register", "value": "automóvil", "gloss": "automobile", "reason": "Formal/administrative register; correct but stiff in speech." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "coche is the single normal Peninsular word; pairing it with aparcar fixes both at once.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

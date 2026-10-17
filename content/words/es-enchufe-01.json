@@ -1,0 +1,33 @@
+{
+  "id": "es-enchufe-01",
+  "headword": "enchufe",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["household", "technology"],
+  "senses": [
+    {
+      "gloss": "socket",
+      "example": "No hay enchufe libre en la pared.",
+      "exampleGloss": "There is no free socket in the wall."
+    },
+    {
+      "gloss": "to plug in (as a verb phrase)",
+      "example": "Enchufa el cargador del móvil.",
+      "exampleGloss": "Plug in the phone charger.",
+      "notes": "Verb sense shown with the noun so the learner sees the everyday collocation."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "tomacorriente", "gloss": "socket", "reason": "LatAm form; not Peninsular." },
+    { "kind": "regional", "value": "toma corriente", "gloss": "socket", "reason": "LatAm variant spelling; shown for the reviewer to reject." },
+    { "kind": "different-sense", "value": "clavija", "gloss": "plug", "reason": "The plug on the cable, not the wall socket; a genuine near-miss in Spain." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "The second sense is a verb use; it is kept in the same entry because it is the everyday collocation and does not duplicate another entry.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

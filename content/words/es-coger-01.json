@@ -1,0 +1,31 @@
+{
+  "id": "es-coger-01",
+  "headword": "coger",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "registerNotes": "Everyday, unmarked Peninsular verb meaning to take/catch. Its vulgar LatAm meaning does not apply in Spain and must not be taught as the meaning here.",
+  "topics": ["transport", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "to take, to catch (a bus, a train)",
+      "example": "Coge el autobús a las ocho.",
+      "exampleGloss": "Catch the bus at eight."
+    },
+    {
+      "gloss": "to pick up, to take (an object)",
+      "example": "Coge el pan de la mesa.",
+      "exampleGloss": "Take the bread from the table."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "tomar", "gloss": "to take, to catch", "reason": "Shared synonym, common in Peninsular usage too; slightly more neutral." },
+    { "kind": "near-synonym", "value": "agarrar", "gloss": "to grab", "reason": "Stronger grip; usable in Spain but blunter than coger." },
+    { "kind": "register", "value": "pillar", "gloss": "to catch, to grab", "reason": "Colloquial Peninsular; right for catching a train at the last second." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Correct and unmarked in Spain; the registerNotes exist so the reviewer sees the LatAm vulgar-meaning trap was considered.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}

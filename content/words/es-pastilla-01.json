@@ -1,0 +1,27 @@
+{
+  "id": "es-pastilla-01",
+  "headword": "pastilla",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "pill, tablet",
+      "example": "Toma una pastilla cada ocho horas.",
+      "exampleGloss": "Take one tablet every eight hours."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "comprimido", "gloss": "tablet", "reason": "Pharmacy/formal synonym; the box says comprimido, people say pastilla." },
+    { "kind": "different-sense", "value": "tableta", "gloss": "tablet, block", "reason": "Used for chocolate or a device; only medical in specific contexts." },
+    { "kind": "different-sense", "value": "medicamento", "gloss": "medicine", "reason": "The general category, not one dose." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Also the everyday word for a soap bar (pastilla de jabón) and a stock cube; those senses are deliberately deferred.",
+  "createdAt": "2026-10-17T15:30:00Z"
+}
