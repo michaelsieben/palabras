@@ -3,10 +3,17 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "engines": { "node": ">=24.21.0 <25" },
+  "engines": {
+    "node": ">=24.21.0 <25"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "lint": "eslint .",
+    "type:check": "tsc -b",
+    "test": "node --test tests/*.test.mjs",
+    "icons": "node scripts/generate-icons.mjs",
+    "screenshots": "node scripts/generate-screenshots.mjs",
+    "test:browser": "node tests/browser.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1"
   },
@@ -16,6 +23,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "^1.64.1",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",

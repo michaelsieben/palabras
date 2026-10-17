@@ -41,6 +41,26 @@ public sealed class M0ApiTests
     }
 
     [Fact]
+    public async Task PwaShellFilesReturnNoCacheWhileHashedAssetsKeepLongLivedCaching()
+    {
+        using var factory = new M0ApplicationFactory();
+        using var client = factory.CreateHttpClient();
+
+        using var worker = await client.GetAsync("/sw.js", CancellationToken.None);
+        Assert.Equal(HttpStatusCode.OK, worker.StatusCode);
+        Assert.Equal("no-cache", Assert.Single(worker.Headers.GetValues("Cache-Control")));
+
+        using var manifest = await client.GetAsync("/manifest.webmanifest", CancellationToken.None);
+        Assert.Equal(HttpStatusCode.OK, manifest.StatusCode);
+        Assert.Equal("no-cache", Assert.Single(manifest.Headers.GetValues("Cache-Control")));
+
+        using var hashedAsset = await client.GetAsync("/assets/" + M0ApplicationFactory.HashedAssetName, CancellationToken.None);
+        Assert.Equal(HttpStatusCode.OK, hashedAsset.StatusCode);
+        Assert.False(hashedAsset.Headers.TryGetValues("Cache-Control", out var assetCacheControl)
+            && assetCacheControl.Any(value => value.Contains("no-cache", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    [Fact]
     public async Task UnknownApiRouteReturnsNotFoundInsteadOfSpaDocument()
     {
         using var factory = new M0ApplicationFactory();
@@ -117,14 +137,18 @@ public sealed class M0ApiTests
     {
         internal const string SpaMarker = "palabras-m0-test-spa";
         internal const string SpaHtml = "<!doctype html><html><body><div id=\"palabras-m0-test-spa\"></div></body></html>";
+        internal const string HashedAssetName = "index-B8d9Qw2x.js";
         private readonly string _root = Path.Combine(Path.GetTempPath(), "Palabras.Tests", Guid.NewGuid().ToString("N"));
 
         internal string MissingDataDirectory => Path.Combine(_root, "data");
 
         internal M0ApplicationFactory()
         {
-            Directory.CreateDirectory(Path.Combine(_root, "wwwroot"));
+            Directory.CreateDirectory(Path.Combine(_root, "wwwroot", "assets"));
             File.WriteAllText(Path.Combine(_root, "wwwroot", "index.html"), SpaHtml);
+            File.WriteAllText(Path.Combine(_root, "wwwroot", "sw.js"), "self.addEventListener('install', () => {});");
+            File.WriteAllText(Path.Combine(_root, "wwwroot", "manifest.webmanifest"), "{\"name\":\"Palabras\"}");
+            File.WriteAllText(Path.Combine(_root, "wwwroot", "assets", HashedAssetName), "export {};");
         }
 
         internal HttpClient CreateHttpClient(string baseAddress = "http://localhost") => CreateClient(new WebApplicationFactoryClientOptions
