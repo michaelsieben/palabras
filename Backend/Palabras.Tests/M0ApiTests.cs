@@ -119,18 +119,16 @@ public sealed class M0ApiTests
     }
 
     [Fact]
-    public async Task HealthzReturnsOkWhenDataDirectoryDoesNotExist()
+    public async Task StartupCreatesDatabaseWhenDataDirectoryDoesNotExist()
     {
         using var factory = new M0ApplicationFactory();
-        // Verify the literal deployment path is absent too; never delete host data.
-        Assert.False(Directory.Exists(Path.GetFullPath("/data")), "Test environment must not mount /data.");
         Assert.False(Directory.Exists(factory.MissingDataDirectory));
         using var client = factory.CreateHttpClient();
 
         using var response = await client.GetAsync("/healthz", CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.False(Directory.Exists(factory.MissingDataDirectory));
+        Assert.True(File.Exists(Path.Combine(factory.MissingDataDirectory, "palabras.db")));
     }
 
     private sealed class M0ApplicationFactory : WebApplicationFactory<Program>

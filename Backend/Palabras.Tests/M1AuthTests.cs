@@ -406,6 +406,7 @@ public sealed class M1AuthTests
             builder.UseEnvironment(_environment);
             builder.UseWebRoot(Path.Combine(_root, "wwwroot"));
             builder.UseSetting("DataProtection:KeysPath", _keys);
+            builder.UseSetting("ConnectionStrings:Default", $"Data Source={Path.Combine(_root, "data", "palabras.db")}");
             builder.ConfigureLogging(logging => logging.AddProvider(_logs));
             if (!_withUsers)
             {

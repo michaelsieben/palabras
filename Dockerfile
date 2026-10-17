@@ -10,7 +10,7 @@ WORKDIR /src
 COPY Backend/Palabras/Palabras.csproj Backend/Palabras/
 RUN dotnet restore Backend/Palabras/Palabras.csproj
 COPY Backend/Palabras/ Backend/Palabras/
-RUN dotnet publish Backend/Palabras/Palabras.csproj -c Release --no-restore -o /app/publish
+RUN dotnet publish Backend/Palabras/Palabras.csproj -c Release --no-restore -p:UseAppHost=true -o /app/publish
 COPY --from=frontend /src/Frontend/dist/ /app/publish/wwwroot/
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 WORKDIR /app
 COPY --from=backend --chown=app:app /app/publish/ ./
 ENV ASPNETCORE_URLS=http://+:18480
+ENV DATA_DIR=/data
 USER app
 EXPOSE 18480
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

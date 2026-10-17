@@ -5,6 +5,27 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.StaticFiles;
 using Palabras.Auth;
+using Palabras.Accounts;
+using Palabras.Persistence;
+
+if (args.Length > 0 && args[0] == "user")
+{
+    var cliConfiguration = new ConfigurationBuilder().SetBasePath(AppContext.BaseDirectory)
+        .AddJsonFile("appsettings.json", optional: true).AddEnvironmentVariables().Build();
+    using var cliCancellation = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, eventArgs) => { eventArgs.Cancel = true; cliCancellation.Cancel(); };
+    try
+    {
+        Environment.ExitCode = await UserCli.RunAsync(args, DatabaseSettings.FromConfiguration(cliConfiguration), Console.In,
+            Console.Out, Console.Error, cliCancellation.Token, Console.IsInputRedirected ? null : UserCli.ReadHiddenPassword);
+    }
+    catch (OperationCanceledException)
+    {
+        Console.Error.WriteLine("Command cancelled.");
+        Environment.ExitCode = 1;
+    }
+    return;
+}
 
 // Hash generation never starts the server or exposes the password in command-line arguments.
 if (args is ["--hash-password"])
@@ -14,6 +35,8 @@ if (args is ["--hash-password"])
     return;
 }
 var builder = WebApplication.CreateBuilder(args);
+var databaseSettings = DatabaseSettings.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(databaseSettings);
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
@@ -84,6 +107,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 });
 builder.Services.AddAuthorization(options => options.AddPolicy("reviewer", policy => policy.RequireRole("reviewer")));
 var app = builder.Build();
+await DatabaseLifecycle.InitializeAsync(databaseSettings, app.Lifetime.ApplicationStopping);
 if (users.Length == 0)
 {
     AuthLog.NoAuthUsersConfigured(app.Logger);
