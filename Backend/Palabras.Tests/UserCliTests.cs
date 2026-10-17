@@ -97,7 +97,7 @@ public sealed class UserCliTests : IDisposable
         Assert.Empty(await database.Users.AsNoTracking().ToListAsync(CancellationToken.None));
         Assert.Empty(await ReadUsers());
         Assert.Equal(0, await database.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM sqlite_master WHERE name='future_feedback'").SingleAsync(CancellationToken.None));
-        Assert.Single(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None));
+        Assert.Equal(database.Database.GetMigrations(), await database.Database.GetAppliedMigrationsAsync(CancellationToken.None));
         await CreateOwner();
         Assert.Single(await ReadUsers());
     }
@@ -177,7 +177,7 @@ public sealed class UserCliTests : IDisposable
         await CreateOwner();
         await DatabaseLifecycle.InitializeAsync(_settings, CancellationToken.None);
         await using var database = _settings.CreateContext();
-        Assert.Single(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None));
+        Assert.Equal(database.Database.GetMigrations(), await database.Database.GetAppliedMigrationsAsync(CancellationToken.None));
         Assert.Single(await ReadUsers());
         Assert.Equal("wal", Assert.Single(await database.Database.SqlQueryRaw<string>("PRAGMA journal_mode;").ToListAsync(CancellationToken.None)));
     }
