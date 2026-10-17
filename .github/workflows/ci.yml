@@ -11,6 +11,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Bound the whole job: a container that accepts TCP but never answers the healthcheck
+    # cannot stall a step for the 6 h default.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -31,13 +34,14 @@ jobs:
       - run: npm run build
         working-directory: Frontend
       - name: Build and smoke-test container
+        shell: bash
         run: |
           docker build -t palabras:ci .
           docker run -d --name palabras-ci-smoke -p 127.0.0.1:18480:18480 palabras:ci
-          body=$(curl --retry-all-errors --retry 30 --retry-delay 1 --fail http://127.0.0.1:18480/healthz)
+          body=$(curl --retry-all-errors --retry 30 --retry-delay 1 --connect-timeout 2 --max-time 5 --fail http://127.0.0.1:18480/healthz)
           [[ "$body" == *'"status":"ok"'* ]]
-          [[ "$(curl --silent --show-error -o /dev/null -w '%{http_code}' http://127.0.0.1:18480/api/nope)" == "404" ]]
-          [[ "$(curl --silent --show-error -o /dev/null -w '%{http_code}' http://127.0.0.1:18480/anything)" == "200" ]]
+          [[ "$(curl --silent --show-error --connect-timeout 2 --max-time 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:18480/api/nope)" == "404" ]]
+          [[ "$(curl --silent --show-error --connect-timeout 2 --max-time 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:18480/anything)" == "200" ]]
       - name: Container logs and cleanup
         if: always()
         run: |

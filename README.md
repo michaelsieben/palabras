@@ -63,7 +63,7 @@ Because that proxy lives in another container on a macvlan network, it cannot re
 
 Run on Unraid in a user-chosen project directory (requires Git and authenticated access to this private repo):
 
-**Before the first deploy**, set `APPDATA_PATH=/mnt/user/appdata/palabras` in `.env`. Leaving it blank is for local dev only: Compose binds repo-local `./data` to `/data`. Changing `APPDATA_PATH` later does not migrate data; stop the app and move the DB file manually (and any SQLite sidecars, keys and backups) before restarting with the new path.
+**Before the first deploy**, set `APPDATA_PATH=/mnt/cache/appdata/palabras` in `.env`. Use the cache-pool (or whichever pool/disk holds the `appdata` share) path rather than `/mnt/user/appdata/...`: `/mnt/user` is Unraid's shfs/FUSE layer, and SQLite file locking through shfs is a known source of lock errors and corruption. `/mnt/cache/...` is direct disk access, which is what a SQLite file needs. Keep the `appdata` share itself in place so the array and the appdata backup strategy still see the directory (on Unraid, `/mnt/cache/appdata/palabras` is the same directory as `/mnt/user/appdata/palabras`). Leaving `APPDATA_PATH` blank is for local dev only: Compose binds repo-local `./data` to `/data`. Changing `APPDATA_PATH` later does not migrate data; stop the app and move the DB file manually (and any SQLite sidecars, keys and backups) before restarting with the new path.
 
 The runtime uses non-root `app` (UID/GID 1654 in the current .NET image). Prepare the Unraid directory with ownership matching that user before deployment; the Dockerfile's `/data` ownership is hidden by the bind mount. These are user-run commands, not operations performed by M0:
 
@@ -71,9 +71,9 @@ The runtime uses non-root `app` (UID/GID 1654 in the current .NET image). Prepar
 git clone git@github.com:sunmsieben/palabras.git
 cd palabras
 cp .env.example .env
-# Edit .env: APPDATA_PATH=/mnt/user/appdata/palabras (BEFORE first deploy).
-mkdir -p /mnt/user/appdata/palabras
-chown 1654:1654 /mnt/user/appdata/palabras
+# Edit .env: APPDATA_PATH=/mnt/cache/appdata/palabras (BEFORE first deploy).
+mkdir -p /mnt/cache/appdata/palabras
+chown 1654:1654 /mnt/cache/appdata/palabras
 docker compose config --quiet
 docker compose up -d --build
 curl --fail http://127.0.0.1:18480/healthz
@@ -112,11 +112,11 @@ Android Chrome only (OnePlus 15 and OnePlus Tab 3). Manifest, icons, service wor
 
 ## Backup/restore
 
-No database or backup implementation in M0. `/data` is reserved for SQLite, keys and backups. On Unraid, include `/mnt/user/appdata/palabras` in the appdata backup strategy. Automated backup and a tested restore procedure arrive in M8. Container recreation and `docker compose down` preserve the bind directory; do not delete it.
+No database or backup implementation in M0. `/data` is reserved for SQLite, keys and backups. On Unraid, keep `/mnt/cache/appdata/palabras` (or the equivalent pool path) inside the `appdata` share and include that share in the appdata backup strategy. Automated backup and a tested restore procedure arrive in M8. Container recreation and `docker compose down` preserve the bind directory; do not delete it.
 
 ## Milestone implementation notes
 
-- **M1 proxy/auth groundwork:** confirm the source IP seen through the published LAN port before setting `FORWARDED_KNOWN_NETWORK`. Configure `UseForwardedHeaders` for XFF and XFP with explicit `KnownNetworks`/`KnownProxies`, first in the pipeline, before auth and rate limiting. Never enable blanket `ASPNETCORE_FORWARDEDHEADERS_ENABLED`. Use cookies with `Secure=Always`, `__Host-` name, `Path=/`, no Domain and `SameSite=Lax`; proxy-to-app HTTP must not weaken cookie security. Rate-limit partitions must use post-forwarded `RemoteIpAddress`. Replace wildcard `AllowedHosts` with the real host. No M0 runtime changes needed.
+- **M1 proxy/auth groundwork:** confirm the source IP seen through the published LAN port before setting `FORWARDED_KNOWN_NETWORK`. Configure `UseForwardedHeaders` for XFF and XFP with explicit `KnownNetworks`/`KnownProxies`, first in the pipeline, before auth and rate limiting. Never enable blanket `ASPNETCORE_FORWARDEDHEADERS_ENABLED`. Use cookies with `Secure=Always`, `__Host-` name, `Path=/`, no Domain and `SameSite=Lax`; proxy-to-app HTTP must not weaken cookie security. Rate-limit partitions must use post-forwarded `RemoteIpAddress`. Replace wildcard `AllowedHosts` with the real host **plus `localhost;127.0.0.1`** (for example `palabras.siebentower.nl;localhost;127.0.0.1`): the container healthcheck (`docker-compose.yml`, `Dockerfile`) and the CI smoke step request `http://localhost` / `127.0.0.1`, so host filtering without them answers 400, marks the container unhealthy and breaks CI. The alternative is to send an explicit `Host: palabras.siebentower.nl` header from both the healthcheck and the CI smoke curls. Add a test covering the healthcheck host. No M0 runtime changes needed.
 - **M2 local DB:** add an `appsettings.Development.json` connection-string override using `./data/palabras.db` before DB access is implemented. Extend Docker restore COPY inputs when additional projects or shared MSBuild/NuGet props appear.
 - **Before M7 service worker:** serve root `/sw.js` and `index.html` with `Cache-Control: no-cache`; hashed `/assets/*` with `immutable, max-age=31536000` via `StaticFileOptions.OnPrepareResponse`.
 

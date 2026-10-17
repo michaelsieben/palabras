@@ -82,14 +82,18 @@ public sealed class M0ApiTests
     }
 
     [Fact]
-    public async Task PlainHttpRequestDoesNotEmitHstsHeader()
+    public async Task HttpsRequestDoesNotEmitHstsHeader()
     {
         using var factory = new M0ApplicationFactory();
-        using var client = factory.CreateHttpClient();
+        // UseHsts() only emits on HTTPS requests to a host outside HstsOptions.ExcludedHosts, so this
+        // exact request shape is what makes the assertion meaningful: adding UseHsts() would now fail it.
+        // The scheme/host assertions keep it from going vacuous again if the base address is reverted.
+        using var client = factory.CreateHttpClient("https://palabras.example.test");
 
         using var response = await client.GetAsync("/healthz", CancellationToken.None);
 
-        Assert.Equal("http", response.RequestMessage?.RequestUri?.Scheme);
+        Assert.Equal("https", response.RequestMessage?.RequestUri?.Scheme);
+        Assert.Equal("palabras.example.test", response.RequestMessage?.RequestUri?.Host);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.False(response.Headers.Contains("Strict-Transport-Security"));
     }
@@ -123,9 +127,9 @@ public sealed class M0ApiTests
             File.WriteAllText(Path.Combine(_root, "wwwroot", "index.html"), SpaHtml);
         }
 
-        internal HttpClient CreateHttpClient() => CreateClient(new WebApplicationFactoryClientOptions
+        internal HttpClient CreateHttpClient(string baseAddress = "http://localhost") => CreateClient(new WebApplicationFactoryClientOptions
         {
-            BaseAddress = new Uri("http://localhost"),
+            BaseAddress = new Uri(baseAddress),
             AllowAutoRedirect = false
         });
 
