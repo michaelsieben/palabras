@@ -108,12 +108,12 @@ public sealed class M0ApiTests
         // UseHsts() only emits on HTTPS requests to a host outside HstsOptions.ExcludedHosts, so this
         // exact request shape is what makes the assertion meaningful: adding UseHsts() would now fail it.
         // The scheme/host assertions keep it from going vacuous again if the base address is reverted.
-        using var client = factory.CreateHttpClient("https://palabras.example.test");
+        using var client = factory.CreateHttpClient("https://palabras.siebentower.nl");
 
         using var response = await client.GetAsync("/healthz", CancellationToken.None);
 
         Assert.Equal("https", response.RequestMessage?.RequestUri?.Scheme);
-        Assert.Equal("palabras.example.test", response.RequestMessage?.RequestUri?.Host);
+        Assert.Equal("palabras.siebentower.nl", response.RequestMessage?.RequestUri?.Host);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.False(response.Headers.Contains("Strict-Transport-Security"));
     }
@@ -164,6 +164,7 @@ public sealed class M0ApiTests
             builder.UseWebRoot(Path.Combine(_root, "wwwroot"));
             builder.UseSetting("ConnectionStrings:Default", $"Data Source={Path.Combine(MissingDataDirectory, "palabras.db")}");
             builder.UseSetting("https_port", "443");
+            builder.UseSetting("DataProtection:KeysPath", "");
         }
 
         protected override void Dispose(bool disposing)

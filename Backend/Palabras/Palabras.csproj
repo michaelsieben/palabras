@@ -5,4 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Version>0.0.1</Version>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- Local dotnet run and the test project keep the development settings; a published image must not ship them. -->
+    <Content Update="appsettings.Development.json">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
 </Project>
