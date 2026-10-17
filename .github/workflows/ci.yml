@@ -33,6 +33,10 @@ jobs:
         working-directory: Frontend
       - run: npm run build
         working-directory: Frontend
+      # Content gate: validates content/words/*.json against the schema and the
+      # peninsular-vs-LatAm lexicon. Zero dependencies, so no install is needed.
+      - name: Lint content
+        run: node tools/content-lint/index.js
       - name: Build and smoke-test container
         shell: bash
         run: |
