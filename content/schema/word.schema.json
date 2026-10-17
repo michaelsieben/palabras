@@ -65,8 +65,8 @@
           "description": "Pins the entry to Peninsular/Castilian Spanish. Latin American (es-419) usage is never the taught variant."
         },
         "scope": {
-          "enum": ["paninsular-generic", "navarre", "pamplona"],
-          "description": "paninsular-generic = understood across Spain; navarre = Navarre-typical; pamplona = city-specific."
+          "enum": ["peninsular-generic", "navarre", "pamplona"],
+          "description": "peninsular-generic = understood across Spain; navarre = Navarre-typical; pamplona = city-specific."
         },
         "notes": {
           "type": "string",

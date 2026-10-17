@@ -3,7 +3,7 @@
   "headword": "nublado",
   "partOfSpeech": "adjective",
   "cefr": "A2",
-  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["weather"],
   "senses": [

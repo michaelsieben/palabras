@@ -3,7 +3,7 @@
   "headword": "vale",
   "partOfSpeech": "interjection",
   "cefr": "A1",
-  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "colloquial",
   "registerNotes": "Friendly and extremely common in Spain in every informal setting; safe with the family.",
   "topics": ["small-talk"],

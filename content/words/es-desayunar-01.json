@@ -3,7 +3,7 @@
   "headword": "desayunar",
   "partOfSpeech": "verb",
   "cefr": "A1",
-  "region": { "variant": "es-ES", "scope": "paninsular-generic" },
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["food", "daily-routine"],
   "senses": [
