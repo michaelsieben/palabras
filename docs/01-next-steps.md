@@ -24,18 +24,20 @@ Follow the ordering in `00-handoff.md` §8 exactly.
 - `UseForwardedHeaders` first; `KnownIPNetworks` = `172.18.0.0/16`; no HTTPS redirection or HSTS.
 - `AllowedHosts` = `palabras.siebentower.nl;localhost;127.0.0.1`.
 - Cookie auth `__Host-palabras` (`SecurePolicy=Always`), data protection keys in `/data/keys`.
-- Accounts are created by the CLI `set-password` in the running container, never seeded from
-  `.env`: follow `03-auth-bootstrap.md` (supersedes `design.md` `:212-213`). `PasswordHasher`
-  (PBKDF2), roles `learner` and `reviewer`; `X-Palabras: 1` CSRF header.
+- Accounts are created by the CLI `user create <role> --username <name>` (renamed later with
+  `user set-username <old> --username <new>`, password via `user set-password`) in the running container, never
+  seeded from `.env`: follow `03-auth-bootstrap.md` (supersedes `design.md` `:212-213`).
+  PBKDF2-SHA256 hashes; stored roles `owner` and `reviewer` (owner also authorizes as learner);
+  `X-Palabras: 1` CSRF header. See `04-accounts.md` and `05-auth.md` for shipped contracts.
 - `/login` in the SPA; the mock routes are gated by role (`/revisar`, `/aprobadas` reviewer-only).
 - Fix the edge items from `runs/09-m0-final-review.md` and `runs/10-m0-shouldfix.md` that are
-  still open, including bare `/api` → 404 and `index.html` no-cache.
+  still open, including authenticated bare `/api` → 404 (anonymous → 401) and `index.html` no-cache.
 
 **Done when:** integration tests cover forwarded `X-Forwarded-Proto: https` from a `172.18.x.x`
 peer (cookie issued) and from an untrusted peer (ignored); unknown `Host` → 400; non-GET without
 `X-Palabras` → 400/403; reviewer-only route → 403 for the learner; and login over
 `https://palabras.siebentower.nl` survives a container rebuild (keys persisted). Per
-`03-auth-bootstrap.md` §6, a fresh database has no usable account until `set-password` is run, and an
+`03-auth-bootstrap.md` §7, a fresh database has no usable account until `user create` has been run, and an
 unauthenticated request to a non-public route returns 401/redirect instead of rendering the app.
 
 ## 2. M2 — data model and EF Core migrations (MVP)

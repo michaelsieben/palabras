@@ -14,7 +14,7 @@ run workspace, not in this repo.
 | `00-handoff.md` | This file. Project summary, locked decisions, current state, constraints. |
 | `01-next-steps.md` | Ordered work queue with "done when" tests, MVP vs later. |
 | `02-open-questions.md` | Unresolved items, each with a recommended default. |
-| `03-auth-bootstrap.md` | ADR: the first two accounts are created by the CLI `set-password`, not by env seeding — follow it in M1. |
+| `03-auth-bootstrap.md` | ADR: the two accounts come from the CLI `user create` / `set-username` / `set-password` / `list` group run inside the container — never from `.env` seeding — and the login name is renamable because every FK keys on `users.id`. Historical step-25 context; shipped commands/auth in `04-accounts.md` / `05-auth.md`. |
 | `design.md` | Original design (verbatim copy of run report 01; frozen original in `runs/01-spanish-pwa-design.md`). |
 | `design-amendment.md` | Amendment ΔA–ΔJ that supersedes parts of `design.md` (verbatim copy of run report 02; frozen original in `runs/02-design-amendment.md`). Where the two disagree, the amendment wins. |
 
