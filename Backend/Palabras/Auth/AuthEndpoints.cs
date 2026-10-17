@@ -8,28 +8,27 @@ internal static class AuthEndpoints
 {
     internal static void MapAuthEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/auth/login", async (LoginRequest request, SeedUserStore users, HttpContext context) =>
+        app.MapPost("/api/auth/login", async (LoginRequest request, AccountAuthentication users, HttpContext context) =>
         {
-            var user = users.Authenticate(request.Username, request.Password);
+            var user = await users.AuthenticateAsync(request.Username, request.Password, context.RequestAborted);
             if (user == null)
             {
                 return Results.Json(new { error = "invalid_credentials" }, statusCode: 401);
             }
-            var claims = new List<Claim> { new(ClaimTypes.Name, user.Username) };
-            claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
-                new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)),
+                AccountAuthentication.Principal(user),
                 new AuthenticationProperties { IsPersistent = true });
-            return Results.Ok(new { username = user.Username, roles = user.Roles });
-        });
+            return Results.Ok(new { username = user.Username, role = user.Role, roles = AccountAuthentication.Roles(user) });
+        }).RequireRateLimiting("login");
         app.MapPost("/api/auth/logout", async (HttpContext context) =>
         {
             await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return Results.NoContent();
-        });
+        }).RequireAuthorization();
         app.MapGet("/api/auth/me", (HttpContext context) => Results.Ok(new
         {
             username = context.User.Identity!.Name,
+            role = context.User.IsInRole("owner") ? "owner" : "reviewer",
             roles = context.User.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToArray()
         })).RequireAuthorization();
     }

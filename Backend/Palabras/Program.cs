@@ -1,8 +1,10 @@
 using System.Reflection;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Palabras.Auth;
 using Palabras.Accounts;
@@ -27,13 +29,6 @@ if (args.Length > 0 && args[0] == "user")
     return;
 }
 
-// Hash generation never starts the server or exposes the password in command-line arguments.
-if (args is ["--hash-password"])
-{
-    var password = Console.ReadLine() ?? throw new InvalidOperationException("Supply a password on stdin.");
-    Console.WriteLine(new PasswordHasher<SeedUser>().HashPassword(new SeedUser(), password));
-    return;
-}
 var builder = WebApplication.CreateBuilder(args);
 var databaseSettings = DatabaseSettings.FromConfiguration(builder.Configuration);
 builder.Services.AddSingleton(databaseSettings);
@@ -62,37 +57,28 @@ if (removedHostFilters == 0)
 {
     throw new InvalidOperationException("The framework host-filtering startup filter is not registered. Host filtering would run before forwarded headers.");
 }
-var users = builder.Configuration.GetSection("Auth:Users").Get<SeedUser[]>() ?? [];
-var hasher = new PasswordHasher<SeedUser>();
-foreach (var user in users)
-{
-    if (string.IsNullOrWhiteSpace(user.Username) || user.Roles.Length == 0 || user.Roles.Any(role => role is not ("learner" or "reviewer")))
-    {
-        throw new InvalidOperationException("Auth users need a username and learner/reviewer roles.");
-    }
-    if (user.Password != null)
-    {
-        if (!builder.Environment.IsDevelopment())
-        {
-            throw new InvalidOperationException("Plaintext Auth passwords are allowed only in Development.");
-        }
-        user.PasswordHash = hasher.HashPassword(user, user.Password);
-        user.Password = null;
-    }
-    if (string.IsNullOrWhiteSpace(user.PasswordHash))
-    {
-        throw new InvalidOperationException("Auth users need PasswordHash values.");
-    }
-}
-if (users.Select(user => user.Username).Distinct(StringComparer.Ordinal).Count() != users.Length)
-{
-    throw new InvalidOperationException("Auth usernames must be unique.");
-}
-builder.Services.AddSingleton(new SeedUserStore(users, hasher));
+builder.Services.AddSingleton<AccountPasswordHasher>();
+builder.Services.AddSingleton<AccountAuthentication>();
 var keysPath = builder.Configuration["DataProtection:KeysPath"];
-builder.Services.AddDataProtection().SetApplicationName("Palabras");
-builder.Services.AddOptions<Microsoft.AspNetCore.DataProtection.KeyManagement.KeyManagementOptions>()
-    .Configure<ILoggerFactory>((options, loggerFactory) => options.XmlRepository = new ResilientKeyRepository(keysPath, loggerFactory));
+if (string.IsNullOrWhiteSpace(keysPath))
+{
+    keysPath = Path.Combine(Path.GetDirectoryName(databaseSettings.FilePath)!, "keys");
+}
+Directory.CreateDirectory(keysPath);
+builder.Services.AddDataProtection().SetApplicationName("Palabras").PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
+        LoginSecurity.PartitionKey(context), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
+        }));
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        await AuthEndpoints.WriteError(context.HttpContext.Response, 429, "rate_limited");
+    };
+});
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(options =>
 {
     options.Cookie.Name = "__Host-palabras";
@@ -102,18 +88,29 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     options.Cookie.Path = "/";
     options.ExpireTimeSpan = TimeSpan.FromDays(30);
     options.SlidingExpiration = true;
-    options.Events.OnRedirectToLogin = context => AuthEndpoints.WriteError(context.Response, 401, "unauthorized");
+    options.LoginPath = "/login";
+    options.Events.OnValidatePrincipal = context => context.HttpContext.RequestServices.GetRequiredService<AccountAuthentication>().ValidateAsync(context);
+    options.Events.OnRedirectToLogin = context =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+        {
+            return AuthEndpoints.WriteError(context.Response, 401, "unauthorized");
+        }
+        context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
     options.Events.OnRedirectToAccessDenied = context => AuthEndpoints.WriteError(context.Response, 403, "forbidden");
 });
 builder.Services.AddAuthorization(options => options.AddPolicy("reviewer", policy => policy.RequireRole("reviewer")));
 var app = builder.Build();
 await DatabaseLifecycle.InitializeAsync(databaseSettings, app.Lifetime.ApplicationStopping);
-if (users.Length == 0)
-{
-    AuthLog.NoAuthUsersConfigured(app.Logger);
-}
 app.UseForwardedHeaders();
 app.UseHostFiltering();
+app.Use(async (context, next) =>
+{
+    AuthLog.ResolvedClientAddress(app.Logger, context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+    await next(context);
+});
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/api") && !HttpMethods.IsGet(context.Request.Method)
@@ -157,7 +154,18 @@ app.Use(async (context, next) =>
 });
 // Explicit routing prevents minimal hosting from inserting routing ahead of forwarded headers.
 app.UseRouting();
+app.Use(LoginSecurity.ReadPartitionUsernameAsync);
+app.UseRateLimiter();
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    if (!LoginSecurity.IsPublic(context, app.Environment.WebRootFileProvider) && context.User.Identity?.IsAuthenticated != true)
+    {
+        await context.ChallengeAsync();
+        return;
+    }
+    await next(context);
+});
 app.UseAuthorization();
 var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
 var contentTypes = new FileExtensionContentTypeProvider();

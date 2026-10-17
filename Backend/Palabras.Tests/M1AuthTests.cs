@@ -5,10 +5,12 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Logging;
 using Xunit;
+using Palabras.Accounts;
+using Palabras.Persistence;
 
 namespace Palabras.Tests;
 
@@ -24,9 +26,10 @@ public sealed class M1AuthTests
         using var login = await Login(client, "learner");
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         using var body = JsonDocument.Parse(await login.Content.ReadAsStringAsync(CancellationToken.None));
-        Assert.Equal(new[] { "roles", "username" }, body.RootElement.EnumerateObject().Select(property => property.Name).Order().ToArray());
+        Assert.Equal(new[] { "role", "roles", "username" }, body.RootElement.EnumerateObject().Select(property => property.Name).Order().ToArray());
         Assert.Equal("learner", body.RootElement.GetProperty("username").GetString());
-        Assert.Equal("learner", Assert.Single(body.RootElement.GetProperty("roles").EnumerateArray()).GetString());
+        Assert.Equal("owner", body.RootElement.GetProperty("role").GetString());
+        Assert.Equal(new[] { "owner", "learner" }, body.RootElement.GetProperty("roles").EnumerateArray().Select(role => role.GetString()).ToArray());
         var cookie = Assert.Single(login.Headers.GetValues("Set-Cookie"));
         Assert.StartsWith("__Host-palabras=", cookie);
         Assert.Contains("; path=/", cookie);
@@ -133,6 +136,8 @@ public sealed class M1AuthTests
     {
         using var factory = new M1ApplicationFactory();
         using var client = factory.CreateHttpClient();
+        using var login = await Login(client, "learner");
+        client.DefaultRequestHeaders.Add("Cookie", Assert.Single(login.Headers.GetValues("Set-Cookie")).Split(';')[0]);
         using var response = await client.GetAsync(path, CancellationToken.None);
         await AssertJsonError(response, HttpStatusCode.NotFound);
     }
@@ -176,6 +181,8 @@ public sealed class M1AuthTests
         // PUT /api/ping matches no endpoint method, so the API fallback answers with JSON, not HTML.
         using var factory = new M1ApplicationFactory();
         using var client = factory.CreateHttpClient();
+        using var login = await Login(client, "learner");
+        client.DefaultRequestHeaders.Add("Cookie", Assert.Single(login.Headers.GetValues("Set-Cookie")).Split(';')[0]);
         using var request = new HttpRequestMessage(HttpMethod.Put, "/api/ping");
         request.Headers.Add("X-Palabras", "1");
         using var response = await client.SendAsync(request, CancellationToken.None);
@@ -183,13 +190,12 @@ public sealed class M1AuthTests
     }
 
     [Fact]
-    public async Task StartupWarnsWhenNoAuthUsersAreConfigured()
+    public async Task NoDatabaseAccountsMeansLoginIsImpossible()
     {
         using var factory = new M1ApplicationFactory(withUsers: false);
         using var client = factory.CreateHttpClient();
         using var login = await Login(client, "learner");
         await AssertJsonError(login, HttpStatusCode.Unauthorized);
-        Assert.Contains(factory.Warnings, message => message.Contains("No auth users are configured", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -200,6 +206,8 @@ public sealed class M1AuthTests
     {
         using var factory = new M1ApplicationFactory();
         using var client = factory.CreateHttpClient();
+        using var login = await Login(client, "learner");
+        client.DefaultRequestHeaders.Add("Cookie", Assert.Single(login.Headers.GetValues("Set-Cookie")).Split(';')[0]);
         using var response = await client.GetAsync(path, CancellationToken.None);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("no-cache", Assert.Single(response.Headers.GetValues("Cache-Control")));
@@ -279,7 +287,7 @@ public sealed class M1AuthTests
     }
 
     [Fact]
-    public async Task DevelopmentCanSeedPlaintextPassword()
+    public async Task DevelopmentUsesDatabaseAccountNotConfigurationPassword()
     {
         using var factory = new M1ApplicationFactory(environment: "Development", plaintext: true);
         using var client = factory.CreateHttpClient();
@@ -288,11 +296,12 @@ public sealed class M1AuthTests
     }
 
     [Fact]
-    public void ProductionRejectsPlaintextPassword()
+    public async Task ProductionIgnoresObsoleteConfigurationAccounts()
     {
-        using var factory = new M1ApplicationFactory(plaintext: true);
-        var exception = Assert.Throws<InvalidOperationException>(() => factory.CreateHttpClient());
-        Assert.Contains("Plaintext Auth passwords are allowed only in Development.", exception.Message);
+        using var factory = new M1ApplicationFactory(plaintext: true, withUsers: false);
+        using var client = factory.CreateHttpClient();
+        using var login = await Login(client, "learner");
+        await AssertJsonError(login, HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -328,7 +337,7 @@ public sealed class M1AuthTests
     }
 
     [Fact]
-    public async Task UnwritableKeyPathDoesNotBreakLoginOrSession()
+    public async Task InvalidKeyDirectoryFailsStartupInsteadOfUsingEphemeralKeys()
     {
         var blocked = Path.Combine(Path.GetTempPath(), "Palabras.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.GetDirectoryName(blocked)!);
@@ -336,17 +345,171 @@ public sealed class M1AuthTests
         try
         {
             using var factory = new M1ApplicationFactory(blocked);
-            using var client = factory.CreateHttpClient();
-            using var login = await Login(client, "learner");
-            Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-            client.DefaultRequestHeaders.Add("Cookie", Assert.Single(login.Headers.GetValues("Set-Cookie")).Split(';')[0]);
-            using var me = await client.GetAsync("/api/auth/me", CancellationToken.None);
-            Assert.Equal(HttpStatusCode.OK, me.StatusCode);
+            Assert.Throws<IOException>(() => factory.CreateHttpClient());
         }
         finally
         {
             File.Delete(blocked);
         }
+    }
+
+    [Fact]
+    public async Task WrongPasswordAndUnknownAccountHaveIdenticalBodies()
+    {
+        using var factory = new M1ApplicationFactory();
+        using var client = factory.CreateHttpClient();
+        using var wrong = await Login(client, "learner", "wrong");
+        using var unknown = await Login(client, "missing", "wrong");
+        Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
+        Assert.Equal(wrong.StatusCode, unknown.StatusCode);
+        Assert.Equal("{\"error\":\"invalid_credentials\"}", await wrong.Content.ReadAsStringAsync());
+        Assert.Equal(await wrong.Content.ReadAsStringAsync(), await unknown.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData("/")]
+    [InlineData("/index.html")]
+    [InlineData("/sesion")]
+    [InlineData("/made-up.json")]
+    public async Task ProtectedPagesRedirectWithoutRenderingApp(string path)
+    {
+        using var factory = new M1ApplicationFactory();
+        using var client = factory.CreateHttpClient();
+        using var anonymous = await client.GetAsync(path);
+        Assert.Equal(HttpStatusCode.Redirect, anonymous.StatusCode);
+        Assert.Contains("/login?ReturnUrl=", anonymous.Headers.Location!.ToString());
+        Assert.DoesNotContain("test spa", await anonymous.Content.ReadAsStringAsync());
+        using var login = await Login(client, "learner");
+        client.DefaultRequestHeaders.Add("Cookie", Assert.Single(login.Headers.GetValues("Set-Cookie")).Split(';')[0]);
+        using var authenticated = await client.GetAsync(path);
+        // File-like unknown routes retain the framework's nonfile SPA fallback semantics.
+        Assert.Equal(path.EndsWith(".json", StringComparison.Ordinal) ? HttpStatusCode.NotFound : HttpStatusCode.OK, authenticated.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/api/ping")]
+    [InlineData("/api/nope")]
+    [InlineData("/api")]
+    public async Task EveryApiExceptLoginRequiresAuthentication(string path)
+    {
+        using var factory = new M1ApplicationFactory();
+        using var client = factory.CreateHttpClient();
+        using var response = await client.GetAsync(path);
+        await AssertJsonError(response, HttpStatusCode.Unauthorized);
+        Assert.DoesNotContain("test spa", await response.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData("/healthz")]
+    [InlineData("/login")]
+    [InlineData("/login/")]
+    [InlineData("/manifest.webmanifest")]
+    [InlineData("/sw.js")]
+    public async Task LoginAndInfrastructureRemainPublic(string path)
+    {
+        using var factory = new M1ApplicationFactory();
+        using var client = factory.CreateHttpClient();
+        using var response = await client.GetAsync(path);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task LoginUpdatesLastLoginAndRenamePreservesSessionWithFreshIdentity()
+    {
+        using var factory = new M1ApplicationFactory();
+        using var client = factory.CreateHttpClient();
+        using var login = await Login(client, " LEARNER ");
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        client.DefaultRequestHeaders.Add("Cookie", Assert.Single(login.Headers.GetValues("Set-Cookie")).Split(';')[0]);
+        await using var database = new DatabaseSettings(factory.DatabasePath).CreateContext();
+        var user = await database.Users.AsNoTracking().SingleAsync(user => user.Username == "learner");
+        Assert.NotNull(user.LastLoginAt);
+        await new AccountService(database, new AccountPasswordHasher()).SetUsernameAsync("learner", "renamed", CancellationToken.None);
+        using var me = await client.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.OK, me.StatusCode);
+        Assert.Equal("renamed", (await me.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("username").GetString());
+        Assert.Equal(user.Id, (await database.Users.AsNoTracking().SingleAsync(candidate => candidate.Username == "renamed")).Id);
+    }
+
+    [Theory]
+    [InlineData("password")]
+    [InlineData("delete")]
+    [InlineData("reset")]
+    public async Task AccountRevocationRejectsOldCookieIncludingReusedId(string operation)
+    {
+        using var factory = new M1ApplicationFactory();
+        using var client = factory.CreateHttpClient();
+        using var login = await Login(client, "learner");
+        client.DefaultRequestHeaders.Add("Cookie", Assert.Single(login.Headers.GetValues("Set-Cookie")).Split(';')[0]);
+        var settings = new DatabaseSettings(factory.DatabasePath);
+        await using var database = settings.CreateContext();
+        var accounts = new AccountService(database, new AccountPasswordHasher());
+        if (operation == "password")
+        {
+            await accounts.SetPasswordAsync("learner", "new-test-password", CancellationToken.None);
+        }
+        else if (operation == "delete")
+        {
+            await database.Users.Where(user => user.Username == "learner").ExecuteDeleteAsync();
+        }
+        else
+        {
+            await DatabaseLifecycle.ResetAsync(settings, CancellationToken.None);
+            await accounts.CreateAsync("owner", "learner", "test-password", CancellationToken.None);
+            Assert.Equal(1, (await database.Users.AsNoTracking().SingleAsync()).Id);
+        }
+        using var me = await client.GetAsync("/api/auth/me");
+        await AssertJsonError(me, HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task LoginLimiterUsesForwardedIpAndNormalizedUsernameNotProxyAddress()
+    {
+        using var factory = new M1ApplicationFactory();
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var accepted = await SendForwardedLogin(factory, "172.18.0.37", "203.0.113.4", " LEARNER ");
+            Assert.Equal(401, accepted.Response.StatusCode);
+        }
+        var limited = await SendForwardedLogin(factory, "172.18.0.88", "203.0.113.4", "learner");
+        Assert.Equal(429, limited.Response.StatusCode);
+        Assert.Equal("60", limited.Response.Headers.RetryAfter.ToString());
+        Assert.Equal(IPAddress.Parse("203.0.113.4"), limited.Connection.RemoteIpAddress);
+        var differentClient = await SendForwardedLogin(factory, "172.18.0.37", "203.0.113.5", "learner");
+        Assert.Equal(401, differentClient.Response.StatusCode);
+        var differentUsername = await SendForwardedLogin(factory, "172.18.0.37", "203.0.113.4", "other");
+        Assert.Equal(401, differentUsername.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task NonProxyCannotEvadeRateLimiterWithForgedForwardedIp()
+    {
+        using var factory = new M1ApplicationFactory();
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            var response = await SendForwardedLogin(factory, "192.168.68.42", $"203.0.113.{attempt + 1}", "learner");
+            Assert.Equal(attempt < 5 ? 401 : 429, response.Response.StatusCode);
+            Assert.Equal(IPAddress.Parse("192.168.68.42"), response.Connection.RemoteIpAddress);
+        }
+    }
+
+    private static Task<HttpContext> SendForwardedLogin(M1ApplicationFactory factory, string peer, string forwardedIp, string username)
+    {
+        var body = JsonSerializer.SerializeToUtf8Bytes(new { username, password = "wrong" });
+        return factory.Server.SendAsync(context =>
+        {
+            context.Connection.RemoteIpAddress = IPAddress.Parse(peer);
+            context.Request.Method = "POST";
+            context.Request.Path = "/api/auth/login";
+            context.Request.Host = new HostString("localhost");
+            context.Request.Scheme = "http";
+            context.Request.Headers["X-Forwarded-For"] = forwardedIp;
+            context.Request.Headers["X-Palabras"] = "1";
+            context.Request.ContentType = "application/json";
+            context.Request.ContentLength = body.Length;
+            context.Request.Body = new MemoryStream(body);
+            context.Features.Set<IHttpRequestBodyDetectionFeature>(new RequestBodyDetectionFeature());
+        }, CancellationToken.None);
     }
 
     private static async Task<HttpResponseMessage> Login(HttpClient client, string? username, string? password = "test-password")
@@ -382,6 +545,9 @@ public sealed class M1AuthTests
         private readonly bool _plaintext;
         private readonly bool _withUsers;
         private readonly CapturingLoggerProvider _logs = new();
+        private static readonly string PasswordHash = new AccountPasswordHasher().Hash("test-password");
+        internal string DatabasePath => string.IsNullOrEmpty(_keys) || File.Exists(_keys)
+            ? Path.Combine(_root, "data", "palabras.db") : Path.Combine(_keys, "palabras.db");
 
         internal M1ApplicationFactory(string keys = "", string environment = "Production", bool plaintext = false, bool withUsers = true)
         {
@@ -392,6 +558,17 @@ public sealed class M1AuthTests
             Directory.CreateDirectory(Path.Combine(_root, "wwwroot"));
             File.WriteAllText(Path.Combine(_root, "wwwroot", "index.html"), "<!doctype html><html>test spa</html>");
             File.WriteAllText(Path.Combine(_root, "wwwroot", "manifest.webmanifest"), "{\"name\":\"Palabras\"}");
+            File.WriteAllText(Path.Combine(_root, "wwwroot", "sw.js"), "// public worker");
+            Directory.CreateDirectory(Path.GetDirectoryName(DatabasePath)!);
+            using var database = new DatabaseSettings(DatabasePath).CreateContext();
+            database.Database.Migrate();
+            if (_withUsers && !database.Users.Any())
+            {
+                var now = DateTimeOffset.UtcNow;
+                database.Users.AddRange(new User { Username = "learner", Role = "owner", PasswordHash = PasswordHash, CreatedAt = now, UpdatedAt = now },
+                    new User { Username = "reviewer", Role = "reviewer", PasswordHash = PasswordHash, CreatedAt = now, UpdatedAt = now });
+                database.SaveChanges();
+            }
         }
 
         internal IReadOnlyList<string> Warnings => _logs.Warnings;
@@ -405,22 +582,12 @@ public sealed class M1AuthTests
         {
             builder.UseEnvironment(_environment);
             builder.UseWebRoot(Path.Combine(_root, "wwwroot"));
-            builder.UseSetting("DataProtection:KeysPath", _keys);
-            builder.UseSetting("ConnectionStrings:Default", $"Data Source={Path.Combine(_root, "data", "palabras.db")}");
+            builder.UseSetting("DataProtection:KeysPath", string.IsNullOrEmpty(_keys) ? Path.Combine(_root, "keys") : _keys);
+            builder.UseSetting("ConnectionStrings:Default", $"Data Source={DatabasePath}");
             builder.ConfigureLogging(logging => logging.AddProvider(_logs));
-            if (!_withUsers)
-            {
-                return;
-            }
-            var hash = new PasswordHasher<object>().HashPassword(new object(), "test-password");
-            builder.UseSetting("Auth:Users:0:Username", "learner");
-            builder.UseSetting("Auth:Users:0:PasswordHash", hash);
-            builder.UseSetting("Auth:Users:0:Roles:0", "learner");
-            builder.UseSetting("Auth:Users:1:Username", "reviewer");
-            builder.UseSetting("Auth:Users:1:PasswordHash", hash);
-            builder.UseSetting("Auth:Users:1:Roles:0", "reviewer");
             if (_plaintext)
             {
+                builder.UseSetting("Auth:Users:0:Username", "learner");
                 builder.UseSetting("Auth:Users:0:Password", "test-password");
             }
         }

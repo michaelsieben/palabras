@@ -1,5 +1,9 @@
 using System.Net;
 using System.Text.Json;
+using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Palabras.Accounts;
+using Palabras.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
@@ -27,7 +31,7 @@ public sealed class M0ApiTests
     public async Task PingReturnsDocumentedStatusAndVersionJsonShape()
     {
         using var factory = new M0ApplicationFactory();
-        using var client = factory.CreateHttpClient();
+        using var client = await factory.CreateAuthenticatedClientAsync();
 
         using var response = await client.GetAsync("/api/ping", CancellationToken.None);
 
@@ -64,7 +68,7 @@ public sealed class M0ApiTests
     public async Task UnknownApiRouteReturnsNotFoundInsteadOfSpaDocument()
     {
         using var factory = new M0ApplicationFactory();
-        using var client = factory.CreateHttpClient();
+        using var client = await factory.CreateAuthenticatedClientAsync();
 
         using var response = await client.GetAsync("/api/does-not-exist", CancellationToken.None);
 
@@ -78,7 +82,7 @@ public sealed class M0ApiTests
     public async Task ClientRouteReturnsSpaHtml()
     {
         using var factory = new M0ApplicationFactory();
-        using var client = factory.CreateHttpClient();
+        using var client = await factory.CreateAuthenticatedClientAsync();
 
         using var response = await client.GetAsync("/some-spa/route", CancellationToken.None);
 
@@ -152,8 +156,22 @@ public sealed class M0ApiTests
         internal HttpClient CreateHttpClient(string baseAddress = "http://localhost") => CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri(baseAddress),
-            AllowAutoRedirect = false
+            AllowAutoRedirect = false, HandleCookies = false
         });
+
+        internal async Task<HttpClient> CreateAuthenticatedClientAsync()
+        {
+            var client = CreateHttpClient();
+            await using var database = new DatabaseSettings(Path.Combine(MissingDataDirectory, "palabras.db")).CreateContext();
+            await new AccountService(database, new AccountPasswordHasher()).CreateAsync("owner", "learner", "test-password", CancellationToken.None);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login");
+            request.Headers.Add("X-Palabras", "1");
+            request.Content = JsonContent.Create(new { username = "learner", password = "test-password" });
+            using var login = await client.SendAsync(request, CancellationToken.None);
+            Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+            client.DefaultRequestHeaders.Add("Cookie", Assert.Single(login.Headers.GetValues("Set-Cookie")).Split(';')[0]);
+            return client;
+        }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -162,7 +180,7 @@ public sealed class M0ApiTests
             builder.UseWebRoot(Path.Combine(_root, "wwwroot"));
             builder.UseSetting("ConnectionStrings:Default", $"Data Source={Path.Combine(MissingDataDirectory, "palabras.db")}");
             builder.UseSetting("https_port", "443");
-            builder.UseSetting("DataProtection:KeysPath", "");
+            builder.UseSetting("DataProtection:KeysPath", Path.Combine(_root, "keys"));
         }
 
         protected override void Dispose(bool disposing)
