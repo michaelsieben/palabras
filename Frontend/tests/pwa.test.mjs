@@ -64,7 +64,7 @@ test('update waits for explicit message, then only deletes this app old caches a
 
 test('offline navigation serves coherent shell for known routes and real fallback for unknown route', async () => {
   const h = harness(true)
-  for (const route of ['/', '/sesion', '/palabras', '/revisar', '/ajustes', '/aprobadas', '/not-cached']) {
+  for (const route of ['/', '/login', '/sesion', '/palabras', '/revisar', '/ajustes', '/aprobadas', '/not-cached']) {
     let response
     h.events.fetch({ request: { url: `https://palabras.test${route}`, method: 'GET', mode: 'navigate' }, respondWith: promise => { response = promise } })
     assert.equal(await response, route === '/not-cached' ? 'cached:/offline.html' : 'cached:/index.html')

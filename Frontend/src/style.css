@@ -28,7 +28,7 @@ h2 { font-size: 1.5rem; margin: 0 0 16px; }
 h3 { font-size: 1.4rem; margin: 0 0 14px; }
 small { font-size: .8rem; }
 .app-shell { width: 100%; max-width: 1600px; margin-inline: auto; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 110px max(16px, env(safe-area-inset-left)); }
-.app-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.app-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
 .app-header a { min-height: 48px; display: inline-flex; align-items: center; font-size: .875rem; }
 .app-header .brand { gap: 10px; font: 700 1.8rem Georgia, serif; text-decoration: none; }
 .brand span { font: 650 1.1rem system-ui, sans-serif; letter-spacing: -.025em; }
@@ -117,6 +117,8 @@ fieldset { border: 0; margin: 0; padding: 0; }
 .bottom-nav a { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 10px 8px; border-radius: 12px; text-decoration: none; font-weight: 550; color: var(--muted); }
 .bottom-nav [aria-current=page] { background: var(--soft); color: var(--accent); }
 .settings { max-width: 42rem; }
+.login-panel { max-width: 28rem; margin-inline: auto; }
+.auth-error { color: var(--warning); }
 .update-banner, .install-banner { background: var(--soft); border-radius: 16px; padding: 16px; margin-top: 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .update-banner p { font-size: .875rem; margin-bottom: 0; }
 .debug dl { margin: 0; }

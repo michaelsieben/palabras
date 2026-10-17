@@ -12,7 +12,7 @@ export function workerSource(version, urls) {
   return `/* Generated from built bytes. Do not edit. */
 const CACHE = 'palabras-shell-${version}';
 const SHELL = ${JSON.stringify(urls)};
-const ROUTES = ['/', '/sesion', '/palabras', '/revisar', '/aprobadas', '/ajustes'];
+const ROUTES = ['/', '/login', '/sesion', '/palabras', '/revisar', '/aprobadas', '/ajustes'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));
 });
