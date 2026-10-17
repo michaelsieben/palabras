@@ -31,7 +31,7 @@ export async function apiRequest(path: `/api/${string}`, init: RequestInit = {})
   if (init.body !== undefined && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   let response: Response
   try {
-    response = await fetch(path, { ...init, method, headers, credentials: 'include', redirect: 'error' })
+    response = await fetch(path, { ...init, method, headers, credentials: 'include', redirect: 'error', cache: 'no-store' })
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error
     throw new ApiError('network')
@@ -49,8 +49,8 @@ export async function apiRequest(path: `/api/${string}`, init: RequestInit = {})
 }
 
 function sessionUser(body: unknown): SessionUser {
-  if (typeof body !== 'object' || body === null || !('username' in body) || typeof body.username !== 'string' || !('roles' in body) || !Array.isArray(body.roles) || !body.roles.every((role: unknown) => typeof role === 'string')) throw new ApiError('invalid-response')
-  return { username: body.username, roles: body.roles }
+  if (typeof body !== 'object' || body === null || !('username' in body) || typeof body.username !== 'string' || !('role' in body) || (body.role !== 'owner' && body.role !== 'reviewer')) throw new ApiError('invalid-response')
+  return { username: body.username, role: body.role }
 }
 
 export async function login(credentials: LoginCredentials): Promise<SessionUser> {

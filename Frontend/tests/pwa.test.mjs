@@ -39,15 +39,15 @@ test('cache version is deterministic and changes when public/app content changes
   } finally { await rm(directory, { recursive: true }) }
 })
 
-function harness(offline = false) {
+function harness(offline = false, networkResponse = 'network') {
   const events = {}; const deleted = []; let skipped = false; let claimed = false
   const context = createContext({
     URL,
     self: { location: { origin: 'https://palabras.test' }, addEventListener: (event, handler) => { events[event] = handler }, skipWaiting: () => { skipped = true }, clients: { claim: async () => { claimed = true } } },
-    caches: { open: async () => ({ addAll: async urls => { assert.ok(urls.includes('/index.html')) }, match: async url => `cached:${url}` }), keys: async () => ['palabras-shell-old', 'palabras-shell-new', 'other-app'], delete: async key => { deleted.push(key) } },
-    fetch: async () => { if (offline) throw new Error('offline'); return 'network' },
+    caches: { open: async () => ({ addAll: async urls => { assert.ok(urls.includes('/login')); assert.ok(!urls.includes('/index.html')) }, match: async url => `cached:${url}` }), keys: async () => ['palabras-shell-old', 'palabras-shell-new', 'other-app'], delete: async key => { deleted.push(key) } },
+    fetch: async () => { if (offline) throw new Error('offline'); return networkResponse },
   })
-  runInContext(workerSource('new', ['/index.html', '/offline.html', '/assets/app.js']), context)
+  runInContext(workerSource('new', ['/login', '/offline.htm', '/assets/app.js']), context)
   return { events, deleted, skipped: () => skipped, claimed: () => claimed }
 }
 
@@ -62,25 +62,37 @@ test('update waits for explicit message, then only deletes this app old caches a
   assert.deepEqual(h.deleted, ['palabras-shell-old']); assert.equal(h.claimed(), true)
 })
 
-test('offline navigation serves coherent shell for known routes and real fallback for unknown route', async () => {
+test('offline navigation never implies signed-in access, including known routes', async () => {
   const h = harness(true)
   for (const route of ['/', '/login', '/sesion', '/palabras', '/revisar', '/ajustes', '/aprobadas', '/not-cached']) {
     let response
     h.events.fetch({ request: { url: `https://palabras.test${route}`, method: 'GET', mode: 'navigate' }, respondWith: promise => { response = promise } })
-    assert.equal(await response, route === '/not-cached' ? 'cached:/offline.html' : 'cached:/index.html')
+    assert.equal(await response, 'cached:/offline.htm')
   }
 })
 
 test('SW never caches backend/private requests, manifest, worker, external origins, or mutations', () => {
   const h = harness()
-  for (const [url, method] of [['/api/learn/plan', 'GET'], ['/manifest.webmanifest', 'GET'], ['/sw.js', 'GET'], ['/sesion', 'POST'], ['https://external.test/a', 'GET']]) {
+  for (const [url, method] of [['/api', 'GET'], ['/api/auth/me', 'GET'], ['/api/learn/plan', 'GET'], ['/manifest.webmanifest', 'GET'], ['/sw.js', 'GET'], ['/sesion', 'POST'], ['https://external.test/a', 'GET']]) {
     h.events.fetch({ request: { url: url.startsWith('https') ? url : `https://palabras.test${url}`, method, mode: 'cors' }, respondWith: () => { assert.fail('must use network without interception') } })
+  }
+})
+
+test('online navigation passes 401/403/500 through unchanged, never cached or masked', async () => {
+  for (const status of [200, 401, 403, 500]) {
+    const networkResponse = new Response('server', { status })
+    const h = harness(false, networkResponse)
+    for (const path of ['/', '/login', '/revisar', '/unknown']) {
+      let response
+      h.events.fetch({ request: { url: `https://palabras.test${path}`, method: 'GET', mode: 'navigate' }, respondWith: promise => { response = promise } })
+      assert.equal(await response, networkResponse)
+    }
   }
 })
 
 test('built output includes manifest/icons/worker/fallback but excludes dev diagnostic chunk', async () => {
   const files = await collectFiles(fileURLToPath(new URL('../dist/', import.meta.url)))
-  for (const name of ['manifest.webmanifest', 'sw.js', 'offline.html', 'icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png']) assert.ok(files.some(file => file.endsWith(name)), `${name} emitted`)
+  for (const name of ['manifest.webmanifest', 'sw.js', 'offline.htm', 'icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png']) assert.ok(files.some(file => file.endsWith(name)), `${name} emitted`)
   for (const file of files.filter(file => file.endsWith('.js'))) {
     const source = await readFile(file, 'utf8')
     assert.ok(!source.includes('Diagnóstico en vivo'), 'debug implementation excluded from production')

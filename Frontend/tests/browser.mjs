@@ -8,14 +8,19 @@ const server = await preview({ preview: { host: '127.0.0.1', port: 4173, strictP
   name: 'test-update-response',
   configurePreviewServer(server) {
     server.middlewares.use((req, res, next) => {
-      if (req.url?.startsWith('/sw.js') && swOverride) { res.setHeader('Content-Type', 'text/javascript'); res.setHeader('Cache-Control', 'no-cache'); res.end(swOverride) }
+      // Match production's protected .html routes: precache must use public /login + .htm.
+      if (req.url === '/guarded-navigation' || req.url === '/api/raw401') { res.statusCode = 401; res.setHeader('Content-Type', 'text/plain'); res.end('Unauthorized test response') }
+      else if (req.url === '/index.html' || req.url === '/offline.html') { res.statusCode = 302; res.setHeader('Location', '/login'); res.end() }
+      else if (req.url?.startsWith('/sw.js') && swOverride) { res.setHeader('Content-Type', 'text/javascript'); res.setHeader('Cache-Control', 'no-cache'); res.end(swOverride) }
       else next()
     })
   },
 }] })
 let browser
 async function mockSession(context) {
-  await context.route('**/api/auth/me', route => route.fulfill({ json: { username: 'demo', roles: ['learner', 'reviewer'] } }))
+  const identity = { username: 'demo', role: 'owner' }
+  await context.route('**/api/auth/me', route => route.fulfill({ json: identity }))
+  return identity
 }
 try {
   browser = await chromium.launch({ headless: true })
@@ -23,31 +28,63 @@ try {
   const authPage = await authContext.newPage()
   let user = null
   let logoutStatus = 204
+  let loginStatus = 200
+  let loginGate
+  let releaseMe
+  const meGate = new Promise(resolve => { releaseMe = resolve })
   const authErrors = []
   authPage.on('pageerror', error => authErrors.push(error.message))
   await authContext.route('**/api/**', async route => {
     const request = route.request()
     const path = new URL(request.url()).pathname
     if (request.method() !== 'GET') assert.equal(request.headers()['x-palabras'], '1')
-    if (path.endsWith('/me')) return route.fulfill({ status: user ? 200 : 401, json: user ?? { error: 'unauthorized' } })
+    if (path.endsWith('/me')) { await meGate; return route.fulfill({ status: user ? 200 : 401, json: user ?? { error: 'unauthorized' } }) }
     if (path.endsWith('/login')) {
       const credentials = request.postDataJSON()
+      if (loginGate) await loginGate
+      if (loginStatus === 0) return route.abort('failed')
+      if (loginStatus !== 200) return route.fulfill({ status: loginStatus, json: { error: 'login' } })
       if (credentials.password !== 'correct') return route.fulfill({ status: 401, json: { error: 'unauthorized' } })
-      user = { username: credentials.username, roles: [credentials.username === 'reviewer' ? 'reviewer' : 'learner'] }
+      user = { username: credentials.username, role: credentials.username === 'reviewer' ? 'reviewer' : 'owner' }
       return route.fulfill({ json: user })
     }
     if (logoutStatus === 204) { user = null; return route.fulfill({ status: 204 }) }
     return route.fulfill({ status: logoutStatus, json: { error: 'auth' } })
   })
   await authPage.goto('http://127.0.0.1:4173/revisar')
+  await authPage.locator('.auth-skeleton').waitFor()
+  assert.equal(await authPage.getByLabel('Usuario', { exact: true }).count(), 0)
+  releaseMe()
   await authPage.getByRole('button', { name: 'Iniciar sesión', exact: true }).waitFor()
   assert.equal(new URL(authPage.url()).searchParams.get('next'), '/revisar')
+  assert.equal(await authPage.getByLabel('Usuario', { exact: true }).evaluate(el => el === document.activeElement), true)
   await authPage.getByLabel('Usuario', { exact: true }).fill('learner')
   await authPage.getByLabel('Contraseña', { exact: true }).fill('wrong')
-  await authPage.getByRole('button', { name: 'Iniciar sesión', exact: true }).click()
+  await authPage.getByLabel('Contraseña', { exact: true }).press('Enter')
   await authPage.getByText('Usuario o contraseña incorrectos.').waitFor()
+  assert.equal(await authPage.getByLabel('Usuario', { exact: true }).inputValue(), 'learner')
+  assert.equal(await authPage.getByLabel('Contraseña', { exact: true }).inputValue(), '')
+  for (const status of [429, 500, 0]) {
+    loginStatus = status
+    let releaseLogin
+    if (status === 429) loginGate = new Promise(resolve => { releaseLogin = resolve })
+    await authPage.getByLabel('Contraseña', { exact: true }).fill('correct')
+    await authPage.getByRole('button', { name: 'Iniciar sesión', exact: true }).click()
+    if (releaseLogin) {
+      assert.equal(await authPage.getByRole('button', { name: 'Iniciando sesión…' }).isDisabled(), true)
+      releaseLogin()
+      loginGate = undefined
+    }
+    await authPage.getByText(status === 429 ? 'Espera un momento y vuelve a intentarlo.' : 'No se ha podido iniciar sesión. Comprueba la conexión e inténtalo de nuevo.').waitFor()
+    assert.equal(await authPage.getByLabel('Usuario', { exact: true }).inputValue(), 'learner')
+    assert.equal(await authPage.getByLabel('Contraseña', { exact: true }).inputValue(), '')
+  }
+  loginStatus = 200
   await authPage.getByLabel('Contraseña', { exact: true }).fill('correct')
   await authPage.getByRole('button', { name: 'Iniciar sesión', exact: true }).click()
+  await authPage.getByRole('button', { name: 'Mostrar respuesta' }).waitFor()
+  assert.equal(new URL(authPage.url()).pathname, '/')
+  await authPage.goto('http://127.0.0.1:4173/revisar')
   await authPage.getByRole('heading', { name: 'Sin permiso', exact: true }).waitFor()
   assert.equal(new URL(authPage.url()).pathname, '/revisar')
   assert.equal(await authPage.getByRole('link', { name: 'Vista revisora' }).count(), 0)
@@ -76,19 +113,45 @@ try {
   await authPage.getByLabel('Usuario', { exact: true }).fill('reviewer')
   await authPage.getByLabel('Contraseña', { exact: true }).fill('correct')
   await authPage.getByRole('button', { name: 'Iniciar sesión', exact: true }).click()
-  await authPage.getByRole('link', { name: 'Vista revisora' }).click()
   await authPage.getByRole('button', { name: 'No ✗', exact: true }).first().waitFor()
+  assert.equal(new URL(authPage.url()).pathname, '/revisar')
+  assert.equal(await authPage.locator('.account-name').textContent(), 'reviewer')
   assert.equal(await authPage.getByRole('navigation', { name: 'Navegación revisora', exact: true }).count(), 1)
   assert.equal(await authPage.getByRole('link', { name: 'Revisar', exact: true }).count(), 1)
   logoutStatus = 204
   await authPage.getByRole('button', { name: 'Cerrar sesión', exact: true }).click()
   await authPage.getByRole('button', { name: 'Iniciar sesión', exact: true }).waitFor()
   assert.deepEqual(authErrors, [])
-  console.log('Auth browser: anonymous intended route, bad credentials, learner denial, reviewer access, logout; 403 retains session, 401 redirects; mutation headers verified.')
+  console.log('Built auth browser: /me 401 → login; skeleton without form flash; username autofocus; Enter submit; distinct 401/429/500/network failures; username retained, password cleared; owner home, reviewer automatic /revisar; logout 403 retains session, later API 401 → login; mutation headers verified.')
   await authContext.close()
+  const cachedAuthContext = await browser.newContext({ serviceWorkers: 'allow' })
+  await cachedAuthContext.route('**/api/auth/me', route => route.fulfill({ status: 401, json: { error: 'unauthorized' } }))
+  const cachedAuthPage = await cachedAuthContext.newPage()
+  await cachedAuthPage.goto('http://127.0.0.1:4173/')
+  await cachedAuthPage.getByRole('button', { name: 'Iniciar sesión', exact: true }).waitFor()
+  await cachedAuthPage.evaluate(async () => { await navigator.serviceWorker.ready; if (!navigator.serviceWorker.controller) await new Promise(resolve => navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true })) })
+  await cachedAuthPage.reload()
+  await cachedAuthPage.getByRole('button', { name: 'Iniciar sesión', exact: true }).waitFor()
+  assert.equal(await cachedAuthPage.getByRole('button', { name: 'Mostrar respuesta' }).count(), 0)
+  const cachedPaths = await cachedAuthPage.evaluate(async () => (await Promise.all((await caches.keys()).map(async name => (await (await caches.open(name)).keys()).map(request => new URL(request.url).pathname)))).flat())
+  assert.ok(cachedPaths.includes('/login'))
+  assert.ok(cachedPaths.includes('/offline.htm'))
+  assert.ok(!cachedPaths.includes('/index.html'))
+  assert.ok(cachedPaths.every(path => !path.startsWith('/api')))
+  const rawApi = await cachedAuthPage.evaluate(async () => { const response = await fetch('/api/raw401'); return { status: response.status, body: await response.text() } })
+  assert.deepEqual(rawApi, { status: 401, body: 'Unauthorized test response' })
+  const guarded = await cachedAuthPage.goto('http://127.0.0.1:4173/guarded-navigation')
+  assert.equal(guarded.status(), 401)
+  assert.equal(await cachedAuthPage.locator('body').textContent(), 'Unauthorized test response')
+  await cachedAuthContext.setOffline(true)
+  const offlineApi = await cachedAuthPage.evaluate(async () => { try { await fetch('/api/raw401'); return 'masked' } catch { return 'network failure' } })
+  assert.equal(offlineApi, 'network failure')
+  console.log(`Built bundle with active SW and precached shell: /me 401 → /login, no learner view; ${cachedPaths.length} static cached paths, no API responses.`)
+  console.log('Active SW: raw API and navigation 401 preserved with original body; offline API rejects, never receives fallback HTML. Protected .html precache URLs avoided.')
+  await cachedAuthContext.close()
   for (const viewport of [{ width: 390, height: 844 }, { width: 2000, height: 1200 }]) {
     const context = await browser.newContext({ viewport, reducedMotion: 'reduce' })
-    await mockSession(context)
+    const demoIdentity = await mockSession(context)
     const page = await context.newPage()
     const errors = []; const apiRequests = []
     page.on('pageerror', error => errors.push(error.message))
@@ -118,7 +181,9 @@ try {
     }
     await page.getByRole('button', { name: 'Good La sabía' }).click()
     assert.equal(await page.getByRole('button', { name: 'Mostrar respuesta' }).evaluate(el => el === document.activeElement), true)
-    await page.getByRole('link', { name: 'Vista revisora' }).click()
+    demoIdentity.role = 'reviewer'
+    await page.goto('http://127.0.0.1:4173/')
+    await page.getByRole('button', { name: 'No ✗', exact: true }).first().waitFor()
     const reviewer = await measure(); assert.ok(reviewer.scroll <= viewport.width); assert.equal(reviewer.smallTargets, 0)
     assert.equal(reviewer.columns.split(' ').length, viewport.width >= 1536 ? 3 : 1)
     await page.getByRole('button', { name: 'No ✗', exact: true }).first().click()
@@ -137,16 +202,16 @@ try {
     await page.emulateMedia({ colorScheme: 'dark' })
     assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), 'dark')
     await context.setOffline(true)
-    // Playwright still fulfils mocked /me while offline: shell coverage, not offline-session coverage.
     await page.goto('http://127.0.0.1:4173/palabras')
-    await page.getByRole('heading', { name: 'Tus palabras' }).waitFor()
+    await page.getByRole('heading', { name: 'Sin conexión' }).waitFor()
+    await page.getByText('No se puede confirmar si has iniciado sesión. Conéctate para abrir Palabras.').waitFor()
     await page.goto('http://127.0.0.1:4173/unknown-offline')
     await page.getByRole('heading', { name: 'Sin conexión' }).waitFor()
     assert.deepEqual(errors, [])
-    // Two app loads (home and palabras); unknown-offline serves the fallback, not the app.
+    // Two online app loads; both offline navigations serve signed-out-neutral fallback.
     assert.equal(apiRequests.length, 2)
     assert.ok(apiRequests.every(request => request.method === 'GET' && request.pathname === '/api/auth/me'))
-    console.log(JSON.stringify({ viewport, learner, grading, reviewer, drawer, textScale200: scaled, offlineShell: 'ok', offlineFallback: 'ok', revealFocus: 'ok', editAlternative: 'ok', pageErrors: errors, apiRequests }))
+    console.log(JSON.stringify({ viewport, learner, grading, reviewer, drawer, textScale200: scaled, offlineNavigation: 'neutral fallback', revealFocus: 'ok', editAlternative: 'ok', pageErrors: errors, apiRequests }))
     await context.close()
   }
   const updateContext = await browser.newContext()
@@ -174,10 +239,14 @@ try {
   await page.getByText('Registro fallido; la app sigue funcionando en línea').waitFor()
   console.log('Registration failure: app/settings usable, auth backend mocked.')
   const response = await page.request.get('http://127.0.0.1:4173/manifest.webmanifest')
+  assert.equal(response.status(), 200)
   assert.equal(response.headers()['cache-control'], 'no-cache')
+  const manifest = await response.json()
+  for (const icon of manifest.icons) assert.equal((await page.request.get(`http://127.0.0.1:4173${icon.src}`)).status(), 200)
   const sw = await page.request.get('http://127.0.0.1:4173/sw.js')
+  assert.equal(sw.status(), 200)
   assert.equal(sw.headers()['cache-control'], 'no-cache')
-  console.log('Vite preview app headers: manifest.webmanifest and sw.js Cache-Control: no-cache.')
+  console.log('Built preview public routes: manifest, all 4 icons and sw.js return 200; manifest/sw Cache-Control: no-cache. Production host not verified.')
   await context.close()
   // preview sets NODE_ENV=production; reset before deliberately starting dev harness.
   process.env.NODE_ENV = 'development'
@@ -203,7 +272,7 @@ try {
     })
     await racePage.getByRole('button', { name: 'Iniciar sesión', exact: true }).waitFor()
     const staleResponse = racePage.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/me')
-    await staleMe.fulfill({ json: { username: 'stale-reviewer', roles: ['reviewer'] } })
+    await staleMe.fulfill({ json: { username: 'stale-reviewer', role: 'reviewer' } })
     assert.equal(await (await staleResponse).finished(), null)
     // Flush response processing and React's browser render before checking absence of restoration.
     await racePage.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
@@ -214,7 +283,7 @@ try {
     console.log('Session revision guard: delayed successful /me cannot restore session after a later API 401.')
     await raceContext.close()
     const debugContext = await browser.newContext({ viewport: { width: 390, height: 844 } })
-    await mockSession(debugContext)
+    await debugContext.route('**/api/auth/me', route => route.fulfill({ status: 401, json: { error: 'unauthorized' } }))
     const debugPage = await debugContext.newPage()
     await debugPage.goto('http://127.0.0.1:5173/debug/viewport')
     await debugPage.getByRole('heading', { name: 'Diagnóstico en vivo · solo desarrollo' }).waitFor()
@@ -223,7 +292,7 @@ try {
     await debugPage.setViewportSize({ width: 2000, height: 1200 })
     await debugPage.getByText('2000 × 1200 CSS px', { exact: true }).waitFor()
     await debugPage.getByText('2xl', { exact: true }).waitFor()
-    console.log('Dev viewport route: live resize 390×844 → 2000×1200; breakpoint 2xl; manifest/icons decoded; no backend.')
+    console.log('Anonymous dev viewport route with /me 401: live resize 390×844 → 2000×1200; breakpoint 2xl; manifest/icons decoded; no backend.')
     await debugContext.close()
   } finally { await devServer.close() }
   const files = await readFile(new URL('../dist/index.html', import.meta.url), 'utf8')

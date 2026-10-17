@@ -7,15 +7,16 @@ test('API calls include cookies, mutation header and documented JSON bodies', as
   const requests = []
   t.mock.method(globalThis, 'fetch', async (path, init) => {
     requests.push({ path, init })
-    return path.endsWith('/logout') ? new Response(null, { status: 204 }) : Response.json({ username: 'ana', roles: ['reviewer'] })
+    return path.endsWith('/logout') ? new Response(null, { status: 204 }) : Response.json({ username: 'ana', role: 'reviewer' })
   })
-  assert.deepEqual(await me(), { username: 'ana', roles: ['reviewer'] })
-  assert.deepEqual(await login({ username: 'ana', password: 'secret' }), { username: 'ana', roles: ['reviewer'] })
+  assert.deepEqual(await me(), { username: 'ana', role: 'reviewer' })
+  assert.deepEqual(await login({ username: 'ana', password: 'secret' }), { username: 'ana', role: 'reviewer' })
   assert.equal(await logout(), undefined)
   assert.deepEqual(requests.map(({ path }) => path), ['/api/auth/me', '/api/auth/login', '/api/auth/logout'])
   for (const { init } of requests) {
     assert.equal(init.credentials, 'include')
     assert.equal(init.redirect, 'error')
+    assert.equal(init.cache, 'no-store')
     assert.equal(init.headers.get('Accept'), 'application/json')
     assert.equal(init.headers.get('X-Palabras'), init.method === 'GET' ? null : '1')
   }
@@ -30,7 +31,7 @@ test('401 invalidates session for every API path; 403 maps error without invalid
   let invalidations = 0
   const stop = onUnauthorized(() => { invalidations++ })
   try {
-    for (const [status, kind] of [[401, 'unauthorized'], [403, 'forbidden'], [400, 'http']]) {
+    for (const [status, kind] of [[401, 'unauthorized'], [403, 'forbidden'], [429, 'http'], [500, 'http'], [400, 'http']]) {
       t.mock.method(globalThis, 'fetch', async () => Response.json({ error: kind }, { status }))
       await assert.rejects(apiRequest('/api/future-feature'), error => error instanceof ApiError && error.kind === kind && error.status === status && error.body.error === kind)
       assert.equal(invalidations, 1)
@@ -46,14 +47,14 @@ test('network and invalid successful JSON/session responses become typed errors'
   await assert.rejects(me(), error => error instanceof ApiError && error.kind === 'network')
   t.mock.method(globalThis, 'fetch', async () => new Response('not JSON'))
   await assert.rejects(me(), error => error instanceof ApiError && error.kind === 'invalid-response')
-  t.mock.method(globalThis, 'fetch', async () => Response.json({ username: 'ana', roles: [1] }))
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ username: 'ana', role: 'learner' }))
   await assert.rejects(me(), error => error instanceof ApiError && error.kind === 'invalid-response')
 })
 
 test('learner routes allow either role; reviewer routes deny learner and send anonymous to login', () => {
-  const learner = { username: 'alumno', roles: ['learner'] }
-  const reviewer = { username: 'ana', roles: ['reviewer'] }
-  for (const path of ['/', '/sesion', '/palabras', '/ajustes', '/debug/viewport', '/unknown']) {
+  const learner = { username: 'alumno', role: 'owner' }
+  const reviewer = { username: 'ana', role: 'reviewer' }
+  for (const path of ['/', '/sesion', '/palabras', '/ajustes', '/unknown']) {
     assert.equal(routeAccess(path, null), 'login')
     for (const user of [learner, reviewer]) assert.equal(routeAccess(path, user), 'allow')
   }
@@ -63,11 +64,17 @@ test('learner routes allow either role; reviewer routes deny learner and send an
     assert.equal(routeAccess(path, reviewer), 'allow')
   }
   assert.equal(routeAccess('/login', null), 'allow')
+  assert.equal(routeAccess('/debug/viewport', null), 'allow')
 })
 
 test('login keeps intended local route and rejects external or recursive destinations', () => {
-  assert.equal(loginDestination('?next=%2Frevisar'), '/revisar')
-  assert.equal(loginDestination('?next=%2Fpalabras'), '/palabras')
-  for (const next of ['//evil.test', '/\\evil.test', 'https://evil.test', '/login', '/login?next=/login']) assert.equal(loginDestination(`?next=${encodeURIComponent(next)}`), '/')
-  assert.equal(loginDestination(''), '/')
+  const owner = { username: 'owner', role: 'owner' }
+  const reviewer = { username: 'ana', role: 'reviewer' }
+  assert.equal(loginDestination('?next=%2Frevisar', reviewer), '/revisar')
+  assert.equal(loginDestination('?next=%2Frevisar', owner), '/')
+  assert.equal(loginDestination('?next=%2Fpalabras', owner), '/palabras')
+  for (const next of ['//evil.test', '/\\evil.test', 'https://evil.test', '/login', '/login?next=/login']) assert.equal(loginDestination(`?next=${encodeURIComponent(next)}`, owner), '/')
+  assert.equal(loginDestination('', owner), '/')
+  assert.equal(loginDestination('', reviewer), '/revisar')
+  assert.equal(loginDestination('?next=%2F', reviewer), '/revisar')
 })

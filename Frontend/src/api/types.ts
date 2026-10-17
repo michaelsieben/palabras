@@ -1,6 +1,6 @@
 export interface SessionUser {
   username: string
-  roles: string[]
+  role: 'owner' | 'reviewer'
 }
 
 export interface LoginCredentials {

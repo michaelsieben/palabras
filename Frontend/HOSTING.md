@@ -1,6 +1,6 @@
 # Frontend shell integration
 
-Android Chrome only. `src/mock/demo.ts` is deliberately fake data. No credentials, API calls, SRS, persisted answers, reminders or real reviewer workflow. All demo changes disappear on reload. Only approved mock words are exposed to learner screens.
+Android Chrome only. Cookie auth uses `/api/auth/login`, `/api/auth/logout`, `/api/auth/me` with `{ username, role: 'owner' | 'reviewer' }` identities, `credentials: include`, `cache: no-store`, and `X-Palabras: 1` on mutations. Passwords exist only in the in-flight form/request and are cleared after submission, never logged or persisted by the app. `/login` has no public registration. Owner opens learner home; reviewer opens `/revisar` automatically. Every API 401 invalidates client identity. No identity/token storage. `src/mock/demo.ts` remains fake learning/review data: no SRS, persisted answers, reminders or real reviewer workflow. Demo changes disappear on reload.
 
 ## Required production app headers — host owner follow-up
 
@@ -19,13 +19,13 @@ app.UseStaticFiles(new StaticFileOptions
 });
 ```
 
-If the host uses `MapStaticAssets` instead, apply equivalent response headers to those endpoints before response start. Ensure `.webmanifest` is served as `application/manifest+json` and `/sw.js` as JavaScript, never SPA fallback HTML. Routes `/`, `/sesion`, `/palabras`, `/revisar`, `/aprobadas`, `/ajustes` need the usual SPA fallback to `index.html`. Do not apply SPA fallback to `/api/*`.
+If the host uses `MapStaticAssets` instead, apply equivalent response headers to those endpoints before response start. Ensure `.webmanifest` is served as `application/manifest+json` and `/sw.js` as JavaScript, never SPA fallback HTML. Routes `/login`, `/`, `/sesion`, `/palabras`, `/revisar`, `/aprobadas`, `/ajustes` need the usual SPA fallback to `index.html`; `/login` must remain public. Do not apply SPA fallback to `/api/*`.
 
 Production acceptance: request `/sw.js` and `/manifest.webmanifest` directly from app and through HTTPS nginx; both must respond with `Cache-Control: no-cache`. This is outstanding until the backend owner integrates and verifies it.
 
 ## Offline and updates
 
-Build generates `dist/sw.js` from all output bytes plus worker implementation. Cache name includes SHA-256-derived version, including manifest, icons, screenshots, fallback and hashed JS/CSS. Installation is atomic via `cache.addAll`: incomplete shell never installs. Known app navigations use cached HTML and assets from one build; unknown offline navigations show `offline.html`. No runtime/private API cache. No simulated sync promises.
+Build generates `dist/sw.js` from all output bytes plus worker implementation. Cache name includes SHA-256-derived version. Precache contains only public shell HTML fetched through `/login` (not protected `/index.html`), hashed JS/CSS, manifest, four icons, two screenshots and neutral `/offline.htm`; worker itself is excluded. `.htm` deliberately uses the host's public static-asset path; `.html` pages remain protected. Installation is atomic via `cache.addAll`: a failed response (including 401) rejects installation. No runtime cache writes. Navigations are network-first and return HTTP responses including 401/403/500 unchanged; only network failure shows `/offline.htm`, which explicitly cannot confirm a signed-in session. Static precached assets are cache-first. `/api` and `/api/**`, mutations, cross-origin requests, `/sw.js` and `/manifest.webmanifest` bypass fetch interception entirely (manifest is precached for static shell metadata, but subsequent manifest requests pass through). Auth responses are never cached. No offline authenticated practice: reconnect to verify session. Client auth checks every app load, including older cached HTML. Host must keep `/login`, `/offline.htm`, manifest, icons, screenshots, hashed assets and worker public; shell bytes contain no identity or authenticated API data.
 
 Initial install activates normally and claims clients. New worker waits, checks on app visibility and every visible minute. Banner offers **Actualizar y reiniciar** with explicit restart warning. Only that click sends `SKIP_WAITING`; `controllerchange` reloads that tab. User may finish current card first; no silent update interrupts practice. On activation only this app's old caches are deleted. Production is one JS chunk (dev diagnostic excluded); when introducing lazy production chunks, retain old assets on deployment or coordinate all tabs before cache cleanup.
 

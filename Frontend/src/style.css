@@ -118,6 +118,15 @@ fieldset { border: 0; margin: 0; padding: 0; }
 .bottom-nav [aria-current=page] { background: var(--soft); color: var(--accent); }
 .settings { max-width: 42rem; }
 .login-panel { max-width: 28rem; margin-inline: auto; }
+.login-panel form > button { width: 100%; margin-top: 8px; }
+.account-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 12px; min-width: 0; max-width: 100%; margin-left: auto; }
+.account-name { color: var(--muted); font-size: .875rem; overflow-wrap: anywhere; min-width: 0; max-width: 24ch; }
+.account-controls button { font-size: .875rem; }
+.auth-skeleton { max-width: 28rem; margin-inline: auto; }
+.auth-skeleton p { color: var(--muted); }
+.auth-skeleton div { display: grid; gap: 16px; }
+.auth-skeleton span { display: block; background: var(--soft); border-radius: 10px; height: 48px; }
+.auth-skeleton span:first-child { height: 16px; width: 60%; }
 .auth-error { color: var(--warning); }
 .update-banner, .install-banner { background: var(--soft); border-radius: 16px; padding: 16px; margin-top: 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .update-banner p { font-size: .875rem; margin-bottom: 0; }
