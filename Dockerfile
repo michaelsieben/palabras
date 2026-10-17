@@ -20,9 +20,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && mkdir -p /data && chown app:app /data
 WORKDIR /app
 COPY --from=backend --chown=app:app /app/publish/ ./
-ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_URLS=http://+:18480
 USER app
-EXPOSE 8080
+EXPOSE 18480
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl --fail --silent --show-error http://localhost:8080/healthz || exit 1
+    CMD curl --fail --silent --show-error http://localhost:18480/healthz || exit 1
 ENTRYPOINT ["dotnet", "Palabras.dll"]

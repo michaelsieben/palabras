@@ -59,7 +59,7 @@ Expected health JSON: `{"status":"ok","version":"0.0.1.0"}`. `/api/ping` returns
 
 **User-run only; M0 has not been deployed.** The existing proxy is the container `nginx-proxy-manager` (`jc21/nginx-proxy-manager`), attached to macvlan `br0` at `192.168.68.2`; it publishes no host ports and handles DNS/TLS itself. Compose has no proxy and publishes neither 80 nor 443.
 
-Because that proxy lives in another container on a macvlan network, it cannot reach the Unraid host's `127.0.0.1`, so M0 publishes the app on all host interfaces: `0.0.0.0:18480` → container `:8080`. Port 18480 was absent from the read-only container port scan on 2026-10-17 (:8080 is already used by sabnzbd); recheck before deployment, since the scan cannot detect every host process. Override with `APP_PORT` if it is ever taken. 18480 is LAN-only and must never be forwarded on the WAN side; all public traffic arrives through the proxy on 443.
+Because that proxy lives in another container on a macvlan network, it cannot reach the Unraid host's `127.0.0.1`, so M0 publishes the app on all host interfaces: `0.0.0.0:18480`, with the container listening on the same `18480`. Port 18480 was chosen because it is unused on the Unraid host (read-only container port scan, 2026-10-17) and is not a default claimed by common applications; recheck before deployment, since the scan cannot detect every host process. `APP_PORT` (default 18480, set in `.env`) overrides both sides at once: host published port and container listen port change together, so nothing else in this repo needs editing. 18480 is LAN-only and must never be forwarded on the WAN side; all public traffic arrives through the proxy on 443.
 
 Run on Unraid in a user-chosen project directory (requires Git and authenticated access to this private repo):
 
@@ -96,9 +96,9 @@ Proxy Host, in NPM → Hosts → Proxy Hosts → Add Proxy Host:
 - Websockets Support: off (no WS/SignalR; push is delivered by FCM, not this origin)
 - SSL: the existing Let's Encrypt certificate for `palabras.siebentower.nl`, Force SSL on, HTTP/2 on, HSTS on
 
-The proxy can be configured now, but it returns 502 until the container is deployed. Deploying to Unraid is a user-run step, not an agent step.
+The proxy can be configured now, but it returns 502 until the container is deployed. Deploying to Unraid is a user-run step, not an agent step. Forward Port must match `APP_PORT`; with the default 18480 the upstream above needs no change.
 
-Alternative upstream `http://palabras:8080` (container name, no host port) applies only if the app later joins the proxy's Docker network (for example `sieben`, `172.18.0.0/16`); persist that in a Compose override before recreating the container.
+Alternative upstream `http://palabras:18480` (container name, no host port) applies only if the app later joins the proxy's Docker network (for example `sieben`, `172.18.0.0/16`); persist that in a Compose override before recreating the container.
 
 The proxy sits on macvlan `br0`, so reaching the host LAN IP is the expected path. If it returns 502, check from inside the proxy container:
 

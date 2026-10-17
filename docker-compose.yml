@@ -3,17 +3,20 @@ services:
     image: palabras:local
     build: .
     ports:
-      # 18480: chosen because it is absent from the Unraid host-port scan (2026-10-17;
-      # :8080 is already sabnzbd). Override with APP_PORT if it is ever taken.
+      # 18480: unused on the Unraid host (port scan 2026-10-17) and not a common
+      # application default. APP_PORT changes host and container port together.
       # 0.0.0.0, not 127.0.0.1: nginx-proxy-manager is a container on macvlan br0, so it
       # cannot reach the Unraid host's loopback. LAN-only; never forwarded on the WAN side.
-      - "0.0.0.0:${APP_PORT:-18480}:8080"
+      - "0.0.0.0:${APP_PORT:-18480}:${APP_PORT:-18480}"
+    environment:
+      # Keep the in-container listen port equal to the published port.
+      ASPNETCORE_URLS: "http://+:${APP_PORT:-18480}"
     volumes:
       - "${APPDATA_PATH:-./data}:/data"
     restart: unless-stopped
     env_file: .env
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://localhost:8080/healthz"]
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://localhost:${APP_PORT:-18480}/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
