@@ -14,3 +14,5 @@ app.MapFallback("/api/{**path}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+public partial class Program { }
