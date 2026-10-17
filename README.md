@@ -231,7 +231,7 @@ bridge `sieben`, subnet `172.18.0.0/16`, gateway `172.18.0.1`, proxy IP `172.18.
 Its previously discovered macvlan `br0` address is `192.168.68.2`. App joins `sieben` with alias and
 container name `palabras` (name was free at discovery). Existing NPM proxy host:
 
-- Domain: `palabras.siebentower.nl`; scheme: `http`.
+- Domain: `palabras.siebentower.nl`; scheme: `https`.
 - Forward hostname: `palabras`; forward port: `18480`.
 - Existing certificate; Force SSL and HSTS on; Block Common Exploits on; Websockets off.
 
