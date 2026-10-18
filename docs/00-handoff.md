@@ -81,11 +81,12 @@ At handoff time `Frontend/**`, `content/**`, `tools/**` and some backend changes
 
 - Deployment on Unraid: nothing is running; the compose folder does not exist on the server
   (see `02-open-questions.md` Q1). NPM would return 502 today.
-- Forwarded headers, host filtering, auth, roles, data protection keys (M1).
-- EF Core model, migrations, importer, revisions (M2).
-- Council CLI (M3), reviewer gate backed by the API (M4), FSRS (M5), real sessions (M6),
-  day status / streak / skip (M7), Web Push (M8), backups (M10).
-- Content lint in CI (`tools/content-lint` README shows the YAML step; not in `ci.yml`).
+- ~~Forwarded headers, host filtering, auth, roles, data protection keys (M1).~~ Done; see §7.
+- ~~EF Core model, migrations, importer, revisions (M2).~~ Done; see §7.
+- Council CLI (M3), reviewer gate backed by the API (M4), ~~FSRS (M5)~~, real sessions (M6, in
+  progress), day status / streak / skip (M7), Web Push (M8), ~~backups (M10)~~. Struck items
+  shipped; see §7.
+- ~~Content lint in CI~~ Done: `Lint content` step in `.github/workflows/ci.yml:38-39`.
 - Real-device measurements on the OnePlus 15 / Tab 3 (`runs/13-pwa-ultrawide.md`).
 
 ## 6. Disagreements between sources
@@ -121,11 +122,11 @@ MVP = M0–M10. Later = L1–L6. Full text in `design-amendment.md` ΔG.
 | --- | --- | --- |
 | M0 | Repo, CI, deploy hello | Done except real Unraid deploy |
 | M1 | Auth + roles + edge | Done (T-20261017-1516) |
-| M2 | Content schema v2 + lifecycle + importer + lint + revisions | Implemented; CI lint wiring deferred |
+| M2 | Content schema v2 + lifecycle + importer + lint + revisions | Implemented; content lint runs in CI (`ci.yml:38-39`) |
 | M3 | Council CLI (`tools/council`) | Not started |
-| M4 | Reviewer gate `/revisar` | Mock UI only |
+| M4 | Reviewer gate `/revisar` | Mock UI only (`/api/review/queue` is an empty stub) |
 | M5 | FSRS-6 + cards created on approval (parallel after M2) | Implemented |
-| M6 | Session composer + exercises 1–4 + offline | In progress (composer API shipped in M5; UI/offline not finished) |
+| M6 | Session composer + exercises 1–4 + offline | In progress (composer API, session UI and IndexedDB offline attempt queue + Chromium e2e shipped, `21f1d52`; Android Chrome device check not done) |
 | M7 | Day status, streak, rolling skip | Not started |
 | M8 | Web Push at 22:00 | Not started |
 | M9 | Wide-tablet learner layout | Mock layout done; device check pending |

@@ -41,7 +41,7 @@ peer (cookie issued) and from an untrusted peer (ignored); unknown `Host` → 40
 `03-auth-bootstrap.md` §7, a fresh database has no usable account until `user create` has been run, and an
 unauthenticated request to a non-public route returns 401/redirect instead of rendering the app.
 
-## 2. M2 — data model and EF Core migrations (MVP) — implemented (CI lint deferred, see Status below)
+## 2. M2 — data model and EF Core migrations (MVP) — implemented (see Status below)
 
 - SQLite in WAL mode at `/data/palabras.db`; EF Core model for content (words, sentences,
   translations, alternatives) with lifecycle `draft / pending_review / approved / needs_change /
@@ -49,7 +49,8 @@ unauthenticated request to a non-public route returns 401/redirect instead of re
 - Importer: `content/**/*.json` → DB as `pending_review`, idempotent (matches `design-amendment.md` ΔE.2.2, locked
   2026-10-18). Owner-only CLI `content approve <key…|--all-pending>` ships here, ahead of M4, so approved words (and
   later their cards) exist before the reviewer UI; it writes the same revision row the M4 UI will write.
-- Wire `tools/content-lint` into `.github/workflows/ci.yml` (step text in its README).
+- ~~Wire `tools/content-lint` into `.github/workflows/ci.yml`~~ Done: `Lint content` step at
+  `.github/workflows/ci.yml:38-39`.
 - ~~Fix the schema enum typo~~ Done in T-20261017-1516: the misspelt scope `"paninsular-generic"`
   (`content/schema/word.schema.json:68`, also used by the word files) is now `"peninsular-generic"`
   everywhere; see `02-open-questions.md` Q9.
@@ -80,7 +81,9 @@ suspends them.
 - Exercises 1–4 from `design.md`, replacing `Frontend/src/mock/demo.ts` with API calls. Feedback shows a Spanish
   verdict with an English explanation; accent-only misses are accepted unless the card sets `accentsAreThePoint`;
   the slow-answer thresholds (12 s typed, 8 s recognition reveal) are provisional named constants in one place.
-- Offline: IndexedDB queue for answers made without network, replayed on reconnect.
+- Offline: IndexedDB queue for answers made without network, replayed on reconnect. Shipped in `21f1d52`
+  (`Frontend/src/learn/attemptQueue.ts`, Chromium e2e `Frontend/tests/learnBrowser.mjs`); not yet checked on
+  Android Chrome on the device.
 - Then M7: day status, streak and the rolling skip (1 per 7 days, refunded on same-day
   completion, ΔC). Then M9: confirm the tablet layout on the real OnePlus Tab 3.
 
@@ -138,13 +141,18 @@ copy passes the M1 login test. Shipped contract: `07-learn-api.md`, `restore-dri
 Appended below the queue so the line numbers above stay stable. Backend state as of `f96c322` on `main`.
 
 - **M2 implemented.** Migration `ContentSchema`; CLI `import <dir> [--dry-run]`, `content approve`, `content status`,
-  `content retire` (`06-content-cli.md`). Not done: `tools/content-lint` in CI (deferred with the failing-CI
-  deferral), so the "CI fails on a deliberately broken word file" test is open. `import` itself rejects a bad batch.
+  `content retire` (`06-content-cli.md`). `tools/content-lint` now runs in CI (`ci.yml:38-39`) and exits 1 on
+  errors (`tools/content-lint/index.js:199`); a deliberately broken word file has not been pushed to prove the CI
+  failure. `import` itself rejects a bad batch.
 - **M5 implemented.** Fsrs.Sharp 2.0.0 from NuGet (the review-time overload exists, no vendoring); py-fsrs golden
   test; migration `SrsCards`; cards created on approval, invalidated on demotion/retire; `/api/learn/*`
   (`07-learn-api.md`).
 - **M10 implemented.** Nightly backup, keep 7, JSON/CSV export, `restore-progress` CLI, isolated drill
   (`restore-drill.md`). Production recovery stays owner-run.
-- **M6 in progress.** Grader, copy module and session UI are being built (uncommitted at `f96c322`); IndexedDB
-  offline queue and e2e are not finished. Its "done when" above is not yet met.
+- **M6 in progress.** Grader, copy module and session UI are committed; IndexedDB offline attempt queue and
+  Chromium browser e2e landed in `21f1d52`. Not done: the Android Chrome device check (OnePlus 15), so its "done
+  when" above is not yet met.
+- **Health of `main` at `6e41d0f` (T-20261018-2005).** `dotnet build` green; `dotnet test` 790 passed, 0 failed;
+  `npm ci`, `npm run lint`, `npm run build` green; content lint `OK — 58 word file(s), 0 errors`. `docker build`
+  was not run in that pass.
 - Deployment of these commits is owner-run; nothing here claims the production container runs them.
