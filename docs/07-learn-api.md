@@ -124,8 +124,8 @@ that was stored.
 
 ### `POST /api/learn/cards/{id}/bury | suspend | unsuspend`
 
-- `bury`: sets `buried_until_local_date` to local tomorrow. The plan includes a card only when that date is before
-  local today, so a card buried today is also left out tomorrow and returns the day after.
+- `bury`: sets `buried_until_local_date` to local today, the **last** local date the card stays hidden. The plan
+  includes a card only when that date is before local today: hidden for the rest of today, back from local midnight.
 - `suspend`: sets `suspended_reason='manual'` (replacing `leech`). 409 `not_suspendable` when the reason is
   `word_not_approved` or `sense_removed`: content owns those.
 - `unsuspend`: clears a `manual` or `leech` reason and `is_leech`; `lapses` is kept for the optimiser. 409
@@ -180,3 +180,32 @@ Reviewed and accepted in T-20261018-0124 (plan §10.4). `design.md` and `design-
 
 Fsrs.Sharp 2.0.0 is used from NuGet (pinned `[2.0.0]`): its `ReviewCard` accepts an explicit review time, so the
 vendored fallback was not needed.
+
+## Known limitations and open items
+
+Recorded from the T-20261018-0124 reviews. None is fixed by this file; each states what holds today.
+
+- **Settings defaults are duplicated.** The same values live in the `UserSettings` property initialisers
+  (`Backend/Palabras/Persistence/UserSettings.cs`) and the column defaults (`PalabrasDbContext.cs:133-145`, mirrored
+  in the `SrsCards` migration); `LearnSettings.cs:19-20` repeats the step fallbacks. They match today, but no test
+  binds them, so an edit to one copy can diverge silently. Nothing writes `user_settings` yet. The first feature
+  that does must add that binding test and harden the parse path below.
+- **Some stored values throw instead of falling back.** `learning_steps` or `relearning_steps` of `"[null]"`
+  (`ArgumentNullException`, not caught in `LearnSettings.cs:45-56`), a wrong-length `weights_json` such as `"[123]"`
+  (`ArgumentException` from the FSRS library), and a blank or whitespace-only `users.timezone` (skips the
+  unknown-zone guard in `LearnEndpoints.cs:282`, then fails the zone lookup) make the affected learner requests
+  return 500. The NULL/unknown fallback under Common rules does not cover these. Unreachable today: no code path
+  writes `user_settings` or `users.timezone`.
+- **`content status` migrates.** Like every `content` verb it applies pending migrations first
+  (`06-content-cli.md`, CLI rules). The CLI from a newer clone is therefore not a read-only probe: run against a live
+  pre-upgrade database, it upgrades it. See `08-upgrade-rollback.md`.
+- **Floating Docker base tags.** `Dockerfile:1,8,17` use `node:24-bookworm-slim`, `dotnet/sdk:10.0` and
+  `dotnet/aspnet:10.0`. A clean rebuild of the same commit can produce a different runtime. The only exact rollback
+  target is a retained image ID (`08-upgrade-rollback.md`).
+- **Disk growth has no coded quota.** Peak use is the live database plus seven snapshots plus the snapshot being
+  written plus WAL headroom; a SIGKILL during a backup leaves a `.partial` file that pruning ignores. Accepted for
+  one learner and one nightly backup. Monitor free space and the age of the newest successful snapshot.
+- **Overlapping attempts.** Release-risk item B3 (two concurrent `POST /api/learn/attempts` for the same card can
+  lose card state) is being fixed in a separate lane. This file does not describe that change.
+- **CI fails and is deferred** by owner decision. The local verify set in `AGENTS.md` is authoritative until CI is
+  green.

@@ -56,3 +56,6 @@ Restore is an atomic merge: matching cards are overwritten by the export, missin
 4. Start production using the existing owner procedure, log in through HTTPS, check progress and export it again. On failure, stop the app before restoring the preserved original DB/sidecar set. Re-enable the deployment poll only after acceptance.
 
 No production actions are performed by this implementation or the automated drill.
+
+The concrete pause, stop, file-preservation and start-from-retained-image commands for steps 2–4, the pre-migration
+backup before an upgrade, and recovery from an abandoned EF migration lock are in `08-upgrade-rollback.md`.
