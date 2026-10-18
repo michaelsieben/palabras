@@ -16,6 +16,13 @@
 # from the checkout (git rev-parse HEAD), never from deployed.sha, which can name another
 # commit. If it cannot be read the build still proceeds with "unknown": a build that lies about
 # its identity is worse than one that admits it does not know it.
+# Failure containment (T-20261018-2105): the rebuilt candidate must actually serve the app's own
+# /healthz before it is accepted, and the wait is bounded, so a poll can neither hang nor accept
+# a container that never binds. On failure the image that was running before the rebuild is
+# restored AND verified serving again, and the outcome is logged as "deploy FAILED, rolled back"
+# (distinct from the pre-rebuild "preserve FAILED"). A candidate that failed the gate is recorded
+# in $FAILED_IMAGE and is never retained as a rollback target, so a failed candidate cannot push
+# the last good image out of the newest-ROLLBACK_KEEP rotation.
 set -Eeuo pipefail
 umask 077
 
@@ -31,6 +38,10 @@ readonly STATE_IMAGE="$DEPLOY/deployed.image"
 # Manifest of preserved rollback tags, oldest first. Retention: newest ROLLBACK_KEEP tags kept.
 readonly ROLLBACK_TAGS="$DEPLOY/rollback-images"
 readonly ROLLBACK_KEEP=2
+# Record of the candidate the last failed deploy left behind: "<image id> <sha>". A running image
+# matching it is never tagged into the rollback rotation (a failed candidate is not a rollback
+# target), and the file is removed again once a deploy of that candidate is accepted.
+readonly FAILED_IMAGE="$DEPLOY/failed.image"
 # Data backups live outside the data directory, in the deployment directory only.
 readonly BACKUP_DIR="$DEPLOY/backups"
 readonly BACKUP_KEEP=5
@@ -50,6 +61,30 @@ log() { printf '%s %s\n' "$(date -Is)" "$*"; }
 trap 'rc=$?; log "ERROR deploy failed exit=$rc line=$LINENO; last healthy deployed.sha retained"; exit "$rc"' ERR
 trap 'log "ERROR deploy interrupted; last healthy deployed.sha retained"; exit 130' INT TERM
 fail() { log "ERROR $*"; exit 1; }
+
+# --- Failure containment: health gate config (T-20261018-2105) ---------------
+# The candidate must serve the app's own /healthz before it is accepted, and the wait must be
+# bounded so one poll run cannot hang. Overridable per host; an unusable value falls back to the
+# default with a WARN instead of stopping the poll from containing a failed deploy:
+#   PALABRAS_HEALTH_TIMEOUT   whole seconds for the whole wait     (default 180)
+#   PALABRAS_HEALTH_INTERVAL  whole seconds between attempts       (default 5)
+#   PALABRAS_HEALTH_MAX_TIME  whole seconds for one curl attempt   (default 5)
+#   PALABRAS_HEALTH_URL       the endpoint that must serve         (default the compose loopback port)
+env_positive_int() {
+    local name=$1 default=$2 value=$3
+    if [[ "$value" =~ ^[0-9]+$ ]] && (( value > 0 )); then
+        printf '%s\n' "$value"
+    else
+        # ">&2" is load-bearing: this runs inside a command substitution, whose stdout is the value.
+        log "WARN $name=$value is not a positive integer; using $default" >&2
+        printf '%s\n' "$default"
+    fi
+}
+HEALTH_TIMEOUT=$(env_positive_int PALABRAS_HEALTH_TIMEOUT 180 "${PALABRAS_HEALTH_TIMEOUT:-180}")
+HEALTH_INTERVAL=$(env_positive_int PALABRAS_HEALTH_INTERVAL 5 "${PALABRAS_HEALTH_INTERVAL:-5}")
+HEALTH_MAX_TIME=$(env_positive_int PALABRAS_HEALTH_MAX_TIME 5 "${PALABRAS_HEALTH_MAX_TIME:-5}")
+HEALTH_URL=${PALABRAS_HEALTH_URL:-http://127.0.0.1:18480/healthz}
+readonly HEALTH_TIMEOUT HEALTH_INTERVAL HEALTH_MAX_TIME HEALTH_URL
 git_checked() {
     local rc
     if git "$@"; then
@@ -289,13 +324,29 @@ read_state_image() {
     read -r RECORDED_IMAGE RECORDED_IMAGE_SHA < "$STATE_IMAGE" || true
 }
 
+# Deterministic tag name for an image id, so repeated polls re-tag the same name instead of piling
+# up, and the rollback path can find the preserved target again by the same name.
+rollback_tag_for() {
+    local id=${1#sha256:}
+    printf 'palabras:rollback-%s\n' "${id:0:12}"
+}
+
+# True when the given image id is the candidate the last failed deploy left behind
+# ($FAILED_IMAGE = "<image id> <sha>"). Such an image must never become a rollback target.
+is_failed_candidate() {
+    local recorded=
+    [[ -f "$FAILED_IMAGE" ]] || return 1
+    read -r recorded _ < "$FAILED_IMAGE" || true
+    [[ -n "$recorded" && "$1" == "$recorded" ]]
+}
+
 # Tag the image the container is currently running before a rebuild re-points palabras:local and
 # leaves it untagged (one `docker image prune` from loss). The tag name is derived from the image
 # id, so repeated polls re-tag the same name instead of piling up: preservation is idempotent.
 # A docker failure here aborts the deploy, exactly like a failed data backup: the rebuild must not
 # replace a container whose rollback target could not be preserved.
 preserve_running_image() {
-    local image id12 tag resolved
+    local image tag resolved
     if ! container_image; then
         fail "preserve FAILED: cannot determine the running container (docker error listing containers); refusing to rebuild without a preserved rollback image"
     fi
@@ -304,9 +355,11 @@ preserve_running_image() {
         return 0
     fi
     image=$CONTAINER_IMAGE
-    id12=${image#sha256:}
-    id12=${id12:0:12}
-    tag="palabras:rollback-$id12"
+    if is_failed_candidate "$image"; then
+        log "preserve skipped: running image $image is the candidate recorded as failed in $FAILED_IMAGE; a candidate that failed the health gate is never retained as a rollback target"
+        return 0
+    fi
+    tag=$(rollback_tag_for "$image")
     if ! docker image tag "$image" "$tag"; then
         fail "preserve FAILED: cannot tag running image $image as $tag; refusing to rebuild (the rebuild would leave the running image untagged and one docker image prune from loss)"
     fi
@@ -363,6 +416,97 @@ prune_rollback_tags() {
         fi
     done
     mv -f "$tmp" "$ROLLBACK_TAGS" || log "WARN preserve prune: cannot update $ROLLBACK_TAGS"
+}
+
+# --- Failure containment: the health gate and the rollback (T-20261018-2105) --
+# The gate. The rebuilt container must be RUNNING and must serve the app's own /healthz (HTTP 200
+# with {"status":"ok",...}); nothing else proves the candidate can serve. Sets
+# HEALTH_STATE=serving|crash|timeout and HEALTH_LAST to the last observed body/state. The loop
+# never sleeps past its deadline, so a poll cannot hang; a container that is restarting, exited,
+# dead or removing — or that has already restarted while it is not serving — ends the wait
+# immediately instead of being polled for the whole timeout. That is the drill's failure shape: an
+# unwritable database makes the app exit 139 and crash-loop with no listener at all.
+wait_for_health() {
+    local context=$1 deadline attempt=0 status restarts body remaining
+    HEALTH_STATE=timeout
+    HEALTH_LAST=
+    deadline=$((SECONDS + HEALTH_TIMEOUT))
+    while :; do
+        attempt=$((attempt + 1))
+        status=$(docker inspect --format '{{.State.Status}}' palabras 2>/dev/null || true)
+        restarts=$(docker inspect --format '{{.RestartCount}}' palabras 2>/dev/null || true)
+        if [[ "$status" == running ]]; then
+            if body=$(curl --fail --silent --show-error --max-time "$HEALTH_MAX_TIME" "$HEALTH_URL" 2>/dev/null) \
+                && [[ "$body" == *'"status":"ok"'* ]]; then
+                HEALTH_STATE=serving
+                log "health ok ($context): $HEALTH_URL serving after $attempt attempt(s) status=$status restarts=${restarts:-?}"
+                return 0
+            fi
+            HEALTH_LAST=${body:-<no response body>}
+            if [[ "$restarts" =~ ^[0-9]+$ ]] && (( restarts > 0 )); then
+                HEALTH_STATE=crash
+                log "health FAILED ($context): container palabras is running but has restarted ${restarts}x and $HEALTH_URL is not serving (last: $HEALTH_LAST); treating the candidate as crash-looping after $attempt attempt(s)"
+                return 1
+            fi
+        else
+            HEALTH_LAST=${status:-<no container>}
+            case "$status" in
+                restarting|exited|dead|removing|paused)
+                    HEALTH_STATE=crash
+                    log "health FAILED ($context): container palabras state=$status restarts=${restarts:-?}; crash-loop detected after $attempt attempt(s), not waiting out the ${HEALTH_TIMEOUT}s timeout"
+                    return 1
+                    ;;
+            esac
+        fi
+        if (( SECONDS >= deadline )); then
+            HEALTH_STATE=timeout
+            log "health FAILED ($context): $HEALTH_URL not serving after $attempt attempt(s) in ${HEALTH_TIMEOUT}s (status=${status:-none} last=${HEALTH_LAST:-none}); giving up so the poll cannot hang"
+            return 1
+        fi
+        remaining=$((deadline - SECONDS))
+        if (( remaining < HEALTH_INTERVAL )); then sleep "$remaining"; else sleep "$HEALTH_INTERVAL"; fi
+    done
+}
+
+# Record the candidate this deploy failed on, so a later poll refuses to tag it into the rollback
+# rotation. Best effort: the rollback outcome and the log line remain the authoritative record.
+record_failed_candidate() {
+    local image=$1 sha=$2
+    [[ -n "$image" ]] || image=unknown
+    if printf '%s %s\n' "$image" "$sha" > "$FAILED_IMAGE.next" && mv -f "$FAILED_IMAGE.next" "$FAILED_IMAGE"; then
+        log "failed candidate recorded: $FAILED_IMAGE = $image $sha (never retained as a rollback target)"
+    else
+        log "WARN cannot write $FAILED_IMAGE; a later poll may still tag the failed candidate $image as a rollback target"
+    fi
+}
+
+# Restore the image that was running before this rebuild and PROVE it serves again. Called only
+# after the candidate failed the health gate. Every step is guarded: a rollback that cannot be
+# completed or cannot be verified is a loud, unambiguous failure, never a silent "started, so it
+# is probably fine".
+rollback_previous_image() {
+    local context=$1 previous_image=$2 tag
+    if [[ -z "$previous_image" ]]; then
+        fail "rollback FAILED ($context): no previous image was recorded before this rebuild (container palabras was absent), so there is nothing to restore; the failed candidate is still live; pause the poll and inspect container palabras"
+    fi
+    tag=$(rollback_tag_for "$previous_image")
+    log "rollback ($context): restoring previous image $previous_image (tag $tag) because the candidate did not serve $HEALTH_URL (state=$HEALTH_STATE last=${HEALTH_LAST:-none})"
+    if ! docker image inspect --format '{{.Id}}' "$tag" > /dev/null 2>&1; then
+        fail "rollback FAILED ($context): preserved rollback tag $tag is missing, so previous image $previous_image cannot be restored; the failed candidate is still live; pause the poll and inspect container palabras"
+    fi
+    if ! docker tag "$previous_image" palabras:local; then
+        fail "rollback FAILED ($context): cannot tag previous image $previous_image as palabras:local; the failed candidate is still live"
+    fi
+    # --no-build: the recreate must not be able to quietly rebuild the candidate it is replacing.
+    if ! docker compose --project-directory "$DEPLOY" -f "$DEPLOY/docker-compose.yml" up -d --no-build --force-recreate; then
+        fail "rollback FAILED ($context): compose could not recreate container palabras on $previous_image; the failed candidate may still be live; pause the poll"
+    fi
+    if ! wait_for_health "post-rollback previous=$previous_image"; then
+        fail "rollback FAILED ($context): previous image $previous_image is running but did not serve $HEALTH_URL (state=$HEALTH_STATE); the deployment is NOT contained; pause the poll and inspect container palabras and $LOG"
+    fi
+    log "rollback ok ($context): previous image $previous_image restored and serving $HEALTH_URL"
+    require_accounts "post-rollback previous=$previous_image"
+    fail "deploy FAILED, rolled back $context: candidate did not serve $HEALTH_URL; previous image $previous_image restored and serving again; $STATE and $STATE_IMAGE retained (still the last healthy deploy); failed candidate recorded in $FAILED_IMAGE; the next poll retries the target, so pause the poll until the cause is understood"
 }
 
 log 'poll started'
@@ -491,6 +635,8 @@ else
     log "pre-rebuild accounts count unavailable (state=$ACCOUNTS_STATE)"
 fi
 preserve_running_image
+# The image that was running before this rebuild is the rollback target if the candidate fails.
+previous_image=$running
 backup_data
 # Build identity: compose interpolates COMMIT_SHA into the build args, and it must be the sha
 # this build actually uses. HEAD is read here, after the fast-forward and immediately before the
@@ -509,29 +655,32 @@ cp deploy/unraid/docker-compose.yml "$DEPLOY/docker-compose.yml.next"
 mv -f "$DEPLOY/docker-compose.yml.next" "$DEPLOY/docker-compose.yml"
 docker compose --project-directory "$DEPLOY" -f "$DEPLOY/docker-compose.yml" config --quiet
 docker compose --project-directory "$DEPLOY" -f "$DEPLOY/docker-compose.yml" up -d --build
-for attempt in {1..36}; do
-    health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' palabras 2>/dev/null || true)
-    if [[ "$health" == healthy ]] && curl --fail --silent --show-error --max-time 5 http://127.0.0.1:18480/healthz; then
-        printf '\n'
-        # Accounts are checked before the deploy is recorded as good; a failure here leaves the
-        # previous deployed.sha in place so the bad state is visible and is never marked healthy.
-        require_accounts "post-deploy sha=$target"
-        deployed_image=$(docker inspect --format '{{.Image}}' palabras 2>/dev/null || true)
-        if [[ "$deployed_image" != sha256:* ]]; then
-            # Never write a wrong id: an unknown one makes the next poll compare against
-            # palabras:local instead (logged as unverified), which cannot loop.
-            deployed_image=unknown
-            log "WARN cannot read the deployed container's image id; recording it as unknown"
-        fi
-        printf '%s %s\n' "$deployed_image" "$target" > "$STATE_IMAGE.next"
-        mv -f "$STATE_IMAGE.next" "$STATE_IMAGE"
-        printf '%s\n' "$target" > "$STATE.next"
-        mv -f "$STATE.next" "$STATE"
-        log "DEPLOY OK sha=$target healthy image=$deployed_image (previous=$previous)"
-        exit 0
-    fi
-    log "health retry=$attempt/36 status=$health"
-    sleep 5
-done
-docker logs --tail 30 palabras
-fail "sha=$target did not become healthy after 36 attempts; inspect container; pause and rollback manually"
+# The candidate must actually serve before it is accepted, and only a candidate that passed this
+# gate may become a rollback target for a later deploy. On failure the image that was running
+# before this rebuild is restored and verified serving again, and the failed candidate is recorded
+# so no later poll retains it.
+if ! wait_for_health "post-deploy sha=$target"; then
+    candidate_image=$(docker inspect --format '{{.Image}}' palabras 2>/dev/null || true)
+    log "candidate FAILED the health gate (state=$HEALTH_STATE); rolling back to ${previous_image:-<none>}"
+    docker logs --tail 30 palabras || true
+    record_failed_candidate "$candidate_image" "$target"
+    rollback_previous_image "sha=$target" "$previous_image"
+fi
+# Accounts are checked before the deploy is recorded as good; a failure here leaves the previous
+# deployed.sha in place so the bad state is visible and is never marked healthy.
+require_accounts "post-deploy sha=$target"
+deployed_image=$(docker inspect --format '{{.Image}}' palabras 2>/dev/null || true)
+if [[ "$deployed_image" != sha256:* ]]; then
+    # Never write a wrong id: an unknown one makes the next poll compare against
+    # palabras:local instead (logged as unverified), which cannot loop.
+    deployed_image=unknown
+    log "WARN cannot read the deployed container's image id; recording it as unknown"
+fi
+printf '%s %s\n' "$deployed_image" "$target" > "$STATE_IMAGE.next"
+mv -f "$STATE_IMAGE.next" "$STATE_IMAGE"
+printf '%s\n' "$target" > "$STATE.next"
+mv -f "$STATE.next" "$STATE"
+# The candidate is healthy now, so the record of an older failed candidate is obsolete.
+rm -f "$FAILED_IMAGE" || log "WARN cannot remove $FAILED_IMAGE; it still records an older failed candidate"
+log "DEPLOY OK sha=$target healthy image=$deployed_image (previous=$previous)"
+exit 0
