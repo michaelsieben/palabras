@@ -22,10 +22,12 @@ internal sealed class DayRolloverService : BackgroundService
     private readonly ILogger<DayRolloverService> _logger;
 
     // One resolution is shared by the startup path and every tick so the recorded cutover is the
-    // instant of the first enabled observation, whichever call observes it first. The lock guards
-    // only the cached-task field; the database work runs unlocked.
-    private readonly object _cutoverGate = new();
-    private Task<DateTimeOffset>? _cutoverTask;
+    // instant of the first enabled observation, whichever call observes it first. The semaphore
+    // serialises those resolutions (single flight), and only a SUCCESSFUL one is cached: a failed
+    // resolution leaves the field empty, so a later tick retries and can succeed without a
+    // restart (review F1 — the previous re-entrant lock plus `??=` re-cached the faulted task).
+    private readonly SemaphoreSlim _cutoverGate = new(1, 1);
+    private DateTimeOffset? _cutover;
 
     public DayRolloverService(DatabaseSettings database, DayRolloverSettings settings, TimeProvider time,
         ILogger<DayRolloverService> logger)
@@ -40,30 +42,27 @@ internal sealed class DayRolloverService : BackgroundService
 
     // The durable cutover instant: read from app_meta, or — when this database has never observed
     // the gate enabled — fixed to this instant and persisted before any day is judged. A failed
-    // resolution is un-cached so a later tick retries; the worst outcome of a concurrent failed
-    // retry is a second EnsureCutoverAsync whose PK-conflict path adopts the stored value, so the
-    // recorded instant stays the first successfully persisted one.
-    internal Task<DateTimeOffset> CutoverAsync(CancellationToken cancellationToken)
+    // resolution caches nothing (review F1), so the next tick retries; the worst outcome of two
+    // racing instances is a second EnsureCutoverAsync whose PK-conflict path adopts the stored
+    // value, so the recorded instant stays the first successfully persisted one.
+    internal async Task<DateTimeOffset> CutoverAsync(CancellationToken cancellationToken)
     {
-        lock (_cutoverGate)
-        {
-            return _cutoverTask ??= ResolveCutoverAsync(cancellationToken);
-        }
-    }
-
-    private async Task<DateTimeOffset> ResolveCutoverAsync(CancellationToken cancellationToken)
-    {
+        await _cutoverGate.WaitAsync(cancellationToken);
         try
         {
-            return await DayRollover.EnsureCutoverAsync(_database, _time, _logger, cancellationToken);
-        }
-        catch
-        {
-            lock (_cutoverGate)
+            if (_cutover is { } settled)
             {
-                _cutoverTask = null;
+                return settled;
             }
-            throw;
+            // Cached only after the await completes successfully: if EnsureCutoverAsync throws,
+            // the field stays null and the next tick starts a fresh resolution.
+            var cutover = await DayRollover.EnsureCutoverAsync(_database, _time, _logger, cancellationToken);
+            _cutover = cutover;
+            return cutover;
+        }
+        finally
+        {
+            _cutoverGate.Release();
         }
     }
 
