@@ -1,0 +1,27 @@
+{
+  "id": "es-pan-01",
+  "headword": "pan",
+  "article": "el",
+  "plural": "panes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food","shopping"],
+  "senses": [
+    {
+      "gloss": "bread",
+      "example": "Compro pan en la panadería del barrio.",
+      "exampleGloss": "I buy bread at the bakery in the neighbourhood."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la barra de pan", "gloss": "the baguette", "reason": "The standard loaf shape bought daily in Spain." },
+    { "kind": "near-synonym", "value": "el bocadillo", "gloss": "the sandwich", "reason": "Bread with a filling; already in the corpus." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Uncountable in most uses: comprar pan, not panes, unless counting loaves.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

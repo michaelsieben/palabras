@@ -1,0 +1,27 @@
+{
+  "id": "es-bano-01",
+  "headword": "baño",
+  "article": "el",
+  "plural": "baños",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "bathroom",
+      "example": "El baño está al final del pasillo.",
+      "exampleGloss": "The bathroom is at the end of the corridor."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el aseo", "gloss": "the washroom", "reason": "A small toilet room; the usual word on bar doors." },
+    { "kind": "near-synonym", "value": "la ducha", "gloss": "the shower", "reason": "Inside the bathroom, not the room itself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural baños. Baño also means a bath: darse un baño.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

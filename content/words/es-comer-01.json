@@ -1,0 +1,24 @@
+{
+  "id": "es-comer-01",
+  "headword": "comer",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food","daily-routine"],
+  "senses": [
+    {
+      "gloss": "to eat, to have lunch",
+      "example": "Comemos a las dos de la tarde.",
+      "exampleGloss": "We have lunch at two in the afternoon."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "cenar", "gloss": "to have dinner", "reason": "The evening meal; already in the corpus." },
+    { "kind": "different-sense", "value": "desayunar", "gloss": "to have breakfast", "reason": "The morning meal; already in the corpus." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Comer also means the main midday meal in Spain, la comida.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

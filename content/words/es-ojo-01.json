@@ -1,0 +1,27 @@
+{
+  "id": "es-ojo-01",
+  "headword": "ojo",
+  "article": "el",
+  "plural": "ojos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "eye",
+      "example": "Mi sobrina tiene los ojos azules.",
+      "exampleGloss": "My niece has blue eyes."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la vista", "gloss": "eyesight", "reason": "The faculty of seeing, not the organ." },
+    { "kind": "near-synonym", "value": "la ceja", "gloss": "the eyebrow", "reason": "Above the eye, a different feature." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Also an interjection meaning watch out (¡ojo!). Only the body-part sense is taught here.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

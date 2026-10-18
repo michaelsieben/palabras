@@ -1,0 +1,27 @@
+{
+  "id": "es-junio-01",
+  "headword": "junio",
+  "article": "el",
+  "plural": "junios",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "June",
+      "example": "En junio termina el colegio.",
+      "exampleGloss": "School finishes in June."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el mes de junio", "gloss": "the month of June", "reason": "Full written form with el mes de." },
+    { "kind": "different-sense", "value": "el verano", "gloss": "summer", "reason": "The season that begins at the end of June." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Lower-case, masculine. End of the school year in Spain.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-lluvia-01",
+  "headword": "lluvia",
+  "article": "la",
+  "plural": "lluvias",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "rain",
+      "example": "La lluvia no paró en todo el día.",
+      "exampleGloss": "The rain did not stop all day."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el paraguas", "gloss": "the umbrella", "reason": "For when the rain comes; already in the corpus." },
+    { "kind": "near-synonym", "value": "el chubasco", "gloss": "the rain shower", "reason": "A short, heavy burst of rain." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural lluvias. The verb is llover, already in the corpus.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

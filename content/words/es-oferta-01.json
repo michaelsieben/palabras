@@ -1,0 +1,27 @@
+{
+  "id": "es-oferta-01",
+  "headword": "oferta",
+  "article": "la",
+  "plural": "ofertas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping"],
+  "senses": [
+    {
+      "gloss": "offer, deal",
+      "example": "Hay una oferta de dos por uno.",
+      "exampleGloss": "There is a two-for-one deal."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el descuento", "gloss": "the discount", "reason": "A reduction in price, not the whole offer." },
+    { "kind": "different-sense", "value": "las rebajas", "gloss": "the sales", "reason": "The fixed seasonal sales period." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural ofertas. En oferta means on special offer.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-estacion-01",
+  "headword": "estación",
+  "article": "la",
+  "plural": "estaciones",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport","city"],
+  "senses": [
+    {
+      "gloss": "station",
+      "example": "La estación de tren está en el centro.",
+      "exampleGloss": "The train station is in the centre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la parada", "gloss": "the stop", "reason": "For buses, not trains; smaller than a station." },
+    { "kind": "different-sense", "value": "la estación del año", "gloss": "the season", "reason": "Same word also means a season of the year." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural estaciones. Same word for a rail station and a season of the year.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

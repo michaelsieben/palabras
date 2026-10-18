@@ -1,0 +1,27 @@
+{
+  "id": "es-viento-01",
+  "headword": "viento",
+  "article": "el",
+  "plural": "vientos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "wind",
+      "example": "Hace mucho viento en la plaza.",
+      "exampleGloss": "It is very windy in the square."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la brisa", "gloss": "the breeze", "reason": "A soft, pleasant wind." },
+    { "kind": "near-synonym", "value": "la corriente", "gloss": "the draught", "reason": "Moving air indoors, not weather." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural vientos. Hace viento is the weather phrase.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

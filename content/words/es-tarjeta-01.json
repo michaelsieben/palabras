@@ -1,0 +1,27 @@
+{
+  "id": "es-tarjeta-01",
+  "headword": "tarjeta",
+  "article": "la",
+  "plural": "tarjetas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping","technology"],
+  "senses": [
+    {
+      "gloss": "card",
+      "example": "¿Puedo pagar con tarjeta?",
+      "exampleGloss": "Can I pay by card?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la tarjeta de crédito", "gloss": "the credit card", "reason": "A specific kind of card, not any card." },
+    { "kind": "near-synonym", "value": "el efectivo", "gloss": "the cash", "reason": "The other way to pay." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural tarjetas. Pagar con tarjeta is the standard phrase.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

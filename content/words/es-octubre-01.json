@@ -1,0 +1,27 @@
+{
+  "id": "es-octubre-01",
+  "headword": "octubre",
+  "article": "el",
+  "plural": "octubres",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "October",
+      "example": "En octubre los días son más cortos.",
+      "exampleGloss": "In October the days are shorter."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el mes de octubre", "gloss": "the month of October", "reason": "Full written form with el mes de." },
+    { "kind": "different-sense", "value": "el otoño", "gloss": "autumn", "reason": "The season October sits in." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Lower-case, masculine. Clocks go back at the end of October.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

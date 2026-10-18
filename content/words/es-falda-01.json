@@ -1,0 +1,27 @@
+{
+  "id": "es-falda-01",
+  "headword": "falda",
+  "article": "la",
+  "plural": "faldas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "skirt",
+      "example": "Lleva una falda azul en verano.",
+      "exampleGloss": "She wears a blue skirt in summer."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el vestido", "gloss": "the dress", "reason": "One whole garment, not a separate skirt." },
+    { "kind": "different-sense", "value": "la falda de la montaña", "gloss": "the hillside", "reason": "Same word also means the lower slope of a mountain." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural faldas.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

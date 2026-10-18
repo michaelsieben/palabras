@@ -1,0 +1,24 @@
+{
+  "id": "es-hola-01",
+  "headword": "hola",
+  "partOfSpeech": "interjection",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "hello, hi",
+      "example": "Hola, ¿qué tal estás?",
+      "exampleGloss": "Hi, how are you?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "buenas", "gloss": "hi there", "reason": "Very colloquial Peninsular greeting, common in bars." },
+    { "kind": "different-sense", "value": "adiós", "gloss": "goodbye", "reason": "The farewell, not a greeting." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Neutral and used at any time of day in Spain.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-ventana-01",
+  "headword": "ventana",
+  "article": "la",
+  "plural": "ventanas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "window",
+      "example": "Abre la ventana para ventilar la cocina.",
+      "exampleGloss": "Open the window to air out the kitchen."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la persiana", "gloss": "the blind", "reason": "The roller blind that covers the window from outside." },
+    { "kind": "near-synonym", "value": "la puerta", "gloss": "the door", "reason": "The other opening in the wall." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural ventanas. Persiana is the everyday Spanish window blind.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

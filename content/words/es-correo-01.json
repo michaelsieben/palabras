@@ -1,0 +1,27 @@
+{
+  "id": "es-correo-01",
+  "headword": "correo",
+  "article": "el",
+  "plural": "correos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology","small-talk"],
+  "senses": [
+    {
+      "gloss": "email, post",
+      "example": "Te mando los datos por correo.",
+      "exampleGloss": "I will send you the details by email."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el mensaje", "gloss": "the message", "reason": "Shorter and more general than an email." },
+    { "kind": "different-sense", "value": "la carta", "gloss": "the letter", "reason": "Paper post, not email." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural correos. Correo covers email and the postal service; correo electrónico is the explicit email form.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

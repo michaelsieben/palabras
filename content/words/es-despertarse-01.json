@@ -1,0 +1,24 @@
+{
+  "id": "es-despertarse-01",
+  "headword": "despertarse",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "to wake up",
+      "example": "Me despierto a las seis y media.",
+      "exampleGloss": "I wake up at half past six."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "levantarse", "gloss": "to get up", "reason": "Out of bed, after waking." },
+    { "kind": "near-synonym", "value": "el despertador", "gloss": "the alarm clock", "reason": "What wakes you up, not the action." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Stem-changing reflexive verb: me despierto, o-ue in the stem.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-mesa-01",
+  "headword": "mesa",
+  "article": "la",
+  "plural": "mesas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "table",
+      "example": "Pon los platos en la mesa.",
+      "exampleGloss": "Put the plates on the table."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el escritorio", "gloss": "the desk", "reason": "A table for working, not for eating." },
+    { "kind": "near-synonym", "value": "el mostrador", "gloss": "the counter", "reason": "In a bar or shop, not at home." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural mesas. Mesa also means a table of people or a board.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

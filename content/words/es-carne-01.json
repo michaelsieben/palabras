@@ -1,0 +1,27 @@
+{
+  "id": "es-carne-01",
+  "headword": "carne",
+  "article": "la",
+  "plural": "carnes",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "meat",
+      "example": "No como mucha carne roja.",
+      "exampleGloss": "I do not eat much red meat."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el pescado", "gloss": "the fish", "reason": "The other main protein on a Spanish menu." },
+    { "kind": "near-synonym", "value": "el filete", "gloss": "the steak", "reason": "One cut of meat, not meat in general." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine. Carne also means flesh; only the food sense is taught.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

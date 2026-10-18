@@ -1,0 +1,27 @@
+{
+  "id": "es-pierna-01",
+  "headword": "pierna",
+  "article": "la",
+  "plural": "piernas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "leg",
+      "example": "Tengo las piernas cansadas de andar.",
+      "exampleGloss": "My legs are tired from walking."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el pie", "gloss": "the foot", "reason": "At the bottom of the leg." },
+    { "kind": "different-sense", "value": "el muslo", "gloss": "the thigh", "reason": "The upper part of the leg." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural piernas.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-acostarse-01",
+  "headword": "acostarse",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "to go to bed",
+      "example": "Me acuesto tarde los fines de semana.",
+      "exampleGloss": "I go to bed late at weekends."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "dormirse", "gloss": "to fall asleep", "reason": "Actually getting to sleep, after going to bed." },
+    { "kind": "different-sense", "value": "levantarse", "gloss": "to get up", "reason": "The opposite end of the day." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Stem-changing reflexive verb: me acuesto, o-ue in the stem.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

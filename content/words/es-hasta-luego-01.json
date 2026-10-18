@@ -1,0 +1,24 @@
+{
+  "id": "es-hasta-luego-01",
+  "headword": "hasta luego",
+  "partOfSpeech": "phrase",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "see you later",
+      "example": "Hasta luego, nos vemos mañana.",
+      "exampleGloss": "See you later, see you tomorrow."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "hasta pronto", "gloss": "see you soon", "reason": "For a shorter gap, or when you are not sure when." },
+    { "kind": "register", "value": "adiós", "gloss": "goodbye", "reason": "More final; hasta luego expects a next time." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "The default farewell in Spain, said even to shop assistants.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

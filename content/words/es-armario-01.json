@@ -1,0 +1,27 @@
+{
+  "id": "es-armario-01",
+  "headword": "armario",
+  "article": "el",
+  "plural": "armarios",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "wardrobe",
+      "example": "Guarda la ropa en el armario.",
+      "exampleGloss": "Put the clothes away in the wardrobe."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el cajón", "gloss": "the drawer", "reason": "A sliding box inside a wardrobe or chest." },
+    { "kind": "near-synonym", "value": "la estantería", "gloss": "the shelf unit", "reason": "For books and objects, not for clothes." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural armarios. Also a kitchen cupboard: armario de cocina.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

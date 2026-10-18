@@ -1,0 +1,27 @@
+{
+  "id": "es-gripe-01",
+  "headword": "gripe",
+  "article": "la",
+  "plural": "gripes",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "flu",
+      "example": "Tengo gripe y estoy en la cama.",
+      "exampleGloss": "I have flu and I am in bed."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el resfriado", "gloss": "the cold", "reason": "Milder than flu; already in the corpus." },
+    { "kind": "different-sense", "value": "el catarro", "gloss": "the cold", "reason": "A cold with a cough, less serious than flu." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural gripes. Gripe is the real flu, resfriado a common cold.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

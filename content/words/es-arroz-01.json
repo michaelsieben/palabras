@@ -1,0 +1,27 @@
+{
+  "id": "es-arroz-01",
+  "headword": "arroz",
+  "article": "el",
+  "plural": "arroces",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "rice",
+      "example": "Hoy comemos arroz con pollo.",
+      "exampleGloss": "Today we are having rice with chicken."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la paella", "gloss": "the paella", "reason": "A specific rice dish, not rice in general." },
+    { "kind": "near-synonym", "value": "el cereal", "gloss": "the cereal", "reason": "The broader grain category." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine, uncountable in normal use: arroz, not arroces.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

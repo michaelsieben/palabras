@@ -1,0 +1,27 @@
+{
+  "id": "es-mensaje-01",
+  "headword": "mensaje",
+  "article": "el",
+  "plural": "mensajes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology","small-talk"],
+  "senses": [
+    {
+      "gloss": "message",
+      "example": "Me ha llegado un mensaje de mi hermana.",
+      "exampleGloss": "A message from my sister has come in."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el correo", "gloss": "the email", "reason": "A longer written message." },
+    { "kind": "different-sense", "value": "la llamada", "gloss": "the call", "reason": "A phone call, not a message." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural mensajes. Used for texts and voice notes alike.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-sabado-01",
+  "headword": "sábado",
+  "article": "el",
+  "plural": "sábados",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "Saturday",
+      "example": "El sábado por la mañana hago la compra.",
+      "exampleGloss": "On Saturday morning I do the shopping."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "los sábados", "gloss": "on Saturdays", "reason": "Plural form for the weekly routine." },
+    { "kind": "different-sense", "value": "el fin de semana", "gloss": "the weekend", "reason": "Saturday and Sunday together." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the first a: sábado; plural sábados.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

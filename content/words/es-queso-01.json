@@ -1,0 +1,27 @@
+{
+  "id": "es-queso-01",
+  "headword": "queso",
+  "article": "el",
+  "plural": "quesos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food","navarre-culture"],
+  "senses": [
+    {
+      "gloss": "cheese",
+      "example": "Este queso de Navarra está muy rico.",
+      "exampleGloss": "This cheese from Navarre is delicious."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el queso curado", "gloss": "cured cheese", "reason": "Aged, stronger cheese; common in Navarre." },
+    { "kind": "near-synonym", "value": "el yogur", "gloss": "the yoghurt", "reason": "Another dairy product, not cheese." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Navarre is a sheep-cheese region; queso de Roncal and Idiazábal are local names.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

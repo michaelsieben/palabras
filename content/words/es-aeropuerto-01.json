@@ -1,0 +1,27 @@
+{
+  "id": "es-aeropuerto-01",
+  "headword": "aeropuerto",
+  "article": "el",
+  "plural": "aeropuertos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "airport",
+      "example": "Vamos al aeropuerto en taxi.",
+      "exampleGloss": "We are going to the airport by taxi."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la estación", "gloss": "the station", "reason": "For trains and buses, not planes." },
+    { "kind": "different-sense", "value": "el vuelo", "gloss": "the flight", "reason": "The journey by plane, not the building." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural aeropuertos. Pamplona has a small regional airport.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

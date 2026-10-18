@@ -1,0 +1,27 @@
+{
+  "id": "es-abril-01",
+  "headword": "abril",
+  "article": "el",
+  "plural": "abriles",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "April",
+      "example": "En abril llueve mucho en Pamplona.",
+      "exampleGloss": "In April it rains a lot in Pamplona."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el mes de abril", "gloss": "the month of April", "reason": "Full written form with el mes de." },
+    { "kind": "different-sense", "value": "la lluvia", "gloss": "rain", "reason": "The weather typical of the month, not the month itself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Lower-case, masculine. April showers are the local joke in Navarre.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

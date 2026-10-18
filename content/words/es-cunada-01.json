@@ -1,0 +1,27 @@
+{
+  "id": "es-cunada-01",
+  "headword": "cuñada",
+  "article": "la",
+  "plural": "cuñadas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "sister-in-law",
+      "example": "Mi cuñada es de Pamplona.",
+      "exampleGloss": "My sister-in-law is from Pamplona."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "cuñadas", "gloss": "sisters-in-law", "reason": "Plural form." },
+    { "kind": "near-synonym", "value": "hermana", "gloss": "sister", "reason": "Not a sister by blood; related through marriage." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Female counterpart of cuñado, already in the corpus.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

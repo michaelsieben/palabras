@@ -1,0 +1,27 @@
+{
+  "id": "es-espalda-01",
+  "headword": "espalda",
+  "article": "la",
+  "plural": "espaldas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "back",
+      "example": "Me duele la espalda de trabajar sentado.",
+      "exampleGloss": "My back hurts from working sitting down."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la cintura", "gloss": "the waist", "reason": "The lower back area, not the whole back." },
+    { "kind": "different-sense", "value": "el pecho", "gloss": "the chest", "reason": "The front of the body, opposite the back." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural espaldas. A nadar de espaldas is to swim on your back.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

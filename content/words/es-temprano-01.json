@@ -1,0 +1,24 @@
+{
+  "id": "es-temprano-01",
+  "headword": "temprano",
+  "partOfSpeech": "adverb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time","daily-routine"],
+  "senses": [
+    {
+      "gloss": "early",
+      "example": "Me levanto temprano entre semana.",
+      "exampleGloss": "I get up early on weekdays."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "de madrugada", "gloss": "at dawn", "reason": "In the small hours; much earlier than temprano." },
+    { "kind": "different-sense", "value": "tarde", "gloss": "late", "reason": "The opposite; also a noun meaning afternoon." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Adverb of time of day; the opposite is tarde. Not a synonym of pronto.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

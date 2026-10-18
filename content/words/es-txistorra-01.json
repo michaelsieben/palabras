@@ -1,0 +1,27 @@
+{
+  "id": "es-txistorra-01",
+  "headword": "txistorra",
+  "article": "la",
+  "plural": "txistorras",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "navarre" },
+  "register": "neutral",
+  "topics": ["navarre-culture","food"],
+  "senses": [
+    {
+      "gloss": "Navarre chorizo sausage",
+      "example": "Desayunamos txistorra en San Fermín.",
+      "exampleGloss": "We have txistorra for breakfast during San Fermín."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la chistorra", "gloss": "the chorizo sausage", "reason": "The Spanish spelling of the same thin, fresh sausage." },
+    { "kind": "different-sense", "value": "el chorizo", "gloss": "the chorizo", "reason": "A different, cured sausage, eaten in slices." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Basque spelling txistorra is used on Navarre menus; chistorra is the Castilian spelling. Same product.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

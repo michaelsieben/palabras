@@ -1,0 +1,27 @@
+{
+  "id": "es-banco-01",
+  "headword": "banco",
+  "article": "el",
+  "plural": "bancos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city","shopping"],
+  "senses": [
+    {
+      "gloss": "bank",
+      "example": "Tengo que ir al banco a sacar dinero.",
+      "exampleGloss": "I have to go to the bank to withdraw money."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el banco del parque", "gloss": "the park bench", "reason": "Same word also means a bench." },
+    { "kind": "near-synonym", "value": "la caja", "gloss": "the savings bank", "reason": "A different kind of bank, very common in Spain." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural bancos. Two everyday senses: the bank and the bench.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

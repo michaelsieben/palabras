@@ -1,0 +1,27 @@
+{
+  "id": "es-pacharan-01",
+  "headword": "pacharán",
+  "article": "el",
+  "plural": "pacharanes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "navarre" },
+  "register": "neutral",
+  "topics": ["navarre-culture","food"],
+  "senses": [
+    {
+      "gloss": "sloe liqueur",
+      "example": "Después de cenar tomamos un pacharán.",
+      "exampleGloss": "After dinner we have a pacharán."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el licor de endrinas", "gloss": "the sloe liqueur", "reason": "The descriptive name of the same Navarre drink." },
+    { "kind": "different-sense", "value": "el vino", "gloss": "the wine", "reason": "A different drink, not the local digestif." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Navarre sloe liqueur, a local digestif, standard on the menu after a heavy meal.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

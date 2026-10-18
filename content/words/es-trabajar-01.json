@@ -1,0 +1,24 @@
+{
+  "id": "es-trabajar-01",
+  "headword": "trabajar",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "to work",
+      "example": "Trabajo en una oficina del centro.",
+      "exampleGloss": "I work in an office in the centre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el trabajo", "gloss": "the work, the job", "reason": "The noun form of the same idea." },
+    { "kind": "near-synonym", "value": "funcionar", "gloss": "to work (a machine)", "reason": "For machines, not people." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "El trabajo is the noun. Trabajar describes people, funcionar describes things.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

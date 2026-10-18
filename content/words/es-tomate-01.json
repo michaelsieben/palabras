@@ -1,0 +1,27 @@
+{
+  "id": "es-tomate-01",
+  "headword": "tomate",
+  "article": "el",
+  "plural": "tomates",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "tomato",
+      "example": "La ensalada lleva tomate y cebolla.",
+      "exampleGloss": "The salad has tomato and onion."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el tomate frito", "gloss": "fried tomato sauce", "reason": "The jarred sauce used all over Spanish cooking." },
+    { "kind": "near-synonym", "value": "el pimiento", "gloss": "the pepper (vegetable)", "reason": "Another common salad vegetable." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural tomates. Tomate frito is the everyday cooking sauce.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

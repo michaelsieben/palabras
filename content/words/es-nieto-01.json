@@ -1,0 +1,27 @@
+{
+  "id": "es-nieto-01",
+  "headword": "nieto",
+  "article": "el",
+  "plural": "nietos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "grandson",
+      "example": "Mi abuela tiene cuatro nietos.",
+      "exampleGloss": "My grandmother has four grandchildren."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "nietos", "gloss": "grandchildren", "reason": "Plural covers grandsons and granddaughters." },
+    { "kind": "near-synonym", "value": "hijo", "gloss": "son", "reason": "One generation down, not two." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "nieto is the male grandchild; nieta the female form.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

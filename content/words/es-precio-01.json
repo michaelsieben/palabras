@@ -1,0 +1,27 @@
+{
+  "id": "es-precio-01",
+  "headword": "precio",
+  "article": "el",
+  "plural": "precios",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping"],
+  "senses": [
+    {
+      "gloss": "price",
+      "example": "El precio del pan ha subido.",
+      "exampleGloss": "The price of bread has gone up."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el coste", "gloss": "the cost", "reason": "More formal than precio." },
+    { "kind": "near-synonym", "value": "la tarifa", "gloss": "the rate", "reason": "For services, not goods." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural precios. ¿Cuánto cuesta? is the everyday way to ask the price.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,8 +1,9 @@
-# content/words — seed batch 1
+# content/words — seed batches 1 and 2
 
-58 hand-authored A2-oriented entries (34× A1, 24× A2), one JSON object per file, each named
-`<id>.json`. Every entry is schema-valid and every entry is `status: "pending_review"` — none is
-approved until the reviewer (the learner's fiancée, a native Peninsular speaker) approves it.
+229 hand-authored A2-oriented entries, one JSON object per file, each named `<id>.json`. Batch 1 is
+58 entries (34× A1, 24× A2); batch 2 is 171 entries. Every entry is schema-valid and every entry is
+`status: "pending_review"` — none is approved until the reviewer (the learner's fiancée, a native
+Peninsular speaker) approves it.
 
 Validate with:
 
@@ -10,7 +11,7 @@ Validate with:
 node tools/content-lint/index.js
 ```
 
-Current result: `OK — 58 word file(s), 0 errors, 0 warning(s)`.
+Current result: `OK — 229 word file(s), 0 errors, 0 warning(s)`.
 
 ## What this batch covers
 
@@ -77,3 +78,44 @@ Design choices baked into the batch:
 `content/style-guide.md` (human reasoning + denylist/allowlist tables) and
 `content/style-guide.lexicon.json` (the machine-readable lexicon the linter reads). If a rule changes,
 edit both in one change and re-run the linter.
+
+## Batch 2 (T-20261018-2105)
+
+171 further entries, written under the same rules, filling the themed sets batch 1 deliberately
+deferred (numbers were still left out; the grammar spine stays out). Every entry is
+`status: "pending_review"`, `provenance.method: "hand-authored"`, with 2–3 `alternatives`.
+
+| Area | Topics | Count |
+| --- | --- | --- |
+| Time: days, months, time adverbs | time, daily-routine | 28 |
+| Family (extended, in-laws) | family | 17 |
+| Body parts | health, daily-routine | 10 |
+| Food and drink | food, shopping, navarre-culture | 18 |
+| Clothing | clothing, weather, shopping, time | 10 |
+| Household | household, food, daily-routine | 16 |
+| Weather | weather | 8 |
+| City and transport | city, transport, shopping, leisure | 14 |
+| Technology | technology, small-talk, leisure | 8 |
+| Health | health, navarre-culture | 6 |
+| Small talk | small-talk | 8 |
+| Daily-routine verbs | daily-routine, food, city, transport, leisure | 10 |
+| Shopping | shopping, clothing, technology | 6 |
+| Leisure | leisure, transport | 8 |
+| Navarre culture | navarre-culture, food | 4 |
+
+New local/Navarre entries: `chupinazo`, `sanfermines`, `txistorra`, `pacharán`, `ambulatorio`
+(health centre), and `queso`/`iglesia`/`ayuntamiento`/`barrio` examples anchored in Pamplona.
+
+Where the reviewer should look hardest:
+
+1. **Cross-part-of-speech headwords** — `mañana` is taught only as the noun *morning*; the adverb
+   *tomorrow* is a `different-sense` alternative, not a second entry. Confirm that split.
+2. **`tío`/`tía`** — the family sense is taught; the colloquial Peninsular "bloke/mate" sense is kept
+   out (only a `register` alternative points at `colega`).
+3. **`txistorra` vs `chistorra`** — Basque vs Castilian spelling of the same Navarre sausage;
+   `txistorra` is the headword because that is what Navarre menus print.
+4. **`ambulatorio` vs `centro de salud`** — `ambulatorio` is the everyday Navarre word, `centro de
+   salud` the official name; only `ambulatorio` is taught.
+5. **`agua`** — taught as `article: "el"` with `gender: "feminine"`, matching el agua / el agua fría.
+6. **`pescado` vs `pez`, `biblioteca` vs `librería`, `bolso` vs `bolsa`, `manzana` (fruit vs block)** —
+   the false-friend pairs; confirm the taught sense is the household one.

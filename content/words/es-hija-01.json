@@ -1,0 +1,27 @@
+{
+  "id": "es-hija-01",
+  "headword": "hija",
+  "article": "la",
+  "plural": "hijas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "daughter",
+      "example": "Mi hija estudia en la universidad.",
+      "exampleGloss": "My daughter studies at university."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "hijas", "gloss": "daughters", "reason": "Plural form, only daughters." },
+    { "kind": "near-synonym", "value": "sobrina", "gloss": "niece", "reason": "Not a daughter; the child of your sibling." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural hijas is daughters only.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

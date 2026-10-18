@@ -1,0 +1,27 @@
+{
+  "id": "es-playa-01",
+  "headword": "playa",
+  "article": "la",
+  "plural": "playas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure"],
+  "senses": [
+    {
+      "gloss": "beach",
+      "example": "En verano vamos a la playa del norte.",
+      "exampleGloss": "In summer we go to the northern beach."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la piscina", "gloss": "the swimming pool", "reason": "A pool, not the sea and sand." },
+    { "kind": "near-synonym", "value": "la costa", "gloss": "the coast", "reason": "The whole coastal area, not one beach." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural playas. The nearest coast to Pamplona is about an hour away.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

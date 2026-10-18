@@ -1,0 +1,27 @@
+{
+  "id": "es-cebolla-01",
+  "headword": "cebolla",
+  "article": "la",
+  "plural": "cebollas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "onion",
+      "example": "Corta la cebolla muy fina.",
+      "exampleGloss": "Cut the onion very finely."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el ajo", "gloss": "the garlic", "reason": "Often cooked together with onion in Spanish recipes." },
+    { "kind": "near-synonym", "value": "el puerro", "gloss": "the leek", "reason": "A similar vegetable used in soups." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural cebollas. Do not confuse with cabello (hair).",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

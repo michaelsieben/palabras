@@ -1,0 +1,27 @@
+{
+  "id": "es-pantalla-01",
+  "headword": "pantalla",
+  "article": "la",
+  "plural": "pantallas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "screen",
+      "example": "La pantalla del móvil está rota.",
+      "exampleGloss": "The mobile screen is broken."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el teclado", "gloss": "the keyboard", "reason": "Where you type, not where you look." },
+    { "kind": "near-synonym", "value": "el monitor", "gloss": "the monitor", "reason": "The screen of a desktop computer." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural pantallas.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

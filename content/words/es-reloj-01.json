@@ -1,0 +1,27 @@
+{
+  "id": "es-reloj-01",
+  "headword": "reloj",
+  "article": "el",
+  "plural": "relojes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing","time"],
+  "senses": [
+    {
+      "gloss": "watch, clock",
+      "example": "Mi reloj se ha parado esta mañana.",
+      "exampleGloss": "My watch stopped this morning."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el despertador", "gloss": "the alarm clock", "reason": "The clock that wakes you up." },
+    { "kind": "near-synonym", "value": "la hora", "gloss": "the time", "reason": "What the watch tells you, not the object." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural relojes keeps the j sound. Same word for a wristwatch and a wall clock.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

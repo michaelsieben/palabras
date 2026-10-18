@@ -1,0 +1,24 @@
+{
+  "id": "es-levantarse-01",
+  "headword": "levantarse",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "to get up",
+      "example": "Me levanto a las siete.",
+      "exampleGloss": "I get up at seven."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "despertarse", "gloss": "to wake up", "reason": "Waking, before you actually get up." },
+    { "kind": "near-synonym", "value": "madrugar", "gloss": "to get up early", "reason": "To get up earlier than usual; already in the corpus." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Reflexive: me levanto, te levantas. The pronoun changes with the person.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

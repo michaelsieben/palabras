@@ -1,0 +1,27 @@
+{
+  "id": "es-cabeza-01",
+  "headword": "cabeza",
+  "article": "la",
+  "plural": "cabezas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "head",
+      "example": "Me duele la cabeza desde esta mañana.",
+      "exampleGloss": "My head has hurt since this morning."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "dolor de cabeza", "gloss": "headache", "reason": "The fixed collocation for the pain, not the body part itself." },
+    { "kind": "near-synonym", "value": "el pelo", "gloss": "hair", "reason": "On the head, but a different thing." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Me duele la cabeza is the natural A2 way to say I have a headache.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

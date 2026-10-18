@@ -1,0 +1,27 @@
+{
+  "id": "es-camiseta-01",
+  "headword": "camiseta",
+  "article": "la",
+  "plural": "camisetas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "T-shirt",
+      "example": "Me pongo una camiseta de manga corta.",
+      "exampleGloss": "I put on a short-sleeved T-shirt."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la camisa", "gloss": "the shirt", "reason": "Buttoned and more formal, not a T-shirt." },
+    { "kind": "different-sense", "value": "la sudadera", "gloss": "the sweatshirt", "reason": "Warmer and long-sleeved, not a T-shirt." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural camisetas. Also the word for a football shirt.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

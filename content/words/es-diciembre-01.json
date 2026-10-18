@@ -1,0 +1,27 @@
+{
+  "id": "es-diciembre-01",
+  "headword": "diciembre",
+  "article": "el",
+  "plural": "diciembres",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "December",
+      "example": "En diciembre adornamos el árbol de Navidad.",
+      "exampleGloss": "In December we decorate the Christmas tree."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el mes de diciembre", "gloss": "the month of December", "reason": "Full written form with el mes de." },
+    { "kind": "different-sense", "value": "la Navidad", "gloss": "Christmas", "reason": "The feast celebrated in December, not the month." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Lower-case, masculine. Christmas and the long school holiday.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

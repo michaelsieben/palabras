@@ -1,0 +1,24 @@
+{
+  "id": "es-nunca-01",
+  "headword": "nunca",
+  "partOfSpeech": "adverb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "never",
+      "example": "Nunca bebo alcohol entre semana.",
+      "exampleGloss": "I never drink alcohol on weekdays."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "jamás", "gloss": "never, ever", "reason": "Stronger and more emphatic; standard Peninsular." },
+    { "kind": "different-sense", "value": "siempre", "gloss": "always", "reason": "The opposite polarity." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "With a following no the double negative is normal: nunca no... is non-standard; use nunca or no... nunca.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-talla-01",
+  "headword": "talla",
+  "article": "la",
+  "plural": "tallas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping","clothing"],
+  "senses": [
+    {
+      "gloss": "size (clothing)",
+      "example": "¿Tiene esta camisa en la talla cuarenta?",
+      "exampleGloss": "Do you have this shirt in size forty?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el número", "gloss": "the shoe size", "reason": "Used for shoes, not clothes." },
+    { "kind": "near-synonym", "value": "la medida", "gloss": "the measurement", "reason": "A general measurement, not a clothing size." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural tallas. Talla for clothes, número for shoes in Spain.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

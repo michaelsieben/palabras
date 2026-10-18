@@ -1,0 +1,27 @@
+{
+  "id": "es-rebajas-01",
+  "headword": "rebajas",
+  "article": "las",
+  "plural": "rebajas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping"],
+  "senses": [
+    {
+      "gloss": "the sales",
+      "example": "Compro la ropa en las rebajas de enero.",
+      "exampleGloss": "I buy clothes in the January sales."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "las ofertas", "gloss": "the deals", "reason": "Ongoing offers, not the fixed sales season." },
+    { "kind": "different-sense", "value": "el descuento", "gloss": "the discount", "reason": "A single reduction, not the sales period." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Plural-only noun: las rebajas. The fixed January and July sales periods in Spain.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

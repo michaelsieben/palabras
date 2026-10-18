@@ -1,0 +1,27 @@
+{
+  "id": "es-musica-01",
+  "headword": "música",
+  "article": "la",
+  "plural": "músicas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure"],
+  "senses": [
+    {
+      "gloss": "music",
+      "example": "Escucho música mientras cocino.",
+      "exampleGloss": "I listen to music while I cook."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la canción", "gloss": "the song", "reason": "One piece of music, not music in general." },
+    { "kind": "near-synonym", "value": "el concierto", "gloss": "the concert", "reason": "A live performance, not the music itself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the u: música. Feminine.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

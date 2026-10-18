@@ -1,0 +1,27 @@
+{
+  "id": "es-dolor-01",
+  "headword": "dolor",
+  "article": "el",
+  "plural": "dolores",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "pain",
+      "example": "Tengo dolor de cabeza desde ayer.",
+      "exampleGloss": "I have had a headache since yesterday."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el dolor de cabeza", "gloss": "the headache", "reason": "The fixed collocation for a headache, not pain in general." },
+    { "kind": "near-synonym", "value": "la molestia", "gloss": "the discomfort", "reason": "Milder than pain, an annoyance." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural dolores. Me duele is the everyday verb phrase, dolor the noun.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-esquina-01",
+  "headword": "esquina",
+  "article": "la",
+  "plural": "esquinas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "corner",
+      "example": "El bar está en la esquina de la plaza.",
+      "exampleGloss": "The bar is on the corner of the square."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la curva", "gloss": "the bend", "reason": "A bend in a road, not a street corner." },
+    { "kind": "near-synonym", "value": "el cruce", "gloss": "the crossroads", "reason": "Where two streets cross." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural esquinas. En la esquina is the standard place phrase.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-cerveza-01",
+  "headword": "cerveza",
+  "article": "la",
+  "plural": "cervezas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food","small-talk"],
+  "senses": [
+    {
+      "gloss": "beer",
+      "example": "Nos tomamos una cerveza en el bar.",
+      "exampleGloss": "We have a beer in the bar."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la caña", "gloss": "the small draft beer", "reason": "The usual bar measure in Spain, smaller than a bottle." },
+    { "kind": "near-synonym", "value": "el vino", "gloss": "the wine", "reason": "The other common drink with a meal." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine. Una caña is the everyday way to order a beer at a bar.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

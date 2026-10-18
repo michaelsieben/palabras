@@ -1,0 +1,27 @@
+{
+  "id": "es-sol-01",
+  "headword": "sol",
+  "article": "el",
+  "plural": "soles",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "sun",
+      "example": "Hoy hace sol y no hace frío.",
+      "exampleGloss": "It is sunny today and not cold."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la sombra", "gloss": "the shade", "reason": "The opposite of the sun’s direct light." },
+    { "kind": "near-synonym", "value": "el buen tiempo", "gloss": "good weather", "reason": "What a sunny day means in small talk." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural soles. Hace sol is the weather phrase, not hay sol.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

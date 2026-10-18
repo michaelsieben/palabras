@@ -1,0 +1,27 @@
+{
+  "id": "es-hermana-01",
+  "headword": "hermana",
+  "article": "la",
+  "plural": "hermanas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "sister",
+      "example": "Mi hermana trabaja en Pamplona.",
+      "exampleGloss": "My sister works in Pamplona."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "hermanas", "gloss": "sisters", "reason": "Plural form, only sisters." },
+    { "kind": "near-synonym", "value": "cuñada", "gloss": "sister-in-law", "reason": "Not a sister; the partner of your sibling or your partner’s sister." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural hermanas is sisters only.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

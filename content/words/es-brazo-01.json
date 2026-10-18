@@ -1,0 +1,27 @@
+{
+  "id": "es-brazo-01",
+  "headword": "brazo",
+  "article": "el",
+  "plural": "brazos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "arm",
+      "example": "Me duele el brazo de llevar bolsas.",
+      "exampleGloss": "My arm hurts from carrying bags."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la mano", "gloss": "the hand", "reason": "At the end of the arm." },
+    { "kind": "different-sense", "value": "el hombro", "gloss": "the shoulder", "reason": "Where the arm joins the body." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural brazos.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

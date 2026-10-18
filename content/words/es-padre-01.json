@@ -1,0 +1,27 @@
+{
+  "id": "es-padre-01",
+  "headword": "padre",
+  "article": "el",
+  "plural": "padres",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "father",
+      "example": "Mi padre es de Navarra.",
+      "exampleGloss": "My father is from Navarre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "padres", "gloss": "parents", "reason": "Plural means parents, not just fathers." },
+    { "kind": "near-synonym", "value": "suegro", "gloss": "father-in-law", "reason": "The partner’s father, not your own." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Plural padres means parents. Also used as a respectful term for a priest.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

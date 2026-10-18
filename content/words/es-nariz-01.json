@@ -1,0 +1,27 @@
+{
+  "id": "es-nariz-01",
+  "headword": "nariz",
+  "article": "la",
+  "plural": "narices",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "nose",
+      "example": "Tengo la nariz tapada con el resfriado.",
+      "exampleGloss": "My nose is blocked with this cold."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el olfato", "gloss": "the sense of smell", "reason": "The faculty, not the organ." },
+    { "kind": "near-synonym", "value": "la boca", "gloss": "the mouth", "reason": "A neighbouring feature of the face." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Irregular plural narices. Feminine.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

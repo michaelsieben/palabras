@@ -1,0 +1,27 @@
+{
+  "id": "es-mano-01",
+  "headword": "mano",
+  "article": "la",
+  "plural": "manos",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health","daily-routine"],
+  "senses": [
+    {
+      "gloss": "hand",
+      "example": "Lávate las manos antes de comer.",
+      "exampleGloss": "Wash your hands before eating."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "los dedos", "gloss": "the fingers", "reason": "The parts of the hand, not the whole hand." },
+    { "kind": "near-synonym", "value": "el brazo", "gloss": "the arm", "reason": "The limb above the hand." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine despite ending in -o: la mano, las manos. A classic learner trap.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

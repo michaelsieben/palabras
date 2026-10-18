@@ -1,0 +1,27 @@
+{
+  "id": "es-febrero-01",
+  "headword": "febrero",
+  "article": "el",
+  "plural": "febreros",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "February",
+      "example": "En febrero hace mucho frío.",
+      "exampleGloss": "In February it is very cold."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el mes de febrero", "gloss": "the month of February", "reason": "Full written form with el mes de." },
+    { "kind": "different-sense", "value": "el mes", "gloss": "the month", "reason": "The general word for any month." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Lower-case, masculine. The shortest month of the year.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

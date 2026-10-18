@@ -1,0 +1,24 @@
+{
+  "id": "es-volver-01",
+  "headword": "volver",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine","city"],
+  "senses": [
+    {
+      "gloss": "to return, to come back",
+      "example": "Vuelvo a casa a las seis.",
+      "exampleGloss": "I come back home at six."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "regresar", "gloss": "to return", "reason": "Shared and slightly more formal in Spain." },
+    { "kind": "different-sense", "value": "irse", "gloss": "to leave", "reason": "The opposite direction, going away." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Stem-changing verb: vuelvo, o-ue in the stem. Volver a + infinitive means to do again.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

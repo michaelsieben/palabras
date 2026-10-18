@@ -1,0 +1,24 @@
+{
+  "id": "es-adios-01",
+  "headword": "adiós",
+  "partOfSpeech": "interjection",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "goodbye",
+      "example": "Adiós, hasta mañana.",
+      "exampleGloss": "Goodbye, see you tomorrow."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "hasta luego", "gloss": "see you later", "reason": "The usual informal goodbye in Spain, softer than adiós." },
+    { "kind": "different-sense", "value": "hola", "gloss": "hello", "reason": "The greeting, not the farewell." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the o: adiós. Fine to use with anyone.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

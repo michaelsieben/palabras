@@ -1,0 +1,27 @@
+{
+  "id": "es-pie-01",
+  "headword": "pie",
+  "article": "el",
+  "plural": "pies",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "foot",
+      "example": "Me duele el pie derecho al andar.",
+      "exampleGloss": "My right foot hurts when I walk."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la pierna", "gloss": "the leg", "reason": "The limb above the foot." },
+    { "kind": "near-synonym", "value": "el dedo del pie", "gloss": "the toe", "reason": "A part of the foot, not the whole foot." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Plural pies keeps the accent pattern: el pie, los pies. Also the base of a thing (al pie de la letra).",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-pollo-01",
+  "headword": "pollo",
+  "article": "el",
+  "plural": "pollos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "chicken",
+      "example": "Cenamos pollo asado con patatas.",
+      "exampleGloss": "We are having roast chicken with potatoes for dinner."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la gallina", "gloss": "the hen", "reason": "The animal, not the meat on the plate." },
+    { "kind": "near-synonym", "value": "el pavo", "gloss": "the turkey", "reason": "Another poultry, common at Christmas." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine. Pollo is both the animal and the meat; gallina is the adult female bird.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

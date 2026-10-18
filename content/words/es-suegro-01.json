@@ -1,0 +1,27 @@
+{
+  "id": "es-suegro-01",
+  "headword": "suegro",
+  "article": "el",
+  "plural": "suegros",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "father-in-law",
+      "example": "Mi suegro hace vino en casa.",
+      "exampleGloss": "My father-in-law makes wine at home."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "suegros", "gloss": "parents-in-law", "reason": "Plural means both in-laws together." },
+    { "kind": "near-synonym", "value": "padre", "gloss": "father", "reason": "Your own father, not your partner’s." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Male counterpart of suegra, already in the corpus.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

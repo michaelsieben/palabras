@@ -1,0 +1,27 @@
+{
+  "id": "es-cafe-01",
+  "headword": "café",
+  "article": "el",
+  "plural": "cafés",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food","small-talk"],
+  "senses": [
+    {
+      "gloss": "coffee",
+      "example": "Tomo un café solo después de comer.",
+      "exampleGloss": "I have an espresso after lunch."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el café con leche", "gloss": "coffee with milk", "reason": "The most common coffee order in Spain." },
+    { "kind": "near-synonym", "value": "la infusión", "gloss": "the herbal tea", "reason": "A caffeine-free alternative." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the e: café. Un café solo is an espresso in Peninsular bar speech.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

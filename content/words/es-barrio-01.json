@@ -1,0 +1,27 @@
+{
+  "id": "es-barrio-01",
+  "headword": "barrio",
+  "article": "el",
+  "plural": "barrios",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "neighbourhood",
+      "example": "Vivo en un barrio tranquilo de Pamplona.",
+      "exampleGloss": "I live in a quiet neighbourhood of Pamplona."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el centro", "gloss": "the city centre", "reason": "The middle of the city, not a neighbourhood." },
+    { "kind": "near-synonym", "value": "la zona", "gloss": "the area", "reason": "A vaguer word for a part of town." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural barrios. Pamplona has well-known barrios such as Iturrama and San Juan.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

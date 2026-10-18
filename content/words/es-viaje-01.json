@@ -1,0 +1,27 @@
+{
+  "id": "es-viaje-01",
+  "headword": "viaje",
+  "article": "el",
+  "plural": "viajes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure","transport"],
+  "senses": [
+    {
+      "gloss": "trip, journey",
+      "example": "Hacemos un viaje a San Sebastián en mayo.",
+      "exampleGloss": "We are taking a trip to San Sebastián in May."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la excursión", "gloss": "the day trip", "reason": "A short trip, often lasting one day." },
+    { "kind": "different-sense", "value": "el viajero", "gloss": "the traveller", "reason": "The person, not the trip." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural viajes. Viajar is the verb; buen viaje is the send-off.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

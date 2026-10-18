@@ -1,0 +1,27 @@
+{
+  "id": "es-tio-01",
+  "headword": "tío",
+  "article": "el",
+  "plural": "tíos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "uncle",
+      "example": "Mi tío vive en el pueblo.",
+      "exampleGloss": "My uncle lives in the village."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "tíos", "gloss": "uncle and aunt, uncles", "reason": "Plural often means the couple together, not just uncles." },
+    { "kind": "register", "value": "colega", "gloss": "mate, bloke", "reason": "Colloquial Peninsular for a person; not the family sense at all." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the i: tío. Colloquially tío can mean a bloke in Spain, but only the family sense is taught.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

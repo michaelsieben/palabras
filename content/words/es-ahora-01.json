@@ -1,0 +1,24 @@
+{
+  "id": "es-ahora-01",
+  "headword": "ahora",
+  "partOfSpeech": "adverb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time","daily-routine"],
+  "senses": [
+    {
+      "gloss": "now",
+      "example": "Ahora estoy en casa.",
+      "exampleGloss": "I am at home now."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "en este momento", "gloss": "at this moment", "reason": "Same meaning, a little longer and more explicit." },
+    { "kind": "regional", "value": "ahorita", "gloss": "in a moment", "reason": "Mexican/Central American; never Peninsular. Shown so the reviewer can veto it." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Extremely frequent in Peninsular speech. Do not confuse with the es-419 ahorita.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

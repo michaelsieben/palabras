@@ -1,0 +1,24 @@
+{
+  "id": "es-luego-01",
+  "headword": "luego",
+  "partOfSpeech": "adverb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time","daily-routine"],
+  "senses": [
+    {
+      "gloss": "later, then",
+      "example": "Luego te llamo por teléfono.",
+      "exampleGloss": "I will call you later."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "después", "gloss": "afterwards", "reason": "Standard Peninsular synonym, slightly more neutral." },
+    { "kind": "different-sense", "value": "hasta luego", "gloss": "see you later", "reason": "The fixed farewell phrase, not the standalone adverb." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Also the second half of the farewell hasta luego. Ordering adverb, not a duration.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

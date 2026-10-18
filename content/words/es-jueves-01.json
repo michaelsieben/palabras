@@ -1,0 +1,27 @@
+{
+  "id": "es-jueves-01",
+  "headword": "jueves",
+  "article": "el",
+  "plural": "jueves",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "Thursday",
+      "example": "El jueves jugamos al fútbol.",
+      "exampleGloss": "On Thursday we play football."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "los jueves", "gloss": "on Thursdays", "reason": "Plural form for the weekly routine." },
+    { "kind": "different-sense", "value": "el fin de semana", "gloss": "the weekend", "reason": "Where the week is heading; a natural contrast in plans." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Invariable plural: el jueves, los jueves.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

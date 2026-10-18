@@ -1,0 +1,27 @@
+{
+  "id": "es-piscina-01",
+  "headword": "piscina",
+  "article": "la",
+  "plural": "piscinas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure"],
+  "senses": [
+    {
+      "gloss": "swimming pool",
+      "example": "Nadamos en la piscina municipal.",
+      "exampleGloss": "We swim in the municipal pool."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la playa", "gloss": "the beach", "reason": "Natural water, not a pool." },
+    { "kind": "different-sense", "value": "la piscina cubierta", "gloss": "the indoor pool", "reason": "Covered, open in winter." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural piscinas.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

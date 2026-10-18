@@ -1,0 +1,27 @@
+{
+  "id": "es-sofa-01",
+  "headword": "sofá",
+  "article": "el",
+  "plural": "sofás",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "sofa",
+      "example": "Nos sentamos en el sofá a ver la televisión.",
+      "exampleGloss": "We sit on the sofa to watch television."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el sillón", "gloss": "the armchair", "reason": "A seat for one person, not a sofa." },
+    { "kind": "near-synonym", "value": "el tresillo", "gloss": "the three-piece suite", "reason": "The whole set of matching seats." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the a: sofá; plural sofás.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

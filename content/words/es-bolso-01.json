@@ -1,0 +1,27 @@
+{
+  "id": "es-bolso-01",
+  "headword": "bolso",
+  "article": "el",
+  "plural": "bolsos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing","shopping"],
+  "senses": [
+    {
+      "gloss": "handbag",
+      "example": "Mi hermana lleva el bolso al hombro.",
+      "exampleGloss": "My sister carries her handbag on her shoulder."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la mochila", "gloss": "the backpack", "reason": "Carried on the back, not in the hand." },
+    { "kind": "near-synonym", "value": "la bolsa", "gloss": "the bag", "reason": "A shopping bag, not a handbag. A real Peninsular contrast." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural bolsos. bolso is a handbag, bolsa is a bag.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

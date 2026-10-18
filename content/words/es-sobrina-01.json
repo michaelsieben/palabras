@@ -1,0 +1,27 @@
+{
+  "id": "es-sobrina-01",
+  "headword": "sobrina",
+  "article": "la",
+  "plural": "sobrinas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "niece",
+      "example": "Mi sobrina cumple ocho años.",
+      "exampleGloss": "My niece is turning eight."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "sobrinas", "gloss": "nieces", "reason": "Plural form." },
+    { "kind": "near-synonym", "value": "hija", "gloss": "daughter", "reason": "Not a daughter; the child of your sibling." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Female counterpart of sobrino, which is already in the corpus.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

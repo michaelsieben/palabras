@@ -1,0 +1,24 @@
+{
+  "id": "es-perdon-01",
+  "headword": "perdón",
+  "partOfSpeech": "interjection",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "sorry, excuse me",
+      "example": "Perdón, no te he visto.",
+      "exampleGloss": "Sorry, I did not see you."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "disculpe", "gloss": "excuse me (formal)", "reason": "Formal, with usted, for strangers." },
+    { "kind": "different-sense", "value": "lo siento", "gloss": "I am sorry", "reason": "For sympathy or real regret, not for bumping into someone." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the o: perdón. Used both to apologise and to get attention.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-madre-01",
+  "headword": "madre",
+  "article": "la",
+  "plural": "madres",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "mother",
+      "example": "Mi madre cocina muy bien.",
+      "exampleGloss": "My mother cooks very well."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "madres", "gloss": "mothers", "reason": "Plural form." },
+    { "kind": "near-synonym", "value": "suegra", "gloss": "mother-in-law", "reason": "The partner’s mother, not your own." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine. Everyday shortening mamá is used in speech but not taught here.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

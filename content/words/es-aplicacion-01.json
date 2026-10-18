@@ -1,0 +1,27 @@
+{
+  "id": "es-aplicacion-01",
+  "headword": "aplicación",
+  "article": "la",
+  "plural": "aplicaciones",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "app",
+      "example": "Me he descargado una aplicación para aprender español.",
+      "exampleGloss": "I have downloaded an app to learn Spanish."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "app", "gloss": "app", "reason": "Colloquial shortening of aplicación, very common in speech." },
+    { "kind": "near-synonym", "value": "el programa", "gloss": "the program", "reason": "Software on a computer, not a phone app." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the o: aplicación; plural aplicaciones. App is the everyday spoken form.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

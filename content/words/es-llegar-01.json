@@ -1,0 +1,24 @@
+{
+  "id": "es-llegar-01",
+  "headword": "llegar",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport","daily-routine"],
+  "senses": [
+    {
+      "gloss": "to arrive",
+      "example": "El tren llega a las nueve.",
+      "exampleGloss": "The train arrives at nine."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "salir", "gloss": "to leave", "reason": "The opposite end of the journey." },
+    { "kind": "near-synonym", "value": "venir", "gloss": "to come", "reason": "Movement towards the speaker, not just arriving." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Spelling change in the past: llegué. Llegar a is to arrive at.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

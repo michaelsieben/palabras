@@ -1,0 +1,27 @@
+{
+  "id": "es-cama-01",
+  "headword": "cama",
+  "article": "la",
+  "plural": "camas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household","daily-routine"],
+  "senses": [
+    {
+      "gloss": "bed",
+      "example": "Hago la cama todas las mañanas.",
+      "exampleGloss": "I make the bed every morning."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la litera", "gloss": "the bunk bed", "reason": "Two beds stacked one above the other." },
+    { "kind": "near-synonym", "value": "el colchón", "gloss": "the mattress", "reason": "The soft part you lie on, not the bed frame." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural camas. Hacer la cama is to make the bed.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

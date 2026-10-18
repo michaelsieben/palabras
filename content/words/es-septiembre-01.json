@@ -1,0 +1,27 @@
+{
+  "id": "es-septiembre-01",
+  "headword": "septiembre",
+  "article": "el",
+  "plural": "septiembres",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "September",
+      "example": "En septiembre vuelvo al trabajo.",
+      "exampleGloss": "In September I go back to work."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el mes de septiembre", "gloss": "the month of September", "reason": "Full written form with el mes de." },
+    { "kind": "different-sense", "value": "el otoño", "gloss": "autumn", "reason": "The season that begins at the end of September." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Spelt septiembre; setiembre is non-standard. Lower-case, masculine.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

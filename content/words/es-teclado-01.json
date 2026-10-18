@@ -1,0 +1,27 @@
+{
+  "id": "es-teclado-01",
+  "headword": "teclado",
+  "article": "el",
+  "plural": "teclados",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "keyboard",
+      "example": "Escribo más rápido con el teclado.",
+      "exampleGloss": "I type faster with the keyboard."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el ratón", "gloss": "the mouse", "reason": "Moves the cursor, does not type." },
+    { "kind": "near-synonym", "value": "la pantalla táctil", "gloss": "the touchscreen", "reason": "You type on it with your finger." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural teclados. Also a musical keyboard.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

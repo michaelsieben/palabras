@@ -1,0 +1,27 @@
+{
+  "id": "es-huevo-01",
+  "headword": "huevo",
+  "article": "el",
+  "plural": "huevos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "egg",
+      "example": "Voy a hacer una tortilla de dos huevos.",
+      "exampleGloss": "I am going to make an omelette with two eggs."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la yema", "gloss": "the yolk", "reason": "The yellow part of an egg." },
+    { "kind": "near-synonym", "value": "la clara", "gloss": "the egg white", "reason": "The white part of an egg." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine. Huevo is one of the most frequent words in Spanish cooking.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

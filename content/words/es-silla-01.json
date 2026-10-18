@@ -1,0 +1,27 @@
+{
+  "id": "es-silla-01",
+  "headword": "silla",
+  "article": "la",
+  "plural": "sillas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "chair",
+      "example": "Siéntate en esa silla, por favor.",
+      "exampleGloss": "Sit on that chair, please."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el sillón", "gloss": "the armchair", "reason": "A big soft chair with arms, not a dining chair." },
+    { "kind": "near-synonym", "value": "el taburete", "gloss": "the stool", "reason": "A seat without a back." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural sillas. Do not confuse with sillón (armchair).",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

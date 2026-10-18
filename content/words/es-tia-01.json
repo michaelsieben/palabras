@@ -1,0 +1,27 @@
+{
+  "id": "es-tia-01",
+  "headword": "tía",
+  "article": "la",
+  "plural": "tías",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "aunt",
+      "example": "Mi tía trabaja en el ayuntamiento.",
+      "exampleGloss": "My aunt works at the town hall."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "tías", "gloss": "aunts", "reason": "Plural form." },
+    { "kind": "near-synonym", "value": "madrina", "gloss": "godmother", "reason": "A different relationship that can overlap with aunt." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the i: tía. Colloquial tía for a woman is not taught here.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

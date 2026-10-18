@@ -1,0 +1,27 @@
+{
+  "id": "es-noviembre-01",
+  "headword": "noviembre",
+  "article": "el",
+  "plural": "noviembres",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "November",
+      "example": "En noviembre ya hace frío.",
+      "exampleGloss": "In November it is already cold."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el mes de noviembre", "gloss": "the month of November", "reason": "Full written form with el mes de." },
+    { "kind": "different-sense", "value": "el frío", "gloss": "the cold", "reason": "What November brings; not the month name." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Lower-case, masculine. Cold and often wet in Navarre.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

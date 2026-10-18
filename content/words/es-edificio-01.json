@@ -1,0 +1,27 @@
+{
+  "id": "es-edificio-01",
+  "headword": "edificio",
+  "article": "el",
+  "plural": "edificios",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "building",
+      "example": "Vivimos en un edificio antiguo del centro.",
+      "exampleGloss": "We live in an old building in the centre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el bloque", "gloss": "the block of flats", "reason": "A residential building, often plain and modern." },
+    { "kind": "different-sense", "value": "el piso", "gloss": "the flat", "reason": "A home inside the building; already in the corpus." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural edificios.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-lo-siento-01",
+  "headword": "lo siento",
+  "partOfSpeech": "phrase",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "I am sorry",
+      "example": "Lo siento mucho, de verdad.",
+      "exampleGloss": "I am really very sorry."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "perdón", "gloss": "sorry", "reason": "For a small mistake or to get attention." },
+    { "kind": "near-synonym", "value": "qué pena", "gloss": "what a shame", "reason": "Expresses sympathy, not an apology." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Fixed phrase. For bad news you share, qué pena is warmer.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

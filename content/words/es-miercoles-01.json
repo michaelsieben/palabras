@@ -1,0 +1,27 @@
+{
+  "id": "es-miercoles-01",
+  "headword": "miércoles",
+  "article": "el",
+  "plural": "miércoles",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "Wednesday",
+      "example": "Los miércoles ceno con mis padres.",
+      "exampleGloss": "On Wednesdays I have dinner with my parents."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el miércoles", "gloss": "on Wednesday", "reason": "Singular form for one specific Wednesday, not the weekly habit." },
+    { "kind": "different-sense", "value": "entre semana", "gloss": "on weekdays", "reason": "Midweek context; the day names stay the same." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the first e: miércoles. Invariable plural.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-supermercado-01",
+  "headword": "supermercado",
+  "article": "el",
+  "plural": "supermercados",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping","city"],
+  "senses": [
+    {
+      "gloss": "supermarket",
+      "example": "Voy al supermercado a hacer la compra.",
+      "exampleGloss": "I am going to the supermarket to do the shopping."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el mercado", "gloss": "the market", "reason": "A traditional market; already in the corpus." },
+    { "kind": "different-sense", "value": "la tienda", "gloss": "the shop", "reason": "Smaller and specialised, not a supermarket." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural supermercados. Hacer la compra is the everyday phrase for the weekly shop.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

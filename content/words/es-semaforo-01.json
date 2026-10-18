@@ -1,0 +1,27 @@
+{
+  "id": "es-semaforo-01",
+  "headword": "semáforo",
+  "article": "el",
+  "plural": "semáforos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city","transport"],
+  "senses": [
+    {
+      "gloss": "traffic light",
+      "example": "Espera en el semáforo en rojo.",
+      "exampleGloss": "Wait at the traffic light on red."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el paso de cebra", "gloss": "the zebra crossing", "reason": "Where you cross, not the light that controls it." },
+    { "kind": "near-synonym", "value": "la señal", "gloss": "the sign", "reason": "A road sign in general." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the a: semáforo; plural semáforos.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

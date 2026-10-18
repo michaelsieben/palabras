@@ -1,0 +1,27 @@
+{
+  "id": "es-cocina-01",
+  "headword": "cocina",
+  "article": "la",
+  "plural": "cocinas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household","food"],
+  "senses": [
+    {
+      "gloss": "kitchen",
+      "example": "La cocina es pequeña pero práctica.",
+      "exampleGloss": "The kitchen is small but practical."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la cocina", "gloss": "cooking, cuisine", "reason": "Same word also means the activity of cooking or a cuisine." },
+    { "kind": "near-synonym", "value": "el salón", "gloss": "the living room", "reason": "The main room of a flat, not the kitchen." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural cocinas. Room and activity share the word; only the room sense is taught.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

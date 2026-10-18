@@ -1,0 +1,27 @@
+{
+  "id": "es-ayuntamiento-01",
+  "headword": "ayuntamiento",
+  "article": "el",
+  "plural": "ayuntamientos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "town hall",
+      "example": "Tengo una cita en el ayuntamiento.",
+      "exampleGloss": "I have an appointment at the town hall."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la alcaldía", "gloss": "the mayor’s office", "reason": "The office of the mayor, inside the town hall." },
+    { "kind": "different-sense", "value": "el gobierno", "gloss": "the government", "reason": "Regional or national, not the town hall." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural ayuntamientos. The Pamplona town hall is on Plaza Consistorial.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

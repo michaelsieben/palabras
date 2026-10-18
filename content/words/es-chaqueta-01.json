@@ -1,0 +1,27 @@
+{
+  "id": "es-chaqueta-01",
+  "headword": "chaqueta",
+  "article": "la",
+  "plural": "chaquetas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "jacket",
+      "example": "Coge la chaqueta, va a llover.",
+      "exampleGloss": "Take your jacket, it is going to rain."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el abrigo", "gloss": "the coat", "reason": "Warmer and longer than a jacket; already in the corpus." },
+    { "kind": "different-sense", "value": "el jersey", "gloss": "the jumper", "reason": "A knitted top, worn under a jacket." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural chaquetas. Distinct from abrigo (coat) and jersey (jumper).",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

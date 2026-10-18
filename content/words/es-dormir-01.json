@@ -1,0 +1,24 @@
+{
+  "id": "es-dormir-01",
+  "headword": "dormir",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "to sleep",
+      "example": "Duermo ocho horas cada noche.",
+      "exampleGloss": "I sleep eight hours every night."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "dormirse", "gloss": "to fall asleep", "reason": "The moment of going to sleep, not the state." },
+    { "kind": "near-synonym", "value": "descansar", "gloss": "to rest", "reason": "Resting, not necessarily sleeping." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Stem-changing verb: duermo, o-ue in the stem.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

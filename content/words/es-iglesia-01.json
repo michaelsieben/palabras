@@ -1,0 +1,27 @@
+{
+  "id": "es-iglesia-01",
+  "headword": "iglesia",
+  "article": "la",
+  "plural": "iglesias",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "church",
+      "example": "La iglesia de San Nicolás está muy cerca.",
+      "exampleGloss": "The church of San Nicolás is very close."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la catedral", "gloss": "the cathedral", "reason": "The main, biggest church of a diocese." },
+    { "kind": "different-sense", "value": "la plaza", "gloss": "the square", "reason": "The open space in front of it, not the church." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural iglesias. San Nicolás is a real church in the old town of Pamplona.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

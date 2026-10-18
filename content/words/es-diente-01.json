@@ -1,0 +1,27 @@
+{
+  "id": "es-diente-01",
+  "headword": "diente",
+  "article": "el",
+  "plural": "dientes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "tooth",
+      "example": "Me duele un diente al comer.",
+      "exampleGloss": "One of my teeth hurts when I eat."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la muela", "gloss": "the back tooth", "reason": "A specific molar, not any tooth." },
+    { "kind": "different-sense", "value": "el dentista", "gloss": "the dentist", "reason": "The person who treats teeth." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural dientes. Muela is the everyday word for a back tooth.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-pelicula-01",
+  "headword": "película",
+  "article": "la",
+  "plural": "películas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure"],
+  "senses": [
+    {
+      "gloss": "film",
+      "example": "Vemos una película en casa el sábado.",
+      "exampleGloss": "We watch a film at home on Saturday."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la serie", "gloss": "the series", "reason": "A TV series, not a film." },
+    { "kind": "different-sense", "value": "la entrada del cine", "gloss": "the cinema ticket", "reason": "What you buy to see a film." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the i: película. Ir al cine is to go to the cinema.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

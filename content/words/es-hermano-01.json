@@ -1,0 +1,27 @@
+{
+  "id": "es-hermano-01",
+  "headword": "hermano",
+  "article": "el",
+  "plural": "hermanos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "brother",
+      "example": "Mi hermano vive en Madrid.",
+      "exampleGloss": "My brother lives in Madrid."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "hermanos", "gloss": "siblings, brothers", "reason": "Plural covers brothers or brothers and sisters together." },
+    { "kind": "near-synonym", "value": "cuñado", "gloss": "brother-in-law", "reason": "Not a brother; the partner of your sibling or your partner’s brother." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; the plural hermanos can mean brothers or siblings of both sexes.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

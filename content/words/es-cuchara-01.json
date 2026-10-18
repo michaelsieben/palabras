@@ -1,0 +1,27 @@
+{
+  "id": "es-cuchara-01",
+  "headword": "cuchara",
+  "article": "la",
+  "plural": "cucharas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household","food"],
+  "senses": [
+    {
+      "gloss": "spoon",
+      "example": "Necesito una cuchara para la sopa.",
+      "exampleGloss": "I need a spoon for the soup."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la cucharilla", "gloss": "the teaspoon", "reason": "The small spoon used for coffee." },
+    { "kind": "near-synonym", "value": "el tenedor", "gloss": "the fork", "reason": "Another piece of cutlery." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural cucharas. Cucharilla is the small spoon for stirring coffee.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

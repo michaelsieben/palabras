@@ -1,0 +1,27 @@
+{
+  "id": "es-puerta-01",
+  "headword": "puerta",
+  "article": "la",
+  "plural": "puertas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "door",
+      "example": "Cierra la puerta, que hace frío.",
+      "exampleGloss": "Close the door, it is cold."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la ventana", "gloss": "the window", "reason": "The other opening in a wall, for light rather than walking." },
+    { "kind": "near-synonym", "value": "la entrada", "gloss": "the entrance", "reason": "The way in, not the door itself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural puertas. Also a doorway or gate in general.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

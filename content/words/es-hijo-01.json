@@ -1,0 +1,27 @@
+{
+  "id": "es-hijo-01",
+  "headword": "hijo",
+  "article": "el",
+  "plural": "hijos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "son",
+      "example": "Su hijo tiene cinco años.",
+      "exampleGloss": "Their son is five years old."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "hijos", "gloss": "children, sons", "reason": "Plural covers sons or children of both sexes." },
+    { "kind": "near-synonym", "value": "sobrino", "gloss": "nephew", "reason": "Not a son; the child of your sibling." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Plural hijos usually means children of both sexes.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

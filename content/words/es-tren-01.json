@@ -1,0 +1,27 @@
+{
+  "id": "es-tren-01",
+  "headword": "tren",
+  "article": "el",
+  "plural": "trenes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "train",
+      "example": "Cogemos el tren a Madrid por la mañana.",
+      "exampleGloss": "We catch the train to Madrid in the morning."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el autobús", "gloss": "the bus", "reason": "The other common way to travel; already in the corpus." },
+    { "kind": "different-sense", "value": "el metro", "gloss": "the underground", "reason": "A city train, not a mainline train." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural trenes. Renfe runs the Spanish rail network.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

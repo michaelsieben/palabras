@@ -1,0 +1,27 @@
+{
+  "id": "es-vaso-01",
+  "headword": "vaso",
+  "article": "el",
+  "plural": "vasos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household","food"],
+  "senses": [
+    {
+      "gloss": "glass (for drinking)",
+      "example": "¿Me pones un vaso de agua?",
+      "exampleGloss": "Could you get me a glass of water?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la copa", "gloss": "the wine glass", "reason": "For wine or spirits, not for water." },
+    { "kind": "near-synonym", "value": "la taza", "gloss": "the cup", "reason": "For coffee or tea, not cold drinks." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural vasos. Vaso is a plain glass; copa is a stemmed glass.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

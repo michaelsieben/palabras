@@ -1,0 +1,27 @@
+{
+  "id": "es-agua-01",
+  "headword": "agua",
+  "article": "el",
+  "plural": "aguas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "water",
+      "example": "Bebo mucha agua todos los días.",
+      "exampleGloss": "I drink a lot of water every day."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el agua con gas", "gloss": "sparkling water", "reason": "A common bar order, the fizzy version." },
+    { "kind": "near-synonym", "value": "el vaso de agua", "gloss": "a glass of water", "reason": "How it is usually ordered at a bar." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine noun that takes el in the singular: el agua, but el agua fría. Taught with the definite article el as the corpus does for stressed a- nouns.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

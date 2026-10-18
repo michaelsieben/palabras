@@ -1,0 +1,27 @@
+{
+  "id": "es-sal-01",
+  "headword": "sal",
+  "article": "la",
+  "plural": "sales",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "salt",
+      "example": "La sopa necesita un poco de sal.",
+      "exampleGloss": "The soup needs a bit of salt."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la pimienta", "gloss": "the pepper", "reason": "The other shaker on the table." },
+    { "kind": "near-synonym", "value": "el azúcar", "gloss": "the sugar", "reason": "Another basic seasoning, sweet rather than salty." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine. Salt shaker is el salero.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

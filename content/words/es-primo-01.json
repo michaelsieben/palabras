@@ -1,0 +1,27 @@
+{
+  "id": "es-primo-01",
+  "headword": "primo",
+  "article": "el",
+  "plural": "primos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "cousin (male)",
+      "example": "Mi primo estudia en Zaragoza.",
+      "exampleGloss": "My cousin studies in Zaragoza."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "primos", "gloss": "cousins", "reason": "Plural covers cousins of both sexes." },
+    { "kind": "near-synonym", "value": "sobrino", "gloss": "nephew", "reason": "A different branch of the family." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "primo is the male cousin; prima is the female form.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

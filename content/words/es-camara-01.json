@@ -1,0 +1,27 @@
+{
+  "id": "es-camara-01",
+  "headword": "cámara",
+  "article": "la",
+  "plural": "cámaras",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology","leisure"],
+  "senses": [
+    {
+      "gloss": "camera",
+      "example": "Hago una foto con la cámara del móvil.",
+      "exampleGloss": "I take a photo with the mobile camera."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la foto", "gloss": "the photo", "reason": "The picture, not the device." },
+    { "kind": "near-synonym", "value": "el móvil", "gloss": "the mobile", "reason": "The phone whose camera you use; already in the corpus." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the first a: cámara; plural cámaras. Feminine.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

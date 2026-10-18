@@ -1,0 +1,27 @@
+{
+  "id": "es-biblioteca-01",
+  "headword": "biblioteca",
+  "article": "la",
+  "plural": "bibliotecas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city","leisure"],
+  "senses": [
+    {
+      "gloss": "library",
+      "example": "Estudio en la biblioteca del barrio.",
+      "exampleGloss": "I study in the neighbourhood library."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la librería", "gloss": "the bookshop", "reason": "Where books are sold, not borrowed. A classic false friend." },
+    { "kind": "near-synonym", "value": "la sala de estudio", "gloss": "the study room", "reason": "A place to study, not a full library." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural bibliotecas. Do not confuse with librería (bookshop).",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

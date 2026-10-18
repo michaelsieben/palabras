@@ -1,0 +1,26 @@
+{
+  "id": "es-zapatos-01",
+  "headword": "zapatos",
+  "article": "los",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "shoes",
+      "example": "Limpia los zapatos antes de salir.",
+      "exampleGloss": "Clean your shoes before going out."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "las zapatillas", "gloss": "the trainers", "reason": "Sports shoes; already in the corpus with a second slipper sense." },
+    { "kind": "near-synonym", "value": "las botas", "gloss": "the boots", "reason": "Taller shoes that cover the ankle." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Plural-only noun in normal use: los zapatos. Singular zapato exists for one shoe.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

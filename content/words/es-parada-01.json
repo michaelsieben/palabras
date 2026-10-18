@@ -1,0 +1,27 @@
+{
+  "id": "es-parada-01",
+  "headword": "parada",
+  "article": "la",
+  "plural": "paradas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport","city"],
+  "senses": [
+    {
+      "gloss": "stop (bus)",
+      "example": "La parada del autobús está enfrente.",
+      "exampleGloss": "The bus stop is opposite."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la estación", "gloss": "the station", "reason": "Bigger than a bus stop, for trains or coaches." },
+    { "kind": "different-sense", "value": "la parada del mercado", "gloss": "the market stall", "reason": "Same word also means a stall in a market." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural paradas. Parada for buses, estación for trains.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-chupinazo-01",
+  "headword": "chupinazo",
+  "article": "el",
+  "plural": "chupinazos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "pamplona" },
+  "register": "neutral",
+  "topics": ["navarre-culture"],
+  "senses": [
+    {
+      "gloss": "opening rocket of San Fermín",
+      "example": "El chupinazo abre las fiestas el seis de julio.",
+      "exampleGloss": "The chupinazo opens the festival on the sixth of July."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el cohete", "gloss": "the rocket", "reason": "The physical rocket, not the ceremony that starts the festival." },
+    { "kind": "different-sense", "value": "el encierro", "gloss": "the running of the bulls", "reason": "A later event of the same festival; already in the corpus." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "City-specific to Pamplona: fired from the town hall balcony at noon on 6 July.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "es-pantalones-01",
+  "headword": "pantalones",
+  "article": "los",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "trousers",
+      "example": "Estos pantalones me quedan grandes.",
+      "exampleGloss": "These trousers are too big for me."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "los vaqueros", "gloss": "the jeans", "reason": "Denim trousers specifically, the everyday pair." },
+    { "kind": "different-sense", "value": "los pantalones cortos", "gloss": "the shorts", "reason": "Short trousers, for summer." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Plural-only noun: los pantalones. The singular pantalón exists but the plural is normal in Spain.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

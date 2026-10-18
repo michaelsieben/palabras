@@ -1,0 +1,27 @@
+{
+  "id": "es-niebla-01",
+  "headword": "niebla",
+  "article": "la",
+  "plural": "nieblas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "fog",
+      "example": "Hay niebla en la carretera esta mañana.",
+      "exampleGloss": "There is fog on the road this morning."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la nube", "gloss": "the cloud", "reason": "In the sky, not at ground level." },
+    { "kind": "near-synonym", "value": "la bruma", "gloss": "the mist", "reason": "Lighter and thinner than fog." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural nieblas. Morning fog is common in the Ebro valley in autumn.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

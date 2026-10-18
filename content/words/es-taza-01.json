@@ -1,0 +1,27 @@
+{
+  "id": "es-taza-01",
+  "headword": "taza",
+  "article": "la",
+  "plural": "tazas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household","food"],
+  "senses": [
+    {
+      "gloss": "cup",
+      "example": "Tomo una taza de té por la tarde.",
+      "exampleGloss": "I have a cup of tea in the afternoon."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el vaso", "gloss": "the glass", "reason": "For cold drinks, not for tea or coffee." },
+    { "kind": "different-sense", "value": "la taza del váter", "gloss": "the toilet bowl", "reason": "A bathroom sense of the same word, not a drinking cup." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural tazas. Taza for hot drinks, vaso for cold.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

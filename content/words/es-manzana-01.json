@@ -1,0 +1,27 @@
+{
+  "id": "es-manzana-01",
+  "headword": "manzana",
+  "article": "la",
+  "plural": "manzanas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "apple",
+      "example": "Como una manzana de postre.",
+      "exampleGloss": "I have an apple for dessert."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la manzana", "gloss": "the block (of buildings)", "reason": "Same word also means a city block in Peninsular Spanish." },
+    { "kind": "near-synonym", "value": "la pera", "gloss": "the pear", "reason": "Another everyday fruit." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine. The city-block sense is a real second meaning, kept out of the taught sense for now.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

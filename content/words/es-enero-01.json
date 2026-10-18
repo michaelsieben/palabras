@@ -1,0 +1,27 @@
+{
+  "id": "es-enero-01",
+  "headword": "enero",
+  "article": "el",
+  "plural": "eneros",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "January",
+      "example": "Mi cumpleaños es en enero.",
+      "exampleGloss": "My birthday is in January."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el mes de enero", "gloss": "the month of January", "reason": "Full form with el mes de, common in writing and formal speech." },
+    { "kind": "different-sense", "value": "el mes", "gloss": "the month", "reason": "The general word; a month name picks one month." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Months are lower-case in Spanish: en enero. Plural is rare but regular.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

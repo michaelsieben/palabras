@@ -1,0 +1,27 @@
+{
+  "id": "es-hielo-01",
+  "headword": "hielo",
+  "article": "el",
+  "plural": "hielos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "ice",
+      "example": "Hay hielo en la acera por la mañana.",
+      "exampleGloss": "There is ice on the pavement in the morning."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el cubito de hielo", "gloss": "the ice cube", "reason": "A piece of ice for a drink, not on the ground." },
+    { "kind": "near-synonym", "value": "la nieve", "gloss": "the snow", "reason": "Frozen snow on the ground; already in the corpus." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural hielos. Winter ice on pavements is a real hazard in Pamplona.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

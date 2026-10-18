@@ -1,0 +1,27 @@
+{
+  "id": "es-naranja-01",
+  "headword": "naranja",
+  "article": "la",
+  "plural": "naranjas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "orange",
+      "example": "Me tomo un zumo de naranja natural.",
+      "exampleGloss": "I have a fresh orange juice."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el naranja", "gloss": "the colour orange", "reason": "As a colour the word is masculine: el color naranja." },
+    { "kind": "near-synonym", "value": "la mandarina", "gloss": "the tangerine", "reason": "Smaller and easier to peel; common in winter." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine as a fruit; the colour is masculine. Zumo de naranja natural is a standard order.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

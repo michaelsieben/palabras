@@ -1,0 +1,27 @@
+{
+  "id": "es-tienda-01",
+  "headword": "tienda",
+  "article": "la",
+  "plural": "tiendas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping"],
+  "senses": [
+    {
+      "gloss": "shop",
+      "example": "La tienda abre a las diez.",
+      "exampleGloss": "The shop opens at ten."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la tienda de campaña", "gloss": "the tent", "reason": "Same word also means a tent." },
+    { "kind": "near-synonym", "value": "el comercio", "gloss": "the shop, the business", "reason": "A more formal word for a shop." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural tiendas. Tienda de ropa is a clothes shop.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

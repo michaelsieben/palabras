@@ -1,0 +1,27 @@
+{
+  "id": "es-agosto-01",
+  "headword": "agosto",
+  "article": "el",
+  "plural": "agostos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "August",
+      "example": "En agosto mucha gente está de vacaciones.",
+      "exampleGloss": "In August many people are on holiday."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el mes de agosto", "gloss": "the month of August", "reason": "Full written form with el mes de." },
+    { "kind": "different-sense", "value": "las vacaciones", "gloss": "the holidays", "reason": "What August is about for most Spaniards." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Lower-case, masculine. The main holiday month in Spain.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

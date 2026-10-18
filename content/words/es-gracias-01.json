@@ -1,0 +1,24 @@
+{
+  "id": "es-gracias-01",
+  "headword": "gracias",
+  "partOfSpeech": "interjection",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "thank you",
+      "example": "Muchas gracias por todo.",
+      "exampleGloss": "Many thanks for everything."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "mil gracias", "gloss": "thanks a lot", "reason": "Emphatic and friendly, common in Peninsular speech." },
+    { "kind": "different-sense", "value": "de nada", "gloss": "you are welcome", "reason": "The reply to thanks, not the thanks itself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Often intensified: muchas gracias, mil gracias.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-tos-01",
+  "headword": "tos",
+  "article": "la",
+  "plural": "toses",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "cough",
+      "example": "Tengo tos y no puedo dormir.",
+      "exampleGloss": "I have a cough and cannot sleep."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el catarro", "gloss": "the cold", "reason": "The illness that often comes with a cough." },
+    { "kind": "different-sense", "value": "la tos ferina", "gloss": "whooping cough", "reason": "A specific, serious illness, not an ordinary cough." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural toses. Toser is the verb.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

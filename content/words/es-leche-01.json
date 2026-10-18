@@ -1,0 +1,27 @@
+{
+  "id": "es-leche-01",
+  "headword": "leche",
+  "article": "la",
+  "plural": "leches",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "milk",
+      "example": "Desayuno café con leche.",
+      "exampleGloss": "I have coffee with milk for breakfast."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la leche entera", "gloss": "whole milk", "reason": "A supermarket choice; leche alone is just milk." },
+    { "kind": "near-synonym", "value": "la nata", "gloss": "the cream", "reason": "A dairy product, but not milk." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine. Café con leche is the default breakfast order in Spain.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

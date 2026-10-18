@@ -1,0 +1,27 @@
+{
+  "id": "es-boca-01",
+  "headword": "boca",
+  "article": "la",
+  "plural": "bocas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "mouth",
+      "example": "Abre la boca, por favor.",
+      "exampleGloss": "Open your mouth, please."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "los labios", "gloss": "the lips", "reason": "Parts of the mouth, not the whole mouth." },
+    { "kind": "near-synonym", "value": "la cara", "gloss": "the face", "reason": "The whole face, not just the mouth." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine. Also an opening or entrance (boca de metro), not taught here.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

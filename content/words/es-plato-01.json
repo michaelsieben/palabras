@@ -1,0 +1,27 @@
+{
+  "id": "es-plato-01",
+  "headword": "plato",
+  "article": "el",
+  "plural": "platos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household","food"],
+  "senses": [
+    {
+      "gloss": "plate",
+      "example": "Pon un plato para cada uno.",
+      "exampleGloss": "Put out a plate for each person."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el plato", "gloss": "the dish (on a menu)", "reason": "Same word also means a dish or course in a restaurant." },
+    { "kind": "near-synonym", "value": "el cuenco", "gloss": "the bowl", "reason": "Deeper than a plate, for soup or cereal." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural platos. El primer plato and el segundo plato are the two courses of a Spanish lunch.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

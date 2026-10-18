@@ -1,0 +1,27 @@
+{
+  "id": "es-espejo-01",
+  "headword": "espejo",
+  "article": "el",
+  "plural": "espejos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "mirror",
+      "example": "Me miro en el espejo del baño.",
+      "exampleGloss": "I look at myself in the bathroom mirror."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el cristal", "gloss": "the glass pane", "reason": "Transparent, not a mirror." },
+    { "kind": "different-sense", "value": "el reflejo", "gloss": "the reflection", "reason": "What you see in the mirror, not the object." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural espejos.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

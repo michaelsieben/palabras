@@ -1,0 +1,27 @@
+{
+  "id": "es-toalla-01",
+  "headword": "toalla",
+  "article": "la",
+  "plural": "toallas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "towel",
+      "example": "Coge una toalla limpia del armario.",
+      "exampleGloss": "Take a clean towel from the wardrobe."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el albornoz", "gloss": "the bathrobe", "reason": "Worn after a shower, not used to dry off." },
+    { "kind": "near-synonym", "value": "la servilleta", "gloss": "the napkin", "reason": "For the table, not the bathroom." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine; plural toallas.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-vestido-01",
+  "headword": "vestido",
+  "article": "el",
+  "plural": "vestidos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "dress",
+      "example": "Se ha comprado un vestido para la fiesta.",
+      "exampleGloss": "She has bought a dress for the party."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el traje", "gloss": "the suit", "reason": "A formal suit, or a traditional regional outfit." },
+    { "kind": "near-synonym", "value": "la falda", "gloss": "the skirt", "reason": "A skirt on its own, not a whole dress." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural vestidos. Note traje (suit) is a different word with a different shape.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

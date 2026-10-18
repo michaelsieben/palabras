@@ -1,0 +1,27 @@
+{
+  "id": "es-cuchillo-01",
+  "headword": "cuchillo",
+  "article": "el",
+  "plural": "cuchillos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household","food"],
+  "senses": [
+    {
+      "gloss": "knife",
+      "example": "Corta el pan con el cuchillo.",
+      "exampleGloss": "Cut the bread with the knife."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el tenedor", "gloss": "the fork", "reason": "The other piece of cutlery on the table." },
+    { "kind": "different-sense", "value": "la navaja", "gloss": "the pocket knife", "reason": "A folding knife carried in the pocket." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural cuchillos. Cuchillo is a table knife, navaja a folding one.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

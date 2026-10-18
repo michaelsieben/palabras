@@ -1,0 +1,27 @@
+{
+  "id": "es-platano-01",
+  "headword": "plátano",
+  "article": "el",
+  "plural": "plátanos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "banana",
+      "example": "El plátano de Canarias es muy dulce.",
+      "exampleGloss": "The Canary Island banana is very sweet."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "banana", "gloss": "banana", "reason": "LatAm form for the fruit; never Peninsular. Shown so the reviewer can veto it." },
+    { "kind": "near-synonym", "value": "la naranja", "gloss": "the orange", "reason": "Another everyday fruit." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the a: plátano. In Spain plátano is the standard word, not banana.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

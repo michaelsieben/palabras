@@ -1,0 +1,27 @@
+{
+  "id": "es-deporte-01",
+  "headword": "deporte",
+  "article": "el",
+  "plural": "deportes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure"],
+  "senses": [
+    {
+      "gloss": "sport",
+      "example": "Hago deporte tres veces por semana.",
+      "exampleGloss": "I do sport three times a week."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el ejercicio", "gloss": "the exercise", "reason": "Physical activity, not necessarily a sport." },
+    { "kind": "different-sense", "value": "el partido", "gloss": "the match", "reason": "One game or match, not sport in general." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural deportes. Hacer deporte is the standard phrase.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-billete-01",
+  "headword": "billete",
+  "article": "el",
+  "plural": "billetes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport","shopping"],
+  "senses": [
+    {
+      "gloss": "ticket",
+      "example": "He comprado el billete de tren por internet.",
+      "exampleGloss": "I have bought the train ticket online."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "boleto", "gloss": "ticket", "reason": "LatAm form for a ticket; never Peninsular in this sense." },
+    { "kind": "different-sense", "value": "el billete de banco", "gloss": "the banknote", "reason": "Same word also means a banknote." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine; plural billetes. Billete for travel and money; entrada for a show ticket.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

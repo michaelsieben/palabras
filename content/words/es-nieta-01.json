@@ -1,0 +1,27 @@
+{
+  "id": "es-nieta-01",
+  "headword": "nieta",
+  "article": "la",
+  "plural": "nietas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "granddaughter",
+      "example": "Su nieta se llama Lucía.",
+      "exampleGloss": "Their granddaughter is called Lucía."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "nietas", "gloss": "granddaughters", "reason": "Plural form." },
+    { "kind": "near-synonym", "value": "abuela", "gloss": "grandmother", "reason": "The other direction of the same relationship." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Female counterpart of nieto.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

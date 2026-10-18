@@ -1,0 +1,27 @@
+{
+  "id": "es-yerno-01",
+  "headword": "yerno",
+  "article": "el",
+  "plural": "yernos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "son-in-law",
+      "example": "Mi yerno trabaja en el campo.",
+      "exampleGloss": "My son-in-law works in the countryside."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "hijo", "gloss": "son", "reason": "Not a son by blood; the husband of your daughter." },
+    { "kind": "near-synonym", "value": "nuera", "gloss": "daughter-in-law", "reason": "The mirror relation, the wife of your son." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Less frequent than suegro but standard and useful for the in-law graph.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

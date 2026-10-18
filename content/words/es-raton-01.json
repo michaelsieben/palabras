@@ -1,0 +1,27 @@
+{
+  "id": "es-raton-01",
+  "headword": "ratón",
+  "article": "el",
+  "plural": "ratones",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "mouse (computer)",
+      "example": "El ratón del ordenador no funciona.",
+      "exampleGloss": "The computer mouse is not working."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el ratón de campo", "gloss": "the field mouse", "reason": "The animal, not the device." },
+    { "kind": "near-synonym", "value": "el teclado", "gloss": "the keyboard", "reason": "The other input device." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Accent on the o: ratón; plural ratones. Same word for the animal and the device.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}

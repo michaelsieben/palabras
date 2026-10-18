@@ -1,0 +1,24 @@
+{
+  "id": "es-buenos-dias-01",
+  "headword": "buenos días",
+  "partOfSpeech": "phrase",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "good morning",
+      "example": "Buenos días, ¿me pones un café?",
+      "exampleGloss": "Good morning, could you get me a coffee?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "buenas", "gloss": "morning", "reason": "Colloquial shortening, very common in bars and shops." },
+    { "kind": "different-sense", "value": "buenas noches", "gloss": "good night", "reason": "For the evening and before bed." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Plural buenos días even though the greeting is one. Used until around lunchtime.",
+  "createdAt": "2026-10-18T22:45:00Z"
+}
