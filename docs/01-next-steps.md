@@ -41,7 +41,7 @@ peer (cookie issued) and from an untrusted peer (ignored); unknown `Host` → 40
 `03-auth-bootstrap.md` §7, a fresh database has no usable account until `user create` has been run, and an
 unauthenticated request to a non-public route returns 401/redirect instead of rendering the app.
 
-## 2. M2 — data model and EF Core migrations (MVP)
+## 2. M2 — data model and EF Core migrations (MVP) — implemented (CI lint deferred, see Status below)
 
 - SQLite in WAL mode at `/data/palabras.db`; EF Core model for content (words, sentences,
   translations, alternatives) with lifecycle `draft / pending_review / approved / needs_change /
@@ -58,7 +58,7 @@ unauthenticated request to a non-public route returns 401/redirect instead of re
 on the 58 words changes nothing; CI fails on a deliberately broken word file; migration applies
 on startup in the container without manual steps.
 
-## 3. M5 — SRS (FSRS-6) (MVP)
+## 3. M5 — SRS (FSRS-6) (MVP) — implemented
 
 Can run in parallel with M3/M4 once M2 is in.
 
@@ -73,7 +73,7 @@ Can run in parallel with M3/M4 once M2 is in.
 difficulty within 1e-6, due equal to the second, fuzz off); approving a word creates its cards, retiring it
 suspends them.
 
-## 4. M6 — session and exercise UI (MVP)
+## 4. M6 — session and exercise UI (MVP) — in progress
 
 - Session composer: `session_target_s = 600`, hard cap `session_max_s = 900`; due reviews
   first, new cards (at most 12/day) only while the estimate stays under target (`design.md` budget rule).
@@ -111,12 +111,12 @@ produces lint-clean files.
 hoy` records a skip (200) or reports no skip left (409); no push is sent on a completed or
 skipped day.
 
-## 7. M10 — backups and restore (MVP)
+## 7. M10 — backups and restore (MVP) — implemented
 
-**Done when:** `BackupService` writes the nightly 03:30 `VACUUM INTO
-'/data/backups/palabras-yyyyMMdd.db'` and prunes to `BACKUP_RETENTION_DAYS` (`design.md`), and
-the documented restore (copy over `/data/palabras.db`, delete `-wal`/`-shm`) into a fresh
-container passes the M1 login test.
+**Done when:** `BackupService` writes the nightly 03:30 (owner-local) `VACUUM INTO
+'/data/backups/palabras-<UTC stamp>-<guid>.db'` and keeps the newest 7 snapshots, and
+the documented restore (`restore-drill.md`: snapshot copy + `restore-progress`) on an isolated
+copy passes the M1 login test. Shipped contract: `07-learn-api.md`, `restore-drill.md`.
 
 ## 8. Council tooling and other later work (L1–L6)
 
@@ -132,3 +132,19 @@ container passes the M1 login test.
   compose folder spelling.
 - Confirm the 8th backend test passes and record it in a report.
 - Measure real CSS viewports on both devices (`runs/13-pwa-ultrawide.md`).
+
+## Status, 2026-10-18 (T-20261018-0124)
+
+Appended below the queue so the line numbers above stay stable. Backend state as of `f96c322` on `main`.
+
+- **M2 implemented.** Migration `ContentSchema`; CLI `import <dir> [--dry-run]`, `content approve`, `content status`,
+  `content retire` (`06-content-cli.md`). Not done: `tools/content-lint` in CI (deferred with the failing-CI
+  deferral), so the "CI fails on a deliberately broken word file" test is open. `import` itself rejects a bad batch.
+- **M5 implemented.** Fsrs.Sharp 2.0.0 from NuGet (the review-time overload exists, no vendoring); py-fsrs golden
+  test; migration `SrsCards`; cards created on approval, invalidated on demotion/retire; `/api/learn/*`
+  (`07-learn-api.md`).
+- **M10 implemented.** Nightly backup, keep 7, JSON/CSV export, `restore-progress` CLI, isolated drill
+  (`restore-drill.md`). Production recovery stays owner-run.
+- **M6 in progress.** Grader, copy module and session UI are being built (uncommitted at `f96c322`); IndexedDB
+  offline queue and e2e are not finished. Its "done when" above is not yet met.
+- Deployment of these commits is owner-run; nothing here claims the production container runs them.

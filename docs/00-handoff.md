@@ -19,7 +19,7 @@ run workspace, not in this repo.
 | `design-amendment.md` | Amendment ΔA–ΔJ that supersedes parts of `design.md` (copy of run report 02 with T-20261018-0124 corrections marked inline; frozen original in `runs/02-design-amendment.md`). Where the two disagree, the amendment wins. `01:NNN` references point at the frozen original. |
 
 Other repo docs: `README.md` (setup/deploy; partly stale, see §6), `AGENTS.md` (agent rules),
-`content/style-guide.md` (Spanish content rules), `tools/content-lint/` README (lint usage).
+`content/style-guide.md` (Spanish content rules), `tools/content-lint/` README (lint usage). Shipped contracts since: `04-accounts.md`, `05-auth.md`, `06-content-cli.md` (content/restore CLI), `07-learn-api.md` (learner API, backups, export), `restore-drill.md`.
 
 ## 2. What the project is
 
@@ -113,23 +113,23 @@ Resolved here so the next session does not trip over them.
    milestone numbering (M7 = service worker, M8 = backups). Use ΔG numbering (§7). README is
    owned by other agents; do not edit it from a docs-only task.
 
-## 7. Milestones (ΔG numbering)
+## 7. Milestones (ΔG numbering; State updated 2026-10-18, see `01-next-steps.md` Status)
 
 MVP = M0–M10. Later = L1–L6. Full text in `design-amendment.md` ΔG.
 
 | ID | Scope | State |
 | --- | --- | --- |
 | M0 | Repo, CI, deploy hello | Done except real Unraid deploy |
-| M1 | Auth + roles + edge | Next |
-| M2 | Content schema v2 + lifecycle + importer + lint + revisions | Schema + lint + 58 words exist; no DB |
+| M1 | Auth + roles + edge | Done (T-20261017-1516) |
+| M2 | Content schema v2 + lifecycle + importer + lint + revisions | Implemented; CI lint wiring deferred |
 | M3 | Council CLI (`tools/council`) | Not started |
 | M4 | Reviewer gate `/revisar` | Mock UI only |
-| M5 | FSRS-6 + cards created on approval (parallel after M2) | Not started |
-| M6 | Session composer + exercises 1–4 + offline | Mock UI only |
+| M5 | FSRS-6 + cards created on approval (parallel after M2) | Implemented |
+| M6 | Session composer + exercises 1–4 + offline | In progress (composer API shipped in M5; UI/offline not finished) |
 | M7 | Day status, streak, rolling skip | Not started |
 | M8 | Web Push at 22:00 | Not started |
 | M9 | Wide-tablet learner layout | Mock layout done; device check pending |
-| M10 | Backups + restore | Not started |
+| M10 | Backups + restore | Implemented |
 | L1–L6 | Listening, council report/rework, stats, FSRS optimiser, passkeys, ICS/webhook | Later |
 
 ΔJ: no open question blocks M1.
