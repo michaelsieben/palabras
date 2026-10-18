@@ -1,0 +1,27 @@
+{
+  "id": "es-metro-01",
+  "headword": "metro",
+  "article": "el",
+  "plural": "metros",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "underground, metro",
+      "example": "En Madrid voy en metro.",
+      "exampleGloss": "In Madrid I go by underground."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el tren", "gloss": "train", "reason": "A train, not the underground." },
+    { "kind": "near-synonym", "value": "el suburbano", "gloss": "underground", "reason": "The older, formal name used in Madrid." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "el metro is the underground; it also means the unit metre.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

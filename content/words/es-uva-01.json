@@ -1,0 +1,27 @@
+{
+  "id": "es-uva-01",
+  "headword": "uva",
+  "article": "la",
+  "plural": "uvas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "grape",
+      "example": "En Nochevieja se comen doce uvas.",
+      "exampleGloss": "On New Year's Eve people eat twelve grapes."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el racimo", "gloss": "bunch", "reason": "A bunch of grapes, not a single one." },
+    { "kind": "near-synonym", "value": "la pasa", "gloss": "raisin", "reason": "A dried grape, common in Navarre pastries." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "una uva is one grape; the New Year custom is las doce uvas.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

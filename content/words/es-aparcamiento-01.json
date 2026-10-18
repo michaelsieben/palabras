@@ -1,0 +1,27 @@
+{
+  "id": "es-aparcamiento-01",
+  "headword": "aparcamiento",
+  "article": "el",
+  "plural": "aparcamientos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "transport"],
+  "senses": [
+    {
+      "gloss": "car park",
+      "example": "No encuentro aparcamiento en el centro.",
+      "exampleGloss": "I cannot find parking in the centre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "el parking", "gloss": "car park", "reason": "Borrowed word used on signs in Spain." },
+    { "kind": "different-sense", "value": "el garaje", "gloss": "garage", "reason": "A private garage, not a public car park." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "aparcamiento is both a car park and the act of parking.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

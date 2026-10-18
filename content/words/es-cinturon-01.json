@@ -1,0 +1,27 @@
+{
+  "id": "es-cinturon-01",
+  "headword": "cinturón",
+  "article": "el",
+  "plural": "cinturones",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "belt",
+      "example": "Este pantalón necesita cinturón.",
+      "exampleGloss": "These trousers need a belt."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "los tirantes", "gloss": "braces", "reason": "Straps that hold up trousers instead of a belt." },
+    { "kind": "near-synonym", "value": "la hebilla", "gloss": "buckle", "reason": "The metal part of the belt." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "cinturón is a belt; it also means a seat belt.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

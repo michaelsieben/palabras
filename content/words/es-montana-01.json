@@ -1,0 +1,27 @@
+{
+  "id": "es-montana-01",
+  "headword": "montaña",
+  "article": "la",
+  "plural": "montañas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure", "weather"],
+  "senses": [
+    {
+      "gloss": "mountain",
+      "example": "En Navarra hay montañas muy bonitas.",
+      "exampleGloss": "In Navarre there are very beautiful mountains."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el monte", "gloss": "hill, mountain", "reason": "A smaller, rougher hill or scrubland." },
+    { "kind": "different-sense", "value": "el valle", "gloss": "valley", "reason": "The low land between mountains." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "montaña is a mountain; el monte is a hill or the countryside.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

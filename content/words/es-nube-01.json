@@ -1,0 +1,27 @@
+{
+  "id": "es-nube-01",
+  "headword": "nube",
+  "article": "la",
+  "plural": "nubes",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "cloud",
+      "example": "Hoy hay nubes sobre la sierra.",
+      "exampleGloss": "Today there are clouds over the mountains."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el cielo", "gloss": "sky", "reason": "The sky, not the cloud." },
+    { "kind": "near-synonym", "value": "la niebla", "gloss": "fog", "reason": "Fog at ground level, not a cloud." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "nube is a cloud; nublado means cloudy.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

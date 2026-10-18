@@ -1,0 +1,24 @@
+{
+  "id": "es-encantado-01",
+  "headword": "encantado",
+  "partOfSpeech": "interjection",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "pleased to meet you",
+      "example": "Encantado, soy el novio de Ana.",
+      "exampleGloss": "Pleased to meet you, I am Ana's boyfriend."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "mucho gusto", "gloss": "pleased to meet you", "reason": "LatAm greeting for the same situation; in Spain encantado is the everyday form." },
+    { "kind": "different-sense", "value": "encantado de conocerte", "gloss": "delighted to meet you", "reason": "The longer, warmer version." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "A woman says encantada; the adjective agrees with the speaker.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

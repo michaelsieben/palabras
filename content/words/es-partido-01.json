@@ -1,0 +1,27 @@
+{
+  "id": "es-partido-01",
+  "headword": "partido",
+  "article": "el",
+  "plural": "partidos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure"],
+  "senses": [
+    {
+      "gloss": "match, game",
+      "example": "Vemos el partido en el bar.",
+      "exampleGloss": "We watch the match in the bar."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el equipo", "gloss": "team", "reason": "The team, not the match." },
+    { "kind": "different-sense", "value": "el partido político", "gloss": "political party", "reason": "The other common sense." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "el partido is a sports match; the political sense is also common.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

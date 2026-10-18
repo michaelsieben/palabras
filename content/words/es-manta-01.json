@@ -1,0 +1,27 @@
+{
+  "id": "es-manta-01",
+  "headword": "manta",
+  "article": "la",
+  "plural": "mantas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "blanket",
+      "example": "En invierno duermo con dos mantas.",
+      "exampleGloss": "In winter I sleep with two blankets."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el edredón", "gloss": "duvet", "reason": "A thick filled quilt for the bed." },
+    { "kind": "different-sense", "value": "la sábana", "gloss": "sheet", "reason": "A sheet, worn under the blanket." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "manta is a blanket; manta eléctrica is an electric blanket.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,28 @@
+{
+  "id": "es-mediodia-01",
+  "headword": "mediodía",
+  "article": "el",
+  "plural": "mediodías",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "midday, noon",
+      "example": "Comemos a mediodía, sobre las dos.",
+      "exampleGloss": "We have lunch at midday, around two."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la medianoche", "gloss": "midnight", "reason": "Twelve at night, not midday." },
+    { "kind": "different-sense", "value": "la tarde", "gloss": "afternoon", "reason": "The part of the day after midday." },
+    { "kind": "near-synonym", "value": "las doce", "gloss": "twelve o'clock", "reason": "The clock time, not the concept." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "In Spain mediodía is closer to two o'clock than to twelve.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

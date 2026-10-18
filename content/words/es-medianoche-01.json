@@ -1,0 +1,27 @@
+{
+  "id": "es-medianoche-01",
+  "headword": "medianoche",
+  "article": "la",
+  "plural": "medianoches",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "midnight",
+      "example": "Llegamos a casa a medianoche.",
+      "exampleGloss": "We got home at midnight."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el mediodía", "gloss": "midday", "reason": "Twelve at noon, not midnight." },
+    { "kind": "near-synonym", "value": "la madrugada", "gloss": "early hours", "reason": "The hours just after midnight." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "medianoche is feminine; it joins media and noche.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

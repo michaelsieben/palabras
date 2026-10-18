@@ -1,0 +1,26 @@
+{
+  "id": "es-efectivo-01",
+  "headword": "efectivo",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping"],
+  "senses": [
+    {
+      "gloss": "cash",
+      "example": "Prefiero pagar en efectivo.",
+      "exampleGloss": "I prefer to pay in cash."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la tarjeta", "gloss": "card", "reason": "A card payment, not cash." },
+    { "kind": "near-synonym", "value": "el dinero en metálico", "gloss": "cash", "reason": "The formal expression for coins and notes." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "en efectivo is the fixed phrase for paying in cash.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

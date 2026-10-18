@@ -1,0 +1,26 @@
+{
+  "id": "es-ropa-01",
+  "headword": "ropa",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "clothes",
+      "example": "Tiendo la ropa en el balcón.",
+      "exampleGloss": "I hang the clothes out on the balcony."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el traje", "gloss": "suit", "reason": "A formal set of clothes." },
+    { "kind": "near-synonym", "value": "la prenda", "gloss": "garment", "reason": "A single item of clothing." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "ropa is singular in Spanish: la ropa, not las ropas.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

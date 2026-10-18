@@ -1,0 +1,27 @@
+{
+  "id": "es-botas-01",
+  "headword": "botas",
+  "article": "las",
+  "plural": "botas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing", "weather"],
+  "senses": [
+    {
+      "gloss": "boots",
+      "example": "En invierno llevo botas de agua.",
+      "exampleGloss": "In winter I wear wellington boots."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "los zapatos", "gloss": "shoes", "reason": "Everyday shoes, not boots." },
+    { "kind": "near-synonym", "value": "las botas de agua", "gloss": "wellies", "reason": "The waterproof boots for rain." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "botas is plural; una bota is one boot.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

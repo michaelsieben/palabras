@@ -1,0 +1,27 @@
+{
+  "id": "es-restaurante-01",
+  "headword": "restaurante",
+  "article": "el",
+  "plural": "restaurantes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure", "food"],
+  "senses": [
+    {
+      "gloss": "restaurant",
+      "example": "Cenamos en un restaurante del centro.",
+      "exampleGloss": "We have dinner in a restaurant in the centre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el comedor", "gloss": "dining room", "reason": "A place to eat within a building, not a business." },
+    { "kind": "different-sense", "value": "el bar", "gloss": "bar", "reason": "A more casual place to eat." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "restaurante is the full restaurant; bar is more casual.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "es-pelo-01",
+  "headword": "pelo",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "hair",
+      "example": "Tengo el pelo muy largo.",
+      "exampleGloss": "My hair is very long."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el cabello", "gloss": "hair", "reason": "More formal or literary word for hair." },
+    { "kind": "near-synonym", "value": "el peluquero", "gloss": "hairdresser", "reason": "The person, not the hair." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "pelo is the hair on the head or body; cabello is the more formal word.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

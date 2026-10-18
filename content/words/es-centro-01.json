@@ -1,0 +1,27 @@
+{
+  "id": "es-centro-01",
+  "headword": "centro",
+  "article": "el",
+  "plural": "centros",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "centre, downtown",
+      "example": "Vivimos en el centro de Pamplona.",
+      "exampleGloss": "We live in the centre of Pamplona."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el barrio", "gloss": "neighbourhood", "reason": "An area outside the centre." },
+    { "kind": "near-synonym", "value": "el casco antiguo", "gloss": "old town", "reason": "The historic centre of a city." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "el centro is the city centre; centro comercial is a shopping centre.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-glorieta-01",
+  "headword": "glorieta",
+  "article": "la",
+  "plural": "glorietas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "transport"],
+  "senses": [
+    {
+      "gloss": "roundabout",
+      "example": "Toma la segunda salida de la glorieta.",
+      "exampleGloss": "Take the second exit at the roundabout."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "la rotonda", "gloss": "roundabout", "reason": "Equally common; glorieta is the more traditional word." },
+    { "kind": "different-sense", "value": "la plaza", "gloss": "square", "reason": "An open square, not a roundabout." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "glorieta is a roundabout; in Pamplona they are common.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

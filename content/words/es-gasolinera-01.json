@@ -1,0 +1,27 @@
+{
+  "id": "es-gasolinera-01",
+  "headword": "gasolinera",
+  "article": "la",
+  "plural": "gasolineras",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "transport"],
+  "senses": [
+    {
+      "gloss": "petrol station",
+      "example": "Paramos en la gasolinera de la salida.",
+      "exampleGloss": "We stop at the petrol station on the way out."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la estación de servicio", "gloss": "service station", "reason": "The larger version with a shop and café." },
+    { "kind": "different-sense", "value": "la gasolina", "gloss": "petrol", "reason": "The fuel, not the station." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "gasolinera is feminine; the fuel is la gasolina.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-cepillarse-01",
+  "headword": "cepillarse",
+  "partOfSpeech": "verb",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine", "health"],
+  "senses": [
+    {
+      "gloss": "to brush",
+      "example": "Me cepillo los dientes después de comer.",
+      "exampleGloss": "I brush my teeth after eating."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el cepillo de dientes", "gloss": "toothbrush", "reason": "The object, not the action." },
+    { "kind": "near-synonym", "value": "lavarse", "gloss": "to wash", "reason": "To wash, not to brush." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Reflexive: me cepillo los dientes.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

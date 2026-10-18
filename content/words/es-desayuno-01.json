@@ -1,0 +1,27 @@
+{
+  "id": "es-desayuno-01",
+  "headword": "desayuno",
+  "article": "el",
+  "plural": "desayunos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "breakfast",
+      "example": "El desayuno es a las siete.",
+      "exampleGloss": "Breakfast is at seven."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la comida", "gloss": "lunch", "reason": "The main midday meal, not breakfast." },
+    { "kind": "near-synonym", "value": "el almuerzo", "gloss": "mid-morning snack", "reason": "In Spain a mid-morning bite, not breakfast." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "desayuno is the meal; desayunar is the verb.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

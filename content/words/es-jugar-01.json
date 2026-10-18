@@ -1,0 +1,24 @@
+{
+  "id": "es-jugar-01",
+  "headword": "jugar",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure"],
+  "senses": [
+    {
+      "gloss": "to play",
+      "example": "Juego al fútbol con mis amigos.",
+      "exampleGloss": "I play football with my friends."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el juego", "gloss": "game", "reason": "The noun, not the verb." },
+    { "kind": "near-synonym", "value": "jugar al", "gloss": "to play (a sport)", "reason": "The pattern jugar al fútbol, al tenis." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "u-ue stem change: juego; the pattern is jugar a + sport.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

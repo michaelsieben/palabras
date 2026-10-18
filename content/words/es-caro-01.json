@@ -1,0 +1,24 @@
+{
+  "id": "es-caro-01",
+  "headword": "caro",
+  "partOfSpeech": "adjective",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping"],
+  "senses": [
+    {
+      "gloss": "expensive",
+      "example": "Este abrigo es muy caro.",
+      "exampleGloss": "This coat is very expensive."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "barato", "gloss": "cheap", "reason": "The opposite of expensive." },
+    { "kind": "near-synonym", "value": "costoso", "gloss": "costly", "reason": "More formal and stronger than caro." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "caro describes the price; it also means dear as a form of address.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-perder-01",
+  "headword": "perder",
+  "partOfSpeech": "verb",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure", "transport"],
+  "senses": [
+    {
+      "gloss": "to lose, to miss",
+      "example": "He perdido el autobús.",
+      "exampleGloss": "I have missed the bus."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "ganar", "gloss": "to win", "reason": "The opposite of losing." },
+    { "kind": "different-sense", "value": "perder el tiempo", "gloss": "to waste time", "reason": "The other sense: to waste." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "e-ie stem change: pierdo; the participle is perdido.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-cafeteria-01",
+  "headword": "cafetería",
+  "article": "la",
+  "plural": "cafeterías",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure", "food"],
+  "senses": [
+    {
+      "gloss": "café",
+      "example": "Tomamos un café en la cafetería.",
+      "exampleGloss": "We have a coffee in the café."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el bar", "gloss": "bar", "reason": "A bar, more focused on drinks and pinchos." },
+    { "kind": "near-synonym", "value": "la pastelería", "gloss": "cake shop", "reason": "Where cakes and pastries are sold." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "cafetería is a café; cafetera is the coffee machine.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

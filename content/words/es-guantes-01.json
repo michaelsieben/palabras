@@ -1,0 +1,27 @@
+{
+  "id": "es-guantes-01",
+  "headword": "guantes",
+  "article": "los",
+  "plural": "guantes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing", "weather"],
+  "senses": [
+    {
+      "gloss": "gloves",
+      "example": "En invierno llevo guantes.",
+      "exampleGloss": "In winter I wear gloves."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la bufanda", "gloss": "scarf", "reason": "A winter accessory for the neck." },
+    { "kind": "near-synonym", "value": "los mitones", "gloss": "mittens", "reason": "Gloves with no separate fingers." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "guantes is plural; un guante is one glove.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

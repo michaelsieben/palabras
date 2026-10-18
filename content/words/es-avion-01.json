@@ -1,0 +1,27 @@
+{
+  "id": "es-avion-01",
+  "headword": "avión",
+  "article": "el",
+  "plural": "aviones",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "plane",
+      "example": "Viajamos a Madrid en avión.",
+      "exampleGloss": "We travel to Madrid by plane."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el aeropuerto", "gloss": "airport", "reason": "The airport, not the plane." },
+    { "kind": "near-synonym", "value": "el vuelo", "gloss": "flight", "reason": "The flight, not the aircraft." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "avión is the plane; en avión is by plane.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

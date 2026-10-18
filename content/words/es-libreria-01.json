@@ -1,0 +1,27 @@
+{
+  "id": "es-libreria-01",
+  "headword": "librería",
+  "article": "la",
+  "plural": "librerías",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping", "leisure"],
+  "senses": [
+    {
+      "gloss": "bookshop",
+      "example": "Compro novelas en la librería del centro.",
+      "exampleGloss": "I buy novels at the bookshop in the centre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la biblioteca", "gloss": "library", "reason": "A library lends books; a librería sells them." },
+    { "kind": "near-synonym", "value": "la papelería", "gloss": "stationer's", "reason": "Where paper and pens are sold." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "librería is a bookshop, not a library; biblioteca is the library.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-de-nada-01",
+  "headword": "de nada",
+  "partOfSpeech": "phrase",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "you are welcome",
+      "example": "Gracias. — De nada.",
+      "exampleGloss": "Thank you. — You are welcome."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "no pasa nada", "gloss": "it is all right", "reason": "Said to excuse a small mistake, not as a reply to thanks." },
+    { "kind": "register", "value": "no hay de qué", "gloss": "do not mention it", "reason": "Slightly more formal reply to thanks." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "de nada is the standard reply to gracias.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-ya-01",
+  "headword": "ya",
+  "partOfSpeech": "adverb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "already, now",
+      "example": "Ya estoy listo, vámonos.",
+      "exampleGloss": "I am ready now, let us go."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "todavía", "gloss": "still, yet", "reason": "The opposite: something has not happened yet." },
+    { "kind": "near-synonym", "value": "ahora mismo", "gloss": "right now", "reason": "Stronger and more immediate than ya." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "ya often means now or at last rather than already.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

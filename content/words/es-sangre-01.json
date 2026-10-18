@@ -1,0 +1,26 @@
+{
+  "id": "es-sangre-01",
+  "headword": "sangre",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "blood",
+      "example": "Me han sacado sangre para el análisis.",
+      "exampleGloss": "They have taken blood from me for the test."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la herida", "gloss": "wound", "reason": "A wound, not the blood." },
+    { "kind": "near-synonym", "value": "el análisis de sangre", "gloss": "blood test", "reason": "The specific test." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "sangre is feminine; a blood test is un análisis de sangre.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

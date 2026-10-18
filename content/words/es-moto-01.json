@@ -1,0 +1,27 @@
+{
+  "id": "es-moto-01",
+  "headword": "moto",
+  "article": "la",
+  "plural": "motos",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "motorbike",
+      "example": "Se ha comprado una moto nueva.",
+      "exampleGloss": "He has bought a new motorbike."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la bicicleta", "gloss": "bicycle", "reason": "A bicycle, with no engine." },
+    { "kind": "near-synonym", "value": "el ciclomotor", "gloss": "moped", "reason": "A small motorbike with pedals." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "moto is short for motocicleta and is feminine.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-caja-01",
+  "headword": "caja",
+  "article": "la",
+  "plural": "cajas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping"],
+  "senses": [
+    {
+      "gloss": "till, checkout",
+      "example": "Paga en la caja, por favor.",
+      "exampleGloss": "Pay at the till, please."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el cajero", "gloss": "cash machine", "reason": "The cash machine or the cashier, not the till." },
+    { "kind": "near-synonym", "value": "el mostrador", "gloss": "counter", "reason": "The service counter, not the till itself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "caja is the till or a box; cajero is the cashier or the cash machine.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

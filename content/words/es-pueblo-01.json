@@ -1,0 +1,27 @@
+{
+  "id": "es-pueblo-01",
+  "headword": "pueblo",
+  "article": "el",
+  "plural": "pueblos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "village, small town",
+      "example": "Mis abuelos viven en un pueblo.",
+      "exampleGloss": "My grandparents live in a village."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la ciudad", "gloss": "city", "reason": "A large town, not a village." },
+    { "kind": "different-sense", "value": "la gente", "gloss": "people", "reason": "The other sense of pueblo: the people of a place." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "pueblo means a village or small town, and also the people of a country.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

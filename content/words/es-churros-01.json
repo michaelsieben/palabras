@@ -1,0 +1,27 @@
+{
+  "id": "es-churros-01",
+  "headword": "churros",
+  "article": "los",
+  "plural": "churros",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "navarre-culture"],
+  "senses": [
+    {
+      "gloss": "churros",
+      "example": "Desayunamos churros con chocolate.",
+      "exampleGloss": "We have churros with chocolate for breakfast."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "las porras", "gloss": "thicker churros", "reason": "A thicker, longer version of churros." },
+    { "kind": "near-synonym", "value": "la churrería", "gloss": "churro shop", "reason": "The place where churros are made." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "churros is plural; un churro is one. A churrería is common at fairs.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

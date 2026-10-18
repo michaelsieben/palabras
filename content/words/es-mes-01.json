@@ -1,0 +1,28 @@
+{
+  "id": "es-mes-01",
+  "headword": "mes",
+  "article": "el",
+  "plural": "meses",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "month",
+      "example": "El mes que viene empiezo el curso.",
+      "exampleGloss": "Next month I start the course."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la semana", "gloss": "week", "reason": "The unit below a month." },
+    { "kind": "different-sense", "value": "el año", "gloss": "year", "reason": "The unit above a month." },
+    { "kind": "near-synonym", "value": "el mes pasado", "gloss": "last month", "reason": "The previous month, a closed past period." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "meses is the plural; el mes que viene means next month.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-oreja-01",
+  "headword": "oreja",
+  "article": "la",
+  "plural": "orejas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "ear",
+      "example": "Le duele la oreja al niño.",
+      "exampleGloss": "The child's ear hurts."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el oído", "gloss": "inner ear, hearing", "reason": "The sense of hearing and the inner ear, not the outer ear." },
+    { "kind": "near-synonym", "value": "el pendiente", "gloss": "earring", "reason": "The jewellery worn on the ear." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "oreja is the outer ear; oído is the inner ear and the sense of hearing.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

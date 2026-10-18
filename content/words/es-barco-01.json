@@ -1,0 +1,27 @@
+{
+  "id": "es-barco-01",
+  "headword": "barco",
+  "article": "el",
+  "plural": "barcos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "boat, ship",
+      "example": "Cruzamos la ría en barco.",
+      "exampleGloss": "We cross the estuary by boat."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el puerto", "gloss": "port", "reason": "Where boats dock, not the boat." },
+    { "kind": "near-synonym", "value": "la barca", "gloss": "small boat", "reason": "A small open boat." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "barco covers a boat or a ship.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

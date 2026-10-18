@@ -1,0 +1,27 @@
+{
+  "id": "es-fiesta-01",
+  "headword": "fiesta",
+  "article": "la",
+  "plural": "fiestas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure", "navarre-culture"],
+  "senses": [
+    {
+      "gloss": "party, festival",
+      "example": "El sábado hay una fiesta en casa.",
+      "exampleGloss": "On Saturday there is a party at home."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la verbena", "gloss": "street party", "reason": "A local open-air festival with music." },
+    { "kind": "near-synonym", "value": "la celebración", "gloss": "celebration", "reason": "More formal and general." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "fiesta covers a party and a local festival, like the fiestas de San Fermín.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-carpeta-01",
+  "headword": "carpeta",
+  "article": "la",
+  "plural": "carpetas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology", "household"],
+  "senses": [
+    {
+      "gloss": "folder",
+      "example": "Tengo los documentos en una carpeta.",
+      "exampleGloss": "I keep the documents in a folder."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el archivo", "gloss": "file", "reason": "A file, held inside a folder." },
+    { "kind": "near-synonym", "value": "el fichero", "gloss": "file", "reason": "Technical synonym for a computer file." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "carpeta is a folder on a computer or a paper folder.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

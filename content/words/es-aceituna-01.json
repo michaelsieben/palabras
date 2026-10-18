@@ -1,0 +1,27 @@
+{
+  "id": "es-aceituna-01",
+  "headword": "aceituna",
+  "article": "la",
+  "plural": "aceitunas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "navarre-culture"],
+  "senses": [
+    {
+      "gloss": "olive",
+      "example": "En Navarra se comen muchas aceitunas.",
+      "exampleGloss": "In Navarre people eat a lot of olives."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el aceite", "gloss": "oil", "reason": "The oil pressed from olives, not the fruit." },
+    { "kind": "near-synonym", "value": "la oliva", "gloss": "olive", "reason": "The fruit on the tree; the table olive is aceituna." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "aceituna is the everyday word; oliva is used for the tree and the oil.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

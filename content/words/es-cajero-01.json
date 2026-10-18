@@ -1,0 +1,27 @@
+{
+  "id": "es-cajero-01",
+  "headword": "cajero",
+  "article": "el",
+  "plural": "cajeros",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping", "technology"],
+  "senses": [
+    {
+      "gloss": "cash machine, cashier",
+      "example": "Saco dinero del cajero.",
+      "exampleGloss": "I take money out of the cash machine."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la caja", "gloss": "till", "reason": "The till, not the cash machine." },
+    { "kind": "near-synonym", "value": "el cajero automático", "gloss": "cash machine", "reason": "The full name; cajero alone is the everyday short form." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "cajero is both the cashier and the cash machine.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,9 +1,9 @@
-# content/words — seed batches 1 and 2
+# content/words — seed batches 1–3
 
-229 hand-authored A2-oriented entries, one JSON object per file, each named `<id>.json`. Batch 1 is
-58 entries (34× A1, 24× A2); batch 2 is 171 entries. Every entry is schema-valid and every entry is
-`status: "pending_review"` — none is approved until the reviewer (the learner's fiancée, a native
-Peninsular speaker) approves it.
+429 hand-authored A2-oriented entries, one JSON object per file, each named `<id>.json`. Batch 1 is
+58 entries (34× A1, 24× A2); batch 2 is 171 entries (132× A1, 39× A2); batch 3 is 200 entries
+(127× A1, 73× A2). Every entry is schema-valid and every entry is `status: "pending_review"` — none
+is approved until the reviewer (the learner's fiancée, a native Peninsular speaker) approves it.
 
 Validate with:
 
@@ -11,7 +11,7 @@ Validate with:
 node tools/content-lint/index.js
 ```
 
-Current result: `OK — 229 word file(s), 0 errors, 0 warning(s)`.
+Current result: `OK — 429 word file(s), 0 errors, 0 warning(s)`.
 
 ## What this batch covers
 
@@ -119,3 +119,44 @@ Where the reviewer should look hardest:
 5. **`agua`** — taught as `article: "el"` with `gender: "feminine"`, matching el agua / el agua fría.
 6. **`pescado` vs `pez`, `biblioteca` vs `librería`, `bolso` vs `bolsa`, `manzana` (fruit vs block)** —
    the false-friend pairs; confirm the taught sense is the household one.
+
+## Batch 3 (T-20261018-2105 step 34)
+
+200 further entries, same rules and schema. Written to broaden everyday coverage rather than to add
+advanced material: no B1+ exotica, no numbers, the grammar spine stays out. Every entry is
+`status: "pending_review"`, `provenance.method: "hand-authored"`, with 2–3 `alternatives`. CEFR mix:
+127× A1, 73× A2.
+
+Topic spread across the 200 new entries (an entry carries 1–3 topics, so the counts sum above 200):
+
+| Topic | Entries |
+| --- | --- |
+| food | 34 |
+| time | 25 |
+| household | 22 |
+| leisure | 22 |
+| daily-routine | 21 |
+| transport | 19 |
+| small-talk | 18 |
+| city | 17 |
+| weather | 17 |
+| health | 16 |
+| technology | 14 |
+| clothing | 13 |
+| family | 13 |
+| shopping | 13 |
+| navarre-culture | 9 |
+
+New local/Navarre entries: `pañuelico`, `peña`, `txapela`, `carnaval`, `churros`, plus Navarre-anchored
+examples for `jamón`, `chorizo`, `aceituna`, `pimiento`, `sopa`, `parque` (Taconera), `museo` (Museo de
+Navarra), `equipo` (Osasuna).
+
+Where the reviewer should look hardest:
+
+1. **`el hambre`** — feminine noun taught with `article: "el"`, like `agua` (`el hambre`, `mucha
+   hambre`); confirm the article convention is what the family expects to see.
+2. **`churros`, `peña`, `txapela`** — Navarre/Basque forms; confirm they are the words used at home.
+3. **Cross-sense pairs** — `comida` (food / midday meal), `piso`-style splits are not repeated here;
+   `partido` (match / political party) and `puente` (bridge / long weekend) are the ones to check.
+4. **Register alternatives** — `colega`, `yayo`, `bici` sit in `alternatives` only, never as taught
+   words; the batch itself is 100 % `neutral`.

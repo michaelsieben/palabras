@@ -1,0 +1,27 @@
+{
+  "id": "es-tarta-01",
+  "headword": "tarta",
+  "article": "la",
+  "plural": "tartas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "cake",
+      "example": "Para el cumpleaños hacemos una tarta.",
+      "exampleGloss": "For the birthday we make a cake."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "el pastel", "gloss": "cake", "reason": "In Spain pastel is usually a savoury pie or a small pastry, so tarta is the safe cake word." },
+    { "kind": "near-synonym", "value": "la tarta de queso", "gloss": "cheesecake", "reason": "A very common Spanish dessert." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "tarta is the cake; pastel in Spain is more often savoury.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-apagar-01",
+  "headword": "apagar",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "to turn off, to switch off",
+      "example": "Apaga la luz antes de salir.",
+      "exampleGloss": "Turn off the light before going out."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "encender", "gloss": "to turn on", "reason": "The opposite action." },
+    { "kind": "near-synonym", "value": "desconectar", "gloss": "to unplug", "reason": "To disconnect, not just switch off." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "apagar is to switch off; apagarse is to go out, said of a light.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

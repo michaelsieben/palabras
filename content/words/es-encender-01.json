@@ -1,0 +1,24 @@
+{
+  "id": "es-encender-01",
+  "headword": "encender",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "to turn on, to switch on",
+      "example": "Enciendo la calefacción por la mañana.",
+      "exampleGloss": "I turn on the heating in the morning."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "apagar", "gloss": "to turn off", "reason": "The opposite action." },
+    { "kind": "near-synonym", "value": "conectar", "gloss": "to connect", "reason": "To plug in or connect, not just switch on." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "e-ie stem change: enciendo; the participle is encendido.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

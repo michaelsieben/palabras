@@ -1,0 +1,26 @@
+{
+  "id": "es-mar-01",
+  "headword": "mar",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure", "weather"],
+  "senses": [
+    {
+      "gloss": "sea",
+      "example": "En verano nos bañamos en el mar.",
+      "exampleGloss": "In summer we swim in the sea."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la playa", "gloss": "beach", "reason": "The sand by the sea, not the water." },
+    { "kind": "near-synonym", "value": "la costa", "gloss": "coast", "reason": "The coastline, not the water itself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "el mar is masculine; both el mar and la mar exist, el mar being normal.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

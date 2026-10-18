@@ -1,0 +1,27 @@
+{
+  "id": "es-ciudad-01",
+  "headword": "ciudad",
+  "article": "la",
+  "plural": "ciudades",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "city",
+      "example": "Pamplona es una ciudad pequeña y tranquila.",
+      "exampleGloss": "Pamplona is a small, quiet city."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el pueblo", "gloss": "village, town", "reason": "A smaller place than a city." },
+    { "kind": "different-sense", "value": "el barrio", "gloss": "neighbourhood", "reason": "A district within a city." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "ciudad is feminine; the plural is ciudades.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

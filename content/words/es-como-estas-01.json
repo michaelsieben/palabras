@@ -1,0 +1,24 @@
+{
+  "id": "es-como-estas-01",
+  "headword": "cómo estás",
+  "partOfSpeech": "phrase",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "how are you",
+      "example": "¿Cómo estás? Te veo cansado.",
+      "exampleGloss": "How are you? You look tired."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "qué tal", "gloss": "how is it going", "reason": "A little more open, used with tú." },
+    { "kind": "register", "value": "cómo está", "gloss": "how are you (formal)", "reason": "The usted form, for older or unknown people." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "With friends use ¿cómo estás?; with an older person ¿cómo está?",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

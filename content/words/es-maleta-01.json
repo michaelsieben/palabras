@@ -1,0 +1,27 @@
+{
+  "id": "es-maleta-01",
+  "headword": "maleta",
+  "article": "la",
+  "plural": "maletas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "suitcase",
+      "example": "Hago la maleta para el viaje.",
+      "exampleGloss": "I pack my suitcase for the trip."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el equipaje", "gloss": "luggage", "reason": "The luggage in general, not one suitcase." },
+    { "kind": "near-synonym", "value": "la mochila", "gloss": "rucksack", "reason": "A rucksack, not a suitcase." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "maleta is a suitcase; hacer la maleta is to pack.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

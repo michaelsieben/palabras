@@ -1,0 +1,27 @@
+{
+  "id": "es-cita-01",
+  "headword": "cita",
+  "article": "la",
+  "plural": "citas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health", "time"],
+  "senses": [
+    {
+      "gloss": "appointment",
+      "example": "Tengo cita con el médico el lunes.",
+      "exampleGloss": "I have a doctor's appointment on Monday."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la fecha", "gloss": "date", "reason": "A date on the calendar, not an appointment." },
+    { "kind": "near-synonym", "value": "la consulta", "gloss": "surgery, consultation", "reason": "The doctor's office visit itself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "tener cita con is the pattern; pedir cita is to make an appointment.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

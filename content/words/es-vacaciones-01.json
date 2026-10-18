@@ -1,0 +1,27 @@
+{
+  "id": "es-vacaciones-01",
+  "headword": "vacaciones",
+  "article": "las",
+  "plural": "vacaciones",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure", "time"],
+  "senses": [
+    {
+      "gloss": "holidays",
+      "example": "En agosto estamos de vacaciones.",
+      "exampleGloss": "In August we are on holiday."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el viaje", "gloss": "trip", "reason": "A journey, not necessarily time off." },
+    { "kind": "near-synonym", "value": "el puente", "gloss": "long weekend", "reason": "A short break around a public holiday." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "vacaciones is plural; estar de vacaciones is the fixed phrase.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

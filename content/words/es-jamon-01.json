@@ -1,0 +1,27 @@
+{
+  "id": "es-jamon-01",
+  "headword": "jamón",
+  "article": "el",
+  "plural": "jamones",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "navarre-culture"],
+  "senses": [
+    {
+      "gloss": "ham",
+      "example": "Un bocadillo de jamón, por favor.",
+      "exampleGloss": "A ham sandwich, please."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el jamón serrano", "gloss": "cured ham", "reason": "The everyday dry-cured ham, not cooked ham." },
+    { "kind": "near-synonym", "value": "el chorizo", "gloss": "chorizo", "reason": "A different cured meat, eaten in slices." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "jamón is cured ham; jamón cocido is cooked ham.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

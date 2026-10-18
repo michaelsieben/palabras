@@ -1,0 +1,24 @@
+{
+  "id": "es-sentarse-01",
+  "headword": "sentarse",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "to sit down",
+      "example": "Siéntate aquí, a mi lado.",
+      "exampleGloss": "Sit here, next to me."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "levantarse", "gloss": "to get up", "reason": "To stand up, the opposite action." },
+    { "kind": "near-synonym", "value": "el asiento", "gloss": "seat", "reason": "The place, not the action." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Reflexive with an e-ie stem change: me siento, siéntate.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

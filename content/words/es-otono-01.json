@@ -1,0 +1,27 @@
+{
+  "id": "es-otono-01",
+  "headword": "otoño",
+  "article": "el",
+  "plural": "otoños",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time", "weather"],
+  "senses": [
+    {
+      "gloss": "autumn",
+      "example": "En otoño llueve mucho por aquí.",
+      "exampleGloss": "In autumn it rains a lot around here."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el invierno", "gloss": "winter", "reason": "The season after autumn." },
+    { "kind": "different-sense", "value": "la primavera", "gloss": "spring", "reason": "The season after winter." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "otoño is masculine; en otoño is the fixed phrase.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

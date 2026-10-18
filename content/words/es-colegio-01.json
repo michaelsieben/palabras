@@ -1,0 +1,27 @@
+{
+  "id": "es-colegio-01",
+  "headword": "colegio",
+  "article": "el",
+  "plural": "colegios",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "school (primary)",
+      "example": "Los niños van al colegio andando.",
+      "exampleGloss": "The children walk to school."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el instituto", "gloss": "secondary school", "reason": "School for older pupils." },
+    { "kind": "near-synonym", "value": "la escuela", "gloss": "school", "reason": "More general; colegio is the everyday word in Spain." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "colegio is primary school; instituto is secondary.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

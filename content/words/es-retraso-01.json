@@ -1,0 +1,27 @@
+{
+  "id": "es-retraso-01",
+  "headword": "retraso",
+  "article": "el",
+  "plural": "retrasos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport", "time"],
+  "senses": [
+    {
+      "gloss": "delay",
+      "example": "El tren lleva media hora de retraso.",
+      "exampleGloss": "The train is half an hour late."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la hora", "gloss": "time", "reason": "The time, not the delay." },
+    { "kind": "near-synonym", "value": "el atraso", "gloss": "delay", "reason": "Less common and more formal." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "llevar retraso means to be running late.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

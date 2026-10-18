@@ -1,0 +1,28 @@
+{
+  "id": "es-semana-01",
+  "headword": "semana",
+  "article": "la",
+  "plural": "semanas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "week",
+      "example": "Esta semana tengo mucho trabajo.",
+      "exampleGloss": "This week I have a lot of work."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el fin de semana", "gloss": "weekend", "reason": "The two days at the end of the week." },
+    { "kind": "near-synonym", "value": "la quincena", "gloss": "fortnight", "reason": "Two weeks, common in Spain for pay and rent." },
+    { "kind": "different-sense", "value": "el mes", "gloss": "month", "reason": "The next unit up." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "semana is regular; los fines de semana is the plural of fin de semana.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

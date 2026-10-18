@@ -1,0 +1,27 @@
+{
+  "id": "es-recibo-01",
+  "headword": "recibo",
+  "article": "el",
+  "plural": "recibos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping"],
+  "senses": [
+    {
+      "gloss": "receipt, bill",
+      "example": "Guarda el recibo por si acaso.",
+      "exampleGloss": "Keep the receipt just in case."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la factura", "gloss": "invoice", "reason": "A formal bill, not the till receipt." },
+    { "kind": "near-synonym", "value": "el tique", "gloss": "till receipt", "reason": "The small paper slip from the till." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "recibo is the receipt or a regular bill; el tique is the small slip.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

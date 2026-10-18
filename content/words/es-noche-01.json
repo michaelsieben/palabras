@@ -1,0 +1,28 @@
+{
+  "id": "es-noche-01",
+  "headword": "noche",
+  "article": "la",
+  "plural": "noches",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "night",
+      "example": "Por la noche cenamos en casa.",
+      "exampleGloss": "At night we have dinner at home."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la madrugada", "gloss": "early hours", "reason": "The hours after midnight, before dawn." },
+    { "kind": "different-sense", "value": "la medianoche", "gloss": "midnight", "reason": "Exactly twelve at night, not the whole night." },
+    { "kind": "different-sense", "value": "el día", "gloss": "day", "reason": "The opposite part of the day." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Por la noche and de noche are the everyday phrases; la noche is feminine.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

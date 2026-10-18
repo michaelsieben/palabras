@@ -1,0 +1,27 @@
+{
+  "id": "es-descuento-01",
+  "headword": "descuento",
+  "article": "el",
+  "plural": "descuentos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping"],
+  "senses": [
+    {
+      "gloss": "discount",
+      "example": "Hay un descuento del veinte por ciento.",
+      "exampleGloss": "There is a twenty per cent discount."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la rebaja", "gloss": "reduction", "reason": "Used in the sales; las rebajas is the sales period." },
+    { "kind": "different-sense", "value": "la oferta", "gloss": "offer", "reason": "A special deal, not a general discount." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "descuento is the discount; las rebajas are the January and July sales.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-correr-01",
+  "headword": "correr",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure"],
+  "senses": [
+    {
+      "gloss": "to run",
+      "example": "Corro por el parque los domingos.",
+      "exampleGloss": "I run in the park on Sundays."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "caminar", "gloss": "to walk", "reason": "To walk at a steady pace." },
+    { "kind": "near-synonym", "value": "el atletismo", "gloss": "athletics", "reason": "The sport of running and jumping." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "correr is regular; it also means to hurry.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

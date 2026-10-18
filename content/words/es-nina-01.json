@@ -1,0 +1,27 @@
+{
+  "id": "es-nina-01",
+  "headword": "niña",
+  "article": "la",
+  "plural": "niñas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "girl",
+      "example": "La niña de mi hermana tiene cinco años.",
+      "exampleGloss": "My sister's little girl is five."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el niño", "gloss": "boy", "reason": "The male child." },
+    { "kind": "near-synonym", "value": "la chica", "gloss": "girl, young woman", "reason": "A teenager or young woman, not a small girl." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "niña is a young girl; chica is a teenager or young woman.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

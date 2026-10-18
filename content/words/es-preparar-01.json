@@ -1,0 +1,24 @@
+{
+  "id": "es-preparar-01",
+  "headword": "preparar",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine", "food"],
+  "senses": [
+    {
+      "gloss": "to prepare",
+      "example": "Preparo la cena mientras hablo contigo.",
+      "exampleGloss": "I prepare dinner while I talk to you."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "hacer", "gloss": "to make", "reason": "Broader verb; preparar is more deliberate." },
+    { "kind": "different-sense", "value": "prepararse", "gloss": "to get ready", "reason": "The reflexive form, used for getting yourself ready." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "preparar is the verb; prepararse is to get ready.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

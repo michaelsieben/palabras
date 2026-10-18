@@ -1,0 +1,27 @@
+{
+  "id": "es-helado-01",
+  "headword": "helado",
+  "article": "el",
+  "plural": "helados",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "ice cream",
+      "example": "En verano tomo un helado cada día.",
+      "exampleGloss": "In summer I have an ice cream every day."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el polo", "gloss": "ice lolly", "reason": "Frozen on a stick, not scooped ice cream." },
+    { "kind": "near-synonym", "value": "el sorbete", "gloss": "sorbet", "reason": "A dairy-free frozen dessert." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "helado is ice cream; un helado de limón is lemon ice cream.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

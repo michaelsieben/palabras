@@ -1,0 +1,27 @@
+{
+  "id": "es-traje-01",
+  "headword": "traje",
+  "article": "el",
+  "plural": "trajes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "suit",
+      "example": "Lleva un traje gris a la boda.",
+      "exampleGloss": "He is wearing a grey suit to the wedding."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el vestido", "gloss": "dress", "reason": "A woman's dress, not a man's suit." },
+    { "kind": "near-synonym", "value": "el conjunto", "gloss": "outfit", "reason": "A matching set of clothes." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "traje is a man's suit; traje de baño is a swimsuit in some regions.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

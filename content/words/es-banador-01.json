@@ -1,0 +1,27 @@
+{
+  "id": "es-banador-01",
+  "headword": "bañador",
+  "article": "el",
+  "plural": "bañadores",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing", "leisure"],
+  "senses": [
+    {
+      "gloss": "swimming trunks, swimsuit",
+      "example": "No olvides el bañador para la piscina.",
+      "exampleGloss": "Do not forget your swimsuit for the pool."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "la malla", "gloss": "swimsuit", "reason": "LatAm form; not Peninsular." },
+    { "kind": "different-sense", "value": "la toalla", "gloss": "towel", "reason": "For drying off, not for swimming." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "bañador is the Peninsular word for swimming trunks or a swimsuit.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

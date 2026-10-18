@@ -1,0 +1,27 @@
+{
+  "id": "es-yogur-01",
+  "headword": "yogur",
+  "article": "el",
+  "plural": "yogures",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "yoghurt",
+      "example": "Tomo un yogur después de comer.",
+      "exampleGloss": "I have a yoghurt after lunch."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el postre", "gloss": "dessert", "reason": "The course, not the yoghurt itself." },
+    { "kind": "near-synonym", "value": "el yogur natural", "gloss": "plain yoghurt", "reason": "Unsweetened, the usual one at home." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "yogur is the Peninsular spelling; the plural is yogures.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

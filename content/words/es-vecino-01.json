@@ -1,0 +1,27 @@
+{
+  "id": "es-vecino-01",
+  "headword": "vecino",
+  "article": "el",
+  "plural": "vecinos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "family"],
+  "senses": [
+    {
+      "gloss": "neighbour",
+      "example": "El vecino de abajo tiene un perro.",
+      "exampleGloss": "The neighbour downstairs has a dog."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la vecina", "gloss": "female neighbour", "reason": "The female neighbour." },
+    { "kind": "near-synonym", "value": "el residente", "gloss": "resident", "reason": "Formal; vecino is the everyday word." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "vecino is the person next door; el vecindario is the neighbourhood.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-txapela-01",
+  "headword": "txapela",
+  "article": "la",
+  "plural": "txapelas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "navarre" },
+  "register": "neutral",
+  "topics": ["navarre-culture", "clothing"],
+  "senses": [
+    {
+      "gloss": "Basque beret",
+      "example": "Lleva una txapela negra.",
+      "exampleGloss": "He is wearing a black beret."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la gorra", "gloss": "cap", "reason": "A cap with a peak, not a beret." },
+    { "kind": "near-synonym", "value": "la boina", "gloss": "beret", "reason": "The Castilian word for the same round flat cap." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "txapela is the Basque beret, common in Navarre; boina is the Castilian form.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

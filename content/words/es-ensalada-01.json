@@ -1,0 +1,27 @@
+{
+  "id": "es-ensalada-01",
+  "headword": "ensalada",
+  "article": "la",
+  "plural": "ensaladas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "salad",
+      "example": "De primero tomo una ensalada.",
+      "exampleGloss": "For the first course I have a salad."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la ensaladilla", "gloss": "Russian salad", "reason": "A different dish: potato salad with mayonnaise." },
+    { "kind": "near-synonym", "value": "las verduras", "gloss": "vegetables", "reason": "The raw ingredients, not the finished dish." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "ensalada is the cold dish; ensaladilla rusa is a common tapa.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

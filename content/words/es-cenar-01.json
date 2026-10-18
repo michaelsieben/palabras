@@ -1,0 +1,24 @@
+{
+  "id": "es-cenar-01",
+  "headword": "cenar",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "to have dinner",
+      "example": "Cenamos a las diez de la noche.",
+      "exampleGloss": "We have dinner at ten at night."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "comer", "gloss": "to have lunch", "reason": "The midday meal, not dinner." },
+    { "kind": "near-synonym", "value": "la cena", "gloss": "dinner", "reason": "The meal itself, not the verb." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "cenar is regular; in Spain dinner is late, around ten.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

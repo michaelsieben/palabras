@@ -1,0 +1,27 @@
+{
+  "id": "es-bicicleta-01",
+  "headword": "bicicleta",
+  "article": "la",
+  "plural": "bicicletas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport", "leisure"],
+  "senses": [
+    {
+      "gloss": "bicycle",
+      "example": "Voy al trabajo en bicicleta.",
+      "exampleGloss": "I go to work by bicycle."
+    }
+  ],
+  "alternatives": [
+    { "kind": "register", "value": "la bici", "gloss": "bike", "reason": "The everyday short form in Spain." },
+    { "kind": "different-sense", "value": "la moto", "gloss": "motorbike", "reason": "A motorbike, not a bicycle." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "bicicleta is the full word; la bici is what people actually say.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

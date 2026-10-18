@@ -1,0 +1,24 @@
+{
+  "id": "es-que-tal-01",
+  "headword": "qué tal",
+  "partOfSpeech": "phrase",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "how are you, how is it going",
+      "example": "¡Hola! ¿Qué tal?",
+      "exampleGloss": "Hi! How is it going?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "cómo estás", "gloss": "how are you", "reason": "Slightly more direct, used with tú." },
+    { "kind": "different-sense", "value": "qué pasa", "gloss": "what is up", "reason": "More casual, and can sound abrupt with strangers." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "¿Qué tal? works both as a greeting and as a question about how things are.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

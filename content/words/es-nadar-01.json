@@ -1,0 +1,24 @@
+{
+  "id": "es-nadar-01",
+  "headword": "nadar",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure"],
+  "senses": [
+    {
+      "gloss": "to swim",
+      "example": "Nado dos veces por semana.",
+      "exampleGloss": "I swim twice a week."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "bañarse", "gloss": "to have a dip", "reason": "To go in the water, not necessarily to swim lengths." },
+    { "kind": "near-synonym", "value": "la natación", "gloss": "swimming", "reason": "The sport, not the action." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "nadar is regular; la piscina is the pool.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

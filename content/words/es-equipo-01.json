@@ -1,0 +1,27 @@
+{
+  "id": "es-equipo-01",
+  "headword": "equipo",
+  "article": "el",
+  "plural": "equipos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure"],
+  "senses": [
+    {
+      "gloss": "team",
+      "example": "Mi equipo favorito es Osasuna.",
+      "exampleGloss": "My favourite team is Osasuna."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el partido", "gloss": "match", "reason": "One game, not the team." },
+    { "kind": "near-synonym", "value": "el conjunto", "gloss": "side, squad", "reason": "A neutral word for a team." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Osasuna is the Pamplona football team.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

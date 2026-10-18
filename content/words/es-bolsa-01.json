@@ -1,0 +1,27 @@
+{
+  "id": "es-bolsa-01",
+  "headword": "bolsa",
+  "article": "la",
+  "plural": "bolsas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping", "household"],
+  "senses": [
+    {
+      "gloss": "bag",
+      "example": "¿Me das una bolsa, por favor?",
+      "exampleGloss": "Can you give me a bag, please?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el bolso", "gloss": "handbag", "reason": "A handbag, not a shopping bag." },
+    { "kind": "different-sense", "value": "la bolsa de la compra", "gloss": "shopping bag", "reason": "The reusable bag for the weekly shop." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "bolsa is a bag; bolso is a handbag.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

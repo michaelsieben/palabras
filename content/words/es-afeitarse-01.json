@@ -1,0 +1,24 @@
+{
+  "id": "es-afeitarse-01",
+  "headword": "afeitarse",
+  "partOfSpeech": "verb",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "to shave",
+      "example": "Me afeito todas las mañanas.",
+      "exampleGloss": "I shave every morning."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la maquinilla", "gloss": "razor", "reason": "The tool, not the action of shaving." },
+    { "kind": "near-synonym", "value": "el afeitado", "gloss": "the shave", "reason": "The noun, not the verb." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Reflexive: me afeito; the razor is la maquinilla de afeitar.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

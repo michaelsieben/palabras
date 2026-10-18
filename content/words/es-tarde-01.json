@@ -1,0 +1,28 @@
+{
+  "id": "es-tarde-01",
+  "headword": "tarde",
+  "article": "la",
+  "plural": "tardes",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "afternoon",
+      "example": "Por la tarde vamos al parque.",
+      "exampleGloss": "In the afternoon we go to the park."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la noche", "gloss": "night", "reason": "The later part of the day, once it gets dark." },
+    { "kind": "different-sense", "value": "el mediodía", "gloss": "midday", "reason": "The middle of the day, around two in Spain." },
+    { "kind": "near-synonym", "value": "el atardecer", "gloss": "dusk", "reason": "The end of the afternoon, when the sun goes down." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Por la tarde is the fixed Peninsular phrase; as an adverb tarde means late (llego tarde).",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

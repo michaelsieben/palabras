@@ -1,0 +1,24 @@
+{
+  "id": "es-peinarse-01",
+  "headword": "peinarse",
+  "partOfSpeech": "verb",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "to comb one's hair",
+      "example": "Se peina delante del espejo.",
+      "exampleGloss": "She combs her hair in front of the mirror."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el peine", "gloss": "comb", "reason": "The object, not the action." },
+    { "kind": "near-synonym", "value": "el cepillo", "gloss": "hairbrush", "reason": "A brush rather than a comb." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Reflexive: me peino; el pelo is the hair being combed.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

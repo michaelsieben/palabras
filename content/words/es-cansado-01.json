@@ -1,0 +1,24 @@
+{
+  "id": "es-cansado-01",
+  "headword": "cansado",
+  "partOfSpeech": "adjective",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "tired",
+      "example": "Estoy cansado después del trabajo.",
+      "exampleGloss": "I am tired after work."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "descansado", "gloss": "rested", "reason": "The opposite: having rested." },
+    { "kind": "near-synonym", "value": "agotado", "gloss": "exhausted", "reason": "Much stronger than cansado." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "estar cansado is the fixed pattern; cansado is an adjective.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

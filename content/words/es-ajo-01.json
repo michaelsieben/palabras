@@ -1,0 +1,27 @@
+{
+  "id": "es-ajo-01",
+  "headword": "ajo",
+  "article": "el",
+  "plural": "ajos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "garlic",
+      "example": "La sopa lleva mucho ajo.",
+      "exampleGloss": "The soup has a lot of garlic."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la cebolla", "gloss": "onion", "reason": "A different bulb, easy to confuse." },
+    { "kind": "near-synonym", "value": "el ajo en polvo", "gloss": "garlic powder", "reason": "The dried ground form, not a fresh clove." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "un diente de ajo is one clove, not a tooth.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-viajar-01",
+  "headword": "viajar",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport", "leisure"],
+  "senses": [
+    {
+      "gloss": "to travel",
+      "example": "Me gusta viajar en tren.",
+      "exampleGloss": "I like travelling by train."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el viaje", "gloss": "trip", "reason": "The noun, not the verb." },
+    { "kind": "near-synonym", "value": "ir de viaje", "gloss": "to go on a trip", "reason": "The everyday phrase for travelling." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "viajar is regular; viajar en tren is to travel by train.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

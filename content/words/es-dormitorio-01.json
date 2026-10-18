@@ -1,0 +1,27 @@
+{
+  "id": "es-dormitorio-01",
+  "headword": "dormitorio",
+  "article": "el",
+  "plural": "dormitorios",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "bedroom",
+      "example": "La casa tiene tres dormitorios.",
+      "exampleGloss": "The house has three bedrooms."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "la habitación", "gloss": "room", "reason": "The general word; habitación also means a hotel room." },
+    { "kind": "different-sense", "value": "el salón", "gloss": "living room", "reason": "The room for sitting, not sleeping." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "dormitorio is the bedroom; habitación is any room.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

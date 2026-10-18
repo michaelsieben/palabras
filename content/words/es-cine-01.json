@@ -1,0 +1,27 @@
+{
+  "id": "es-cine-01",
+  "headword": "cine",
+  "article": "el",
+  "plural": "cines",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "leisure"],
+  "senses": [
+    {
+      "gloss": "cinema",
+      "example": "¿Vamos al cine esta noche?",
+      "exampleGloss": "Shall we go to the cinema tonight?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el teatro", "gloss": "theatre", "reason": "Live shows, not films." },
+    { "kind": "near-synonym", "value": "la película", "gloss": "film", "reason": "The film itself, not the building." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "ir al cine is the fixed phrase.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

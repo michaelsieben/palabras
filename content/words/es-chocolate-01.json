@@ -1,0 +1,27 @@
+{
+  "id": "es-chocolate-01",
+  "headword": "chocolate",
+  "article": "el",
+  "plural": "chocolates",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "chocolate",
+      "example": "Desayuno chocolate con churros.",
+      "exampleGloss": "I have chocolate with churros for breakfast."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el cacao", "gloss": "cocoa", "reason": "The powder used to make drinking chocolate." },
+    { "kind": "near-synonym", "value": "la onza", "gloss": "square of chocolate", "reason": "One piece broken from a bar." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "chocolate a la taza is thick drinking chocolate.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

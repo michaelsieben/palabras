@@ -1,0 +1,27 @@
+{
+  "id": "es-pasillo-01",
+  "headword": "pasillo",
+  "article": "el",
+  "plural": "pasillos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "corridor, hallway",
+      "example": "El baño está al fondo del pasillo.",
+      "exampleGloss": "The bathroom is at the end of the corridor."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la entrada", "gloss": "entrance", "reason": "The way in, not the corridor." },
+    { "kind": "near-synonym", "value": "el recibidor", "gloss": "hallway", "reason": "The small entrance hall of a home." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "pasillo is the corridor; recibidor is the entry hall.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

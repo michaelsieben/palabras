@@ -1,0 +1,26 @@
+{
+  "id": "es-wifi-01",
+  "headword": "wifi",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "wi-fi",
+      "example": "¿Cuál es la contraseña del wifi?",
+      "exampleGloss": "What is the wi-fi password?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la contraseña", "gloss": "password", "reason": "The password, not the connection." },
+    { "kind": "near-synonym", "value": "la conexión", "gloss": "connection", "reason": "The link, not the network name." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "wifi is masculine in Spain: el wifi.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

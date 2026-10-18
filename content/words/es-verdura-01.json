@@ -1,0 +1,27 @@
+{
+  "id": "es-verdura-01",
+  "headword": "verdura",
+  "article": "la",
+  "plural": "verduras",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "vegetable",
+      "example": "Las verduras del mercado están frescas.",
+      "exampleGloss": "The vegetables from the market are fresh."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "la hortaliza", "gloss": "vegetable", "reason": "More formal word for a garden vegetable." },
+    { "kind": "different-sense", "value": "la fruta", "gloss": "fruit", "reason": "The sweet plant food, not a vegetable." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "verdura covers vegetables; a green one is also una verdura.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

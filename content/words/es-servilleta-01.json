@@ -1,0 +1,27 @@
+{
+  "id": "es-servilleta-01",
+  "headword": "servilleta",
+  "article": "la",
+  "plural": "servilletas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household", "food"],
+  "senses": [
+    {
+      "gloss": "napkin",
+      "example": "¿Me das una servilleta, por favor?",
+      "exampleGloss": "Can you give me a napkin, please?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el mantel", "gloss": "tablecloth", "reason": "The cloth on the table, not a napkin." },
+    { "kind": "near-synonym", "value": "el pañuelo de papel", "gloss": "paper tissue", "reason": "A tissue, not a table napkin." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "servilleta is the napkin; servilletero is the napkin holder.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

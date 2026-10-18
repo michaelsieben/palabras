@@ -1,0 +1,27 @@
+{
+  "id": "es-atun-01",
+  "headword": "atún",
+  "article": "el",
+  "plural": "atunes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "tuna",
+      "example": "Hago una ensalada de atún.",
+      "exampleGloss": "I make a tuna salad."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el bonito", "gloss": "bonito tuna", "reason": "The type of tuna usually tinned in Spain." },
+    { "kind": "near-synonym", "value": "el pescado", "gloss": "fish", "reason": "The general word for fish as food." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "atún is the tinned or fresh tuna; the plural is atunes.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

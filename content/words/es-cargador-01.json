@@ -1,0 +1,27 @@
+{
+  "id": "es-cargador-01",
+  "headword": "cargador",
+  "article": "el",
+  "plural": "cargadores",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "charger",
+      "example": "¿Dónde está el cargador del móvil?",
+      "exampleGloss": "Where is the phone charger?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la batería", "gloss": "battery", "reason": "The battery, not the charger." },
+    { "kind": "near-synonym", "value": "el cable", "gloss": "cable", "reason": "The connecting lead." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "cargador is the charger; cargar is to charge.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,34 @@
+{
+  "id": "es-comida-01",
+  "headword": "comida",
+  "article": "la",
+  "plural": "comidas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "food",
+      "example": "No hay comida en la nevera.",
+      "exampleGloss": "There is no food in the fridge."
+    },
+    {
+      "gloss": "lunch, midday meal",
+      "example": "La comida está lista a las dos.",
+      "exampleGloss": "Lunch is ready at two.",
+      "notes": "In Spain la comida is the main midday meal, much later than in Britain."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la cena", "gloss": "dinner", "reason": "The evening meal, much later in Spain." },
+    { "kind": "different-sense", "value": "el desayuno", "gloss": "breakfast", "reason": "The first meal of the day." },
+    { "kind": "near-synonym", "value": "el almuerzo", "gloss": "mid-morning snack", "reason": "In Spain a mid-morning bite, not lunch." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "comida means food and also the midday meal, the main meal in Spain.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

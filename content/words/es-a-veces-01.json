@@ -1,0 +1,25 @@
+{
+  "id": "es-a-veces-01",
+  "headword": "a veces",
+  "partOfSpeech": "phrase",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "sometimes",
+      "example": "A veces desayuno en el bar de abajo.",
+      "exampleGloss": "Sometimes I have breakfast in the bar downstairs."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "de vez en cuando", "gloss": "from time to time", "reason": "Less often than a veces." },
+    { "kind": "different-sense", "value": "siempre", "gloss": "always", "reason": "Every time, not some of the time." },
+    { "kind": "different-sense", "value": "nunca", "gloss": "never", "reason": "Not at any time." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Fixed phrase, always plural: a veces.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

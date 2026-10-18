@@ -1,0 +1,27 @@
+{
+  "id": "es-puente-01",
+  "headword": "puente",
+  "article": "el",
+  "plural": "puentes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "transport"],
+  "senses": [
+    {
+      "gloss": "bridge",
+      "example": "Cruzamos el río por el puente viejo.",
+      "exampleGloss": "We cross the river by the old bridge."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el día festivo", "gloss": "public holiday", "reason": "The other common sense: a bridge day off." },
+    { "kind": "near-synonym", "value": "el viaducto", "gloss": "viaduct", "reason": "A long raised bridge." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "puente is a bridge; hacer puente means to take a long weekend.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

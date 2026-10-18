@@ -1,0 +1,24 @@
+{
+  "id": "es-borrar-01",
+  "headword": "borrar",
+  "partOfSpeech": "verb",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "to delete, to erase",
+      "example": "Borra el mensaje antiguo.",
+      "exampleGloss": "Delete the old message."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "guardar", "gloss": "to save", "reason": "The opposite of deleting." },
+    { "kind": "near-synonym", "value": "eliminar", "gloss": "to remove", "reason": "Slightly more formal; both mean to delete." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "borrar is to delete; borrador is a draft or an eraser.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

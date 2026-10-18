@@ -1,0 +1,24 @@
+{
+  "id": "es-terminar-01",
+  "headword": "terminar",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine", "time"],
+  "senses": [
+    {
+      "gloss": "to finish",
+      "example": "Termino de trabajar a las seis.",
+      "exampleGloss": "I finish work at six."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "acabar", "gloss": "to finish", "reason": "Equally common; terminar and acabar are interchangeable here." },
+    { "kind": "different-sense", "value": "empezar", "gloss": "to start", "reason": "The opposite action." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "terminar de + infinitive means to finish doing something.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

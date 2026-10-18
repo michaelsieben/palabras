@@ -1,0 +1,27 @@
+{
+  "id": "es-lampara-01",
+  "headword": "lámpara",
+  "article": "la",
+  "plural": "lámparas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "lamp",
+      "example": "Enciende la lámpara del salón.",
+      "exampleGloss": "Turn on the living-room lamp."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la bombilla", "gloss": "light bulb", "reason": "The bulb inside the lamp." },
+    { "kind": "different-sense", "value": "la luz", "gloss": "light", "reason": "The light itself, not the lamp." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "lámpara is the lamp; bombilla is the bulb inside it.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

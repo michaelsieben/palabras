@@ -1,0 +1,27 @@
+{
+  "id": "es-zanahoria-01",
+  "headword": "zanahoria",
+  "article": "la",
+  "plural": "zanahorias",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "carrot",
+      "example": "Corta las zanahorias en trozos pequeños.",
+      "exampleGloss": "Cut the carrots into small pieces."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la patata", "gloss": "potato", "reason": "Another root vegetable, easy to mix up." },
+    { "kind": "near-synonym", "value": "la verdura", "gloss": "vegetable", "reason": "The general word for a vegetable." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "zanahoria is feminine; common in stews and salads.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

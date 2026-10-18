@@ -1,0 +1,27 @@
+{
+  "id": "es-museo-01",
+  "headword": "museo",
+  "article": "el",
+  "plural": "museos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "leisure"],
+  "senses": [
+    {
+      "gloss": "museum",
+      "example": "El museo de Navarra abre los domingos.",
+      "exampleGloss": "The museum of Navarre opens on Sundays."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la exposición", "gloss": "exhibition", "reason": "A temporary show, not the whole museum." },
+    { "kind": "near-synonym", "value": "la galería", "gloss": "gallery", "reason": "A private art space." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "museo is masculine; el Museo de Navarra is in Pamplona.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

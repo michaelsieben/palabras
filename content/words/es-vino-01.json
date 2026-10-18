@@ -1,0 +1,27 @@
+{
+  "id": "es-vino-01",
+  "headword": "vino",
+  "article": "el",
+  "plural": "vinos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "small-talk"],
+  "senses": [
+    {
+      "gloss": "wine",
+      "example": "Con la comida tomamos vino tinto.",
+      "exampleGloss": "With the meal we drink red wine."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la cerveza", "gloss": "beer", "reason": "Another common drink with a meal." },
+    { "kind": "near-synonym", "value": "el vino tinto", "gloss": "red wine", "reason": "The most common table wine." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "vino is the drink; la viña is the vineyard.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

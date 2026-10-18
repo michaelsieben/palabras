@@ -1,0 +1,24 @@
+{
+  "id": "es-lavarse-01",
+  "headword": "lavarse",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine", "household"],
+  "senses": [
+    {
+      "gloss": "to wash oneself",
+      "example": "Me lavo las manos antes de comer.",
+      "exampleGloss": "I wash my hands before eating."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "ducharse", "gloss": "to have a shower", "reason": "A full shower, not just washing." },
+    { "kind": "near-synonym", "value": "limpiar", "gloss": "to clean", "reason": "To clean an object, not yourself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Reflexive: me lavo. Body parts take the article: me lavo las manos.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

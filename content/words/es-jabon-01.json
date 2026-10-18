@@ -1,0 +1,27 @@
+{
+  "id": "es-jabon-01",
+  "headword": "jabón",
+  "article": "el",
+  "plural": "jabones",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "soap",
+      "example": "Lávate las manos con jabón.",
+      "exampleGloss": "Wash your hands with soap."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el gel", "gloss": "shower gel", "reason": "A liquid body wash, not a bar of soap." },
+    { "kind": "near-synonym", "value": "el champú", "gloss": "shampoo", "reason": "For washing hair, not hands." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "jabón is soap; jabonera is the soap dish.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

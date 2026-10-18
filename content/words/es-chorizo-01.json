@@ -1,0 +1,27 @@
+{
+  "id": "es-chorizo-01",
+  "headword": "chorizo",
+  "article": "el",
+  "plural": "chorizos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "navarre-culture"],
+  "senses": [
+    {
+      "gloss": "chorizo",
+      "example": "El chorizo de Pamplona es muy famoso.",
+      "exampleGloss": "The chorizo from Pamplona is very famous."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la txistorra", "gloss": "Navarre chorizo sausage", "reason": "The thin, fresh sausage of Navarre." },
+    { "kind": "near-synonym", "value": "el salchichón", "gloss": "salami", "reason": "A cured sausage eaten in slices, like chorizo." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "chorizo de Pamplona is a cured sausage; txistorra is the fresh one.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

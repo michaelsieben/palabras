@@ -1,0 +1,27 @@
+{
+  "id": "es-garaje-01",
+  "headword": "garaje",
+  "article": "el",
+  "plural": "garajes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household", "transport"],
+  "senses": [
+    {
+      "gloss": "garage",
+      "example": "El coche está en el garaje.",
+      "exampleGloss": "The car is in the garage."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el aparcamiento", "gloss": "car park", "reason": "A public car park, not a private garage." },
+    { "kind": "near-synonym", "value": "el taller", "gloss": "workshop", "reason": "Where a car is repaired, not parked." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "garaje is a private garage or a repair garage.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

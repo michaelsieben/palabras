@@ -1,0 +1,26 @@
+{
+  "id": "es-salud-01",
+  "headword": "salud",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "health",
+      "example": "Su salud es lo más importante.",
+      "exampleGloss": "Your health is the most important thing."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la enfermedad", "gloss": "illness", "reason": "The opposite: being ill." },
+    { "kind": "near-synonym", "value": "el bienestar", "gloss": "well-being", "reason": "A broader, more formal word." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "salud is feminine; ¡salud! is also said when toasting.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

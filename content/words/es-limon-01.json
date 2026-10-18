@@ -1,0 +1,27 @@
+{
+  "id": "es-limon-01",
+  "headword": "limón",
+  "article": "el",
+  "plural": "limones",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "lemon",
+      "example": "Echo un poco de limón al pescado.",
+      "exampleGloss": "I add a little lemon to the fish."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la naranja", "gloss": "orange", "reason": "The sweet orange, not the sour lemon." },
+    { "kind": "near-synonym", "value": "la lima", "gloss": "lime", "reason": "A different green citrus fruit." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "limón has an accent; the plural is limones.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

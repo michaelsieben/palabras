@@ -1,0 +1,27 @@
+{
+  "id": "es-esposo-01",
+  "headword": "esposo",
+  "article": "el",
+  "plural": "esposos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "husband",
+      "example": "Mi esposo cocina muy bien.",
+      "exampleGloss": "My husband cooks very well."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "el marido", "gloss": "husband", "reason": "Everyday word for a husband; more common than esposo." },
+    { "kind": "different-sense", "value": "el novio", "gloss": "boyfriend", "reason": "Not yet married." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "esposo is the neutral or formal word; marido is the everyday one.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

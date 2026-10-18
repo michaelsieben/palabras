@@ -1,0 +1,27 @@
+{
+  "id": "es-estomago-01",
+  "headword": "estómago",
+  "article": "el",
+  "plural": "estómagos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "stomach",
+      "example": "Me duele el estómago.",
+      "exampleGloss": "My stomach hurts."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la barriga", "gloss": "belly", "reason": "The colloquial word for the belly." },
+    { "kind": "near-synonym", "value": "la tripa", "gloss": "tummy", "reason": "Very colloquial word for the belly." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "estómago is the organ; barriga is the everyday belly.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

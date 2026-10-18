@@ -1,0 +1,27 @@
+{
+  "id": "es-dedo-01",
+  "headword": "dedo",
+  "article": "el",
+  "plural": "dedos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "finger, toe",
+      "example": "Me he cortado un dedo.",
+      "exampleGloss": "I have cut my finger."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el pulgar", "gloss": "thumb", "reason": "The specific thumb." },
+    { "kind": "near-synonym", "value": "el dedo del pie", "gloss": "toe", "reason": "How a toe is said in Spanish." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "dedo is a finger or a toe; el dedo del pie is a toe.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

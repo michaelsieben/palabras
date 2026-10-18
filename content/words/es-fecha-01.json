@@ -1,0 +1,28 @@
+{
+  "id": "es-fecha-01",
+  "headword": "fecha",
+  "article": "la",
+  "plural": "fechas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "date",
+      "example": "¿Cuál es la fecha de la boda?",
+      "exampleGloss": "What is the date of the wedding?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el día", "gloss": "day", "reason": "The day itself, not the calendar date." },
+    { "kind": "near-synonym", "value": "el calendario", "gloss": "calendar", "reason": "Where the date is written down." },
+    { "kind": "different-sense", "value": "la cita", "gloss": "appointment", "reason": "A fixed arrangement, not the date on the calendar." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "fecha is the calendar date, not the day of the week.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

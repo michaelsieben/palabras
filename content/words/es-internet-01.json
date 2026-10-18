@@ -1,0 +1,26 @@
+{
+  "id": "es-internet-01",
+  "headword": "internet",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "internet",
+      "example": "Busco la receta en internet.",
+      "exampleGloss": "I look up the recipe on the internet."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la red", "gloss": "network", "reason": "A network in general, not the internet itself." },
+    { "kind": "near-synonym", "value": "la conexión", "gloss": "connection", "reason": "The link to the internet, not the internet itself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "internet is usually lower-case and takes el.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-conductor-01",
+  "headword": "conductor",
+  "article": "el",
+  "plural": "conductores",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "driver",
+      "example": "El conductor del autobús es muy amable.",
+      "exampleGloss": "The bus driver is very friendly."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el pasajero", "gloss": "passenger", "reason": "A passenger, not the driver." },
+    { "kind": "near-synonym", "value": "el chófer", "gloss": "chauffeur", "reason": "A private driver, not a bus driver." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "conductor is the driver; conducir is to drive.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

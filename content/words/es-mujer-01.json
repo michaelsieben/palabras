@@ -1,0 +1,27 @@
+{
+  "id": "es-mujer-01",
+  "headword": "mujer",
+  "article": "la",
+  "plural": "mujeres",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family", "small-talk"],
+  "senses": [
+    {
+      "gloss": "woman",
+      "example": "Esa mujer trabaja en el ayuntamiento.",
+      "exampleGloss": "That woman works at the town hall."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el hombre", "gloss": "man", "reason": "The male person." },
+    { "kind": "different-sense", "value": "la esposa", "gloss": "wife", "reason": "Mi mujer also means my wife." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "mujer means woman; mi mujer means my wife.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

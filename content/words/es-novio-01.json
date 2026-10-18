@@ -1,0 +1,27 @@
+{
+  "id": "es-novio-01",
+  "headword": "novio",
+  "article": "el",
+  "plural": "novios",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "boyfriend, groom",
+      "example": "Mi novio es de Tudela.",
+      "exampleGloss": "My boyfriend is from Tudela."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el marido", "gloss": "husband", "reason": "A husband, not a boyfriend." },
+    { "kind": "different-sense", "value": "el amigo", "gloss": "friend", "reason": "A friend, without a romantic meaning." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "novio is a boyfriend; at a wedding it means groom.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

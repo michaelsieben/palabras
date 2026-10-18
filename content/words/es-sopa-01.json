@@ -1,0 +1,27 @@
+{
+  "id": "es-sopa-01",
+  "headword": "sopa",
+  "article": "la",
+  "plural": "sopas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "soup",
+      "example": "La sopa está muy caliente.",
+      "exampleGloss": "The soup is very hot."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el caldo", "gloss": "stock, broth", "reason": "The thin liquid base, not a full soup." },
+    { "kind": "near-synonym", "value": "el puré", "gloss": "purée, thick soup", "reason": "Blended and thick, not a clear soup." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "sopa is feminine; sopa de ajo is a typical Navarre dish.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

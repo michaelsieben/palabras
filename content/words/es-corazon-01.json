@@ -1,0 +1,27 @@
+{
+  "id": "es-corazon-01",
+  "headword": "corazón",
+  "article": "el",
+  "plural": "corazones",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "heart",
+      "example": "El corazón late muy rápido.",
+      "exampleGloss": "The heart beats very fast."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el pulmón", "gloss": "lung", "reason": "Another organ, easy to confuse." },
+    { "kind": "near-synonym", "value": "el pecho", "gloss": "chest", "reason": "The chest area, not the organ." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "corazón is the organ and also an affectionate term for a person.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

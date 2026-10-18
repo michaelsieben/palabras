@@ -1,0 +1,24 @@
+{
+  "id": "es-despues-01",
+  "headword": "después",
+  "partOfSpeech": "adverb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "afterwards, later",
+      "example": "Primero comemos y después paseamos.",
+      "exampleGloss": "First we eat and afterwards we go for a walk."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "luego", "gloss": "later, then", "reason": "Equally common; luego is the everyday word." },
+    { "kind": "different-sense", "value": "antes", "gloss": "before", "reason": "The opposite in time." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "después de + noun or infinitive means after: después de comer.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-portatil-01",
+  "headword": "portátil",
+  "article": "el",
+  "plural": "portátiles",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "laptop",
+      "example": "Trabajo con el portátil en casa.",
+      "exampleGloss": "I work on my laptop at home."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el ordenador", "gloss": "computer", "reason": "A computer in general, desktop or laptop." },
+    { "kind": "near-synonym", "value": "la tableta", "gloss": "tablet", "reason": "A touchscreen device, smaller than a laptop." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "portátil is the laptop; ordenador de sobremesa is a desktop.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

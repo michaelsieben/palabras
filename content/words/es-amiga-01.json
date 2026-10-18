@@ -1,0 +1,27 @@
+{
+  "id": "es-amiga-01",
+  "headword": "amiga",
+  "article": "la",
+  "plural": "amigas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "friend (female)",
+      "example": "Mi amiga Ana vive en el centro.",
+      "exampleGloss": "My friend Ana lives in the centre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el amigo", "gloss": "male friend", "reason": "A male friend." },
+    { "kind": "different-sense", "value": "la novia", "gloss": "girlfriend", "reason": "A romantic partner, not just a friend." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "amiga is a female friend; novia means girlfriend.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

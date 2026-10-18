@@ -1,0 +1,27 @@
+{
+  "id": "es-tenedor-01",
+  "headword": "tenedor",
+  "article": "el",
+  "plural": "tenedores",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household", "food"],
+  "senses": [
+    {
+      "gloss": "fork",
+      "example": "Pon los tenedores en la mesa.",
+      "exampleGloss": "Put the forks on the table."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la cuchara", "gloss": "spoon", "reason": "The spoon, a different piece of cutlery." },
+    { "kind": "different-sense", "value": "el cuchillo", "gloss": "knife", "reason": "The knife, a different piece of cutlery." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "tenedor is the fork; the whole set is los cubiertos.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

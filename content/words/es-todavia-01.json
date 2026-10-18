@@ -1,0 +1,24 @@
+{
+  "id": "es-todavia-01",
+  "headword": "todavía",
+  "partOfSpeech": "adverb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "still, yet",
+      "example": "Todavía no he desayunado.",
+      "exampleGloss": "I have not had breakfast yet."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "aún", "gloss": "still, yet", "reason": "Same meaning; todavía and aún are interchangeable here." },
+    { "kind": "different-sense", "value": "ya", "gloss": "already", "reason": "The opposite: something has happened." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "todavía no means not yet; with the perfect tense it matches Peninsular usage for today.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

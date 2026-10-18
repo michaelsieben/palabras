@@ -1,0 +1,27 @@
+{
+  "id": "es-gorra-01",
+  "headword": "gorra",
+  "article": "la",
+  "plural": "gorras",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "cap",
+      "example": "Se pone la gorra para correr.",
+      "exampleGloss": "He puts on his cap to run."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el sombrero", "gloss": "hat", "reason": "A brimmed hat, not a cap." },
+    { "kind": "near-synonym", "value": "el gorro", "gloss": "woolly hat", "reason": "A close-fitting winter hat." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "gorra is a cap with a peak; gorro is a beanie.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

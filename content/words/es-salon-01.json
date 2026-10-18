@@ -1,0 +1,27 @@
+{
+  "id": "es-salon-01",
+  "headword": "salón",
+  "article": "el",
+  "plural": "salones",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "living room",
+      "example": "Vemos la tele en el salón.",
+      "exampleGloss": "We watch TV in the living room."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el dormitorio", "gloss": "bedroom", "reason": "The room for sleeping, not the living room." },
+    { "kind": "different-sense", "value": "la cocina", "gloss": "kitchen", "reason": "The room for cooking." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "salón is the living room; it also means a large hall.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

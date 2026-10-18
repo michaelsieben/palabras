@@ -1,0 +1,27 @@
+{
+  "id": "es-trueno-01",
+  "headword": "trueno",
+  "article": "el",
+  "plural": "truenos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "thunder",
+      "example": "El trueno sonó muy fuerte.",
+      "exampleGloss": "The thunder sounded very loud."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el relámpago", "gloss": "lightning flash", "reason": "The flash, not the sound." },
+    { "kind": "near-synonym", "value": "la tormenta", "gloss": "storm", "reason": "The whole storm, not just the thunder." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "trueno is the sound of thunder.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

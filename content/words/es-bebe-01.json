@@ -1,0 +1,27 @@
+{
+  "id": "es-bebe-01",
+  "headword": "bebé",
+  "article": "el",
+  "plural": "bebés",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "baby",
+      "example": "El bebé duerme toda la noche.",
+      "exampleGloss": "The baby sleeps all night."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el niño", "gloss": "child", "reason": "An older child, not a baby." },
+    { "kind": "near-synonym", "value": "el recién nacido", "gloss": "newborn", "reason": "A baby just born." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "bebé is masculine and is used for both boys and girls.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

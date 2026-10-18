@@ -1,0 +1,28 @@
+{
+  "id": "es-ano-01",
+  "headword": "año",
+  "article": "el",
+  "plural": "años",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "year",
+      "example": "El año pasado viajamos a Navarra.",
+      "exampleGloss": "Last year we travelled to Navarre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el mes", "gloss": "month", "reason": "The unit below a year." },
+    { "kind": "near-synonym", "value": "el curso", "gloss": "school year", "reason": "The academic year, not the calendar year." },
+    { "kind": "different-sense", "value": "el cumpleaños", "gloss": "birthday", "reason": "One day of the year, not the whole year." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "año has the eñe; do not confuse años (years) with anos.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

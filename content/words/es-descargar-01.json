@@ -1,0 +1,24 @@
+{
+  "id": "es-descargar-01",
+  "headword": "descargar",
+  "partOfSpeech": "verb",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "to download",
+      "example": "Descargo las fotos al ordenador.",
+      "exampleGloss": "I download the photos to the computer."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "subir", "gloss": "to upload", "reason": "To send files up to the internet, the opposite of downloading." },
+    { "kind": "different-sense", "value": "guardar", "gloss": "to save", "reason": "To save, not to download." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "descargar is to download; subir is to upload.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-mal-01",
+  "headword": "mal",
+  "partOfSpeech": "adverb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk", "health"],
+  "senses": [
+    {
+      "gloss": "badly, unwell",
+      "example": "Hoy me encuentro mal.",
+      "exampleGloss": "I feel unwell today."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "bien", "gloss": "well, fine", "reason": "The opposite." },
+    { "kind": "near-synonym", "value": "fatal", "gloss": "terrible", "reason": "Stronger than mal, and colloquial." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "mal is the adverb; malo is the adjective.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

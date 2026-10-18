@@ -1,0 +1,27 @@
+{
+  "id": "es-contrasena-01",
+  "headword": "contraseña",
+  "article": "la",
+  "plural": "contraseñas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "password",
+      "example": "No recuerdo la contraseña del correo.",
+      "exampleGloss": "I do not remember the email password."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el usuario", "gloss": "user name", "reason": "The name you log in with, not the password." },
+    { "kind": "near-synonym", "value": "la clave", "gloss": "key, code", "reason": "A short code or PIN rather than a full password." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "contraseña is the password; usuario is the user name.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

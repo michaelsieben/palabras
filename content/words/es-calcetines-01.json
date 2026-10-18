@@ -1,0 +1,27 @@
+{
+  "id": "es-calcetines-01",
+  "headword": "calcetines",
+  "article": "los",
+  "plural": "calcetines",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "socks",
+      "example": "Necesito calcetines limpios.",
+      "exampleGloss": "I need clean socks."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "los pantalones", "gloss": "trousers", "reason": "Another plural-only garment." },
+    { "kind": "near-synonym", "value": "los leotardos", "gloss": "tights", "reason": "Long socks or tights, not short socks." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "calcetines is plural; un calcetín is one sock.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

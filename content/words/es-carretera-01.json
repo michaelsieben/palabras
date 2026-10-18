@@ -1,0 +1,27 @@
+{
+  "id": "es-carretera-01",
+  "headword": "carretera",
+  "article": "la",
+  "plural": "carreteras",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "transport"],
+  "senses": [
+    {
+      "gloss": "road",
+      "example": "La carretera a Estella está cortada.",
+      "exampleGloss": "The road to Estella is closed."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la calle", "gloss": "street", "reason": "A street inside a town, not a road between towns." },
+    { "kind": "different-sense", "value": "la autopista", "gloss": "motorway", "reason": "A fast road between cities." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "carretera is the road between towns; calle is a street in town.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

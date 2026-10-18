@@ -1,0 +1,26 @@
+{
+  "id": "es-sed-01",
+  "headword": "sed",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "thirst",
+      "example": "Después del deporte tengo mucha sed.",
+      "exampleGloss": "After sport I am very thirsty."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el hambre", "gloss": "hunger", "reason": "The need to eat, not to drink." },
+    { "kind": "near-synonym", "value": "las ganas de beber", "gloss": "the urge to drink", "reason": "More literal, less common than tener sed." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "tener sed is the fixed phrase; sed is feminine.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

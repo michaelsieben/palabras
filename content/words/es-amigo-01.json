@@ -1,0 +1,27 @@
+{
+  "id": "es-amigo-01",
+  "headword": "amigo",
+  "article": "el",
+  "plural": "amigos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "friend",
+      "example": "Quedo con mis amigos el viernes.",
+      "exampleGloss": "I meet my friends on Friday."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la amiga", "gloss": "female friend", "reason": "A female friend." },
+    { "kind": "register", "value": "el colega", "gloss": "mate", "reason": "Colloquial Peninsular word for a friend." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "un amigo mío is a friend of mine; amigos also covers a mixed group.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

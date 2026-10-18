@@ -1,0 +1,27 @@
+{
+  "id": "es-suelo-01",
+  "headword": "suelo",
+  "article": "el",
+  "plural": "suelos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household"],
+  "senses": [
+    {
+      "gloss": "floor, ground",
+      "example": "El suelo de la cocina está limpio.",
+      "exampleGloss": "The kitchen floor is clean."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el techo", "gloss": "ceiling", "reason": "The ceiling, at the top of the room." },
+    { "kind": "different-sense", "value": "el terreno", "gloss": "ground, land", "reason": "The ground outside, not a floor indoors." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "suelo is the floor inside and the ground outside.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

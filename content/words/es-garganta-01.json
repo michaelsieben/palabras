@@ -1,0 +1,27 @@
+{
+  "id": "es-garganta-01",
+  "headword": "garganta",
+  "article": "la",
+  "plural": "gargantas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "throat",
+      "example": "Me duele la garganta al tragar.",
+      "exampleGloss": "My throat hurts when I swallow."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el cuello", "gloss": "neck", "reason": "The neck, not the throat." },
+    { "kind": "near-synonym", "value": "la voz", "gloss": "voice", "reason": "What comes out of the throat, not the throat itself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "garganta is the throat and also a gorge.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

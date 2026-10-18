@@ -1,0 +1,27 @@
+{
+  "id": "es-carnaval-01",
+  "headword": "carnaval",
+  "article": "el",
+  "plural": "carnavales",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "navarre" },
+  "register": "neutral",
+  "topics": ["navarre-culture", "leisure"],
+  "senses": [
+    {
+      "gloss": "carnival",
+      "example": "En carnaval los niños se disfrazan.",
+      "exampleGloss": "At carnival the children dress up."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la fiesta", "gloss": "party", "reason": "A party in general, not the carnival season." },
+    { "kind": "near-synonym", "value": "los disfraces", "gloss": "fancy dress", "reason": "The costumes worn at carnival." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "carnaval is the festival before Lent; the plural carnavales is also used.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "es-hambre-01",
+  "headword": "hambre",
+  "article": "el",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "hunger",
+      "example": "Tengo mucha hambre, ¿comemos ya?",
+      "exampleGloss": "I am very hungry, shall we eat now?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la sed", "gloss": "thirst", "reason": "The need to drink, not to eat." },
+    { "kind": "near-synonym", "value": "las ganas de comer", "gloss": "the urge to eat", "reason": "More literal, less common than tener hambre." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "tener hambre is the fixed phrase; hambre is feminine but takes el in the singular.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

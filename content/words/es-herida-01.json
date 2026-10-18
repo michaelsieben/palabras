@@ -1,0 +1,27 @@
+{
+  "id": "es-herida-01",
+  "headword": "herida",
+  "article": "la",
+  "plural": "heridas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "wound, injury",
+      "example": "La herida ya está curada.",
+      "exampleGloss": "The wound has healed already."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el golpe", "gloss": "blow, bump", "reason": "A knock or bruise, not a cut." },
+    { "kind": "near-synonym", "value": "el rasguño", "gloss": "scratch", "reason": "A light scratch, not a deep wound." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "herida is a wound; herir is to wound.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

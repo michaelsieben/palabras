@@ -1,0 +1,27 @@
+{
+  "id": "es-hombre-01",
+  "headword": "hombre",
+  "article": "el",
+  "plural": "hombres",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk", "family"],
+  "senses": [
+    {
+      "gloss": "man",
+      "example": "Ese hombre es el vecino de arriba.",
+      "exampleGloss": "That man is the neighbour upstairs."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la mujer", "gloss": "woman", "reason": "The female person." },
+    { "kind": "near-synonym", "value": "el señor", "gloss": "gentleman", "reason": "A polite word for a man." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "hombre is also an interjection of surprise, but the noun is the taught sense.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

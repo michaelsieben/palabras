@@ -1,0 +1,27 @@
+{
+  "id": "es-taxi-01",
+  "headword": "taxi",
+  "article": "el",
+  "plural": "taxis",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "taxi",
+      "example": "Volvemos a casa en taxi.",
+      "exampleGloss": "We go home by taxi."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el autobús", "gloss": "bus", "reason": "A bus, not a taxi." },
+    { "kind": "near-synonym", "value": "el conductor", "gloss": "driver", "reason": "The person driving, not the vehicle." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "taxi is masculine; the plural is taxis.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

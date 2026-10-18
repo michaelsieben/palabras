@@ -1,0 +1,27 @@
+{
+  "id": "es-pareja-01",
+  "headword": "pareja",
+  "article": "la",
+  "plural": "parejas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "partner, couple",
+      "example": "Vienen a cenar con su pareja.",
+      "exampleGloss": "They are coming to dinner with their partner."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el novio", "gloss": "boyfriend", "reason": "A boyfriend or girlfriend, not a long-term partner." },
+    { "kind": "register", "value": "el cónyuge", "gloss": "spouse", "reason": "The formal or legal word for a husband or wife." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "pareja is gender-neutral for a partner and also means a couple.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

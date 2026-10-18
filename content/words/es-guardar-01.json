@@ -1,0 +1,24 @@
+{
+  "id": "es-guardar-01",
+  "headword": "guardar",
+  "partOfSpeech": "verb",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology", "household"],
+  "senses": [
+    {
+      "gloss": "to save, to keep",
+      "example": "Guardo el documento antes de cerrar.",
+      "exampleGloss": "I save the document before closing."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "borrar", "gloss": "to delete", "reason": "The opposite of saving." },
+    { "kind": "near-synonym", "value": "archivar", "gloss": "to file", "reason": "To store in a folder or archive." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "guardar means to save or to keep something safe.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

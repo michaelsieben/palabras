@@ -1,0 +1,27 @@
+{
+  "id": "es-sombrero-01",
+  "headword": "sombrero",
+  "article": "el",
+  "plural": "sombreros",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "hat",
+      "example": "Llevo sombrero cuando hace sol.",
+      "exampleGloss": "I wear a hat when it is sunny."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la gorra", "gloss": "cap", "reason": "A cap with a peak, not a brimmed hat." },
+    { "kind": "near-synonym", "value": "el gorro", "gloss": "woolly hat", "reason": "A close-fitting winter hat." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "sombrero is a brimmed hat; gorra is a cap.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

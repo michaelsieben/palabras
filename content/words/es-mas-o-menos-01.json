@@ -1,0 +1,24 @@
+{
+  "id": "es-mas-o-menos-01",
+  "headword": "más o menos",
+  "partOfSpeech": "phrase",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "so-so, more or less",
+      "example": "¿Cómo estás? — Más o menos.",
+      "exampleGloss": "How are you? — So-so."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "regular", "gloss": "not great", "reason": "The everyday Peninsular answer meaning only fair." },
+    { "kind": "different-sense", "value": "muy bien", "gloss": "very well", "reason": "The positive answer." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "más o menos softens a negative answer.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-hospital-01",
+  "headword": "hospital",
+  "article": "el",
+  "plural": "hospitales",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "health"],
+  "senses": [
+    {
+      "gloss": "hospital",
+      "example": "Mi cuñada trabaja en el hospital.",
+      "exampleGloss": "My sister-in-law works at the hospital."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el ambulatorio", "gloss": "health centre", "reason": "A local health centre, not a hospital." },
+    { "kind": "near-synonym", "value": "las urgencias", "gloss": "A&E", "reason": "The emergency department of a hospital." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "hospital is masculine; the accent falls on the last syllable.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

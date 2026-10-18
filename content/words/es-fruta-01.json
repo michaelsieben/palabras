@@ -1,0 +1,27 @@
+{
+  "id": "es-fruta-01",
+  "headword": "fruta",
+  "article": "la",
+  "plural": "frutas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "fruit",
+      "example": "Como fruta todos los días.",
+      "exampleGloss": "I eat fruit every day."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la verdura", "gloss": "vegetable", "reason": "The savoury plant food, not sweet fruit." },
+    { "kind": "near-synonym", "value": "la pieza de fruta", "gloss": "piece of fruit", "reason": "How a single fruit is counted in Spain." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "fruta is the food in general; a single fruit is una pieza de fruta.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

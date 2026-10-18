@@ -1,0 +1,24 @@
+{
+  "id": "es-conducir-01",
+  "headword": "conducir",
+  "partOfSpeech": "verb",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "to drive",
+      "example": "Conduzco con cuidado por la niebla.",
+      "exampleGloss": "I drive carefully in the fog."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "manejar", "gloss": "to drive", "reason": "LatAm form; never Peninsular for driving." },
+    { "kind": "near-synonym", "value": "el carné de conducir", "gloss": "driving licence", "reason": "The licence needed to drive." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "conducir is the Peninsular verb for to drive; the yo form is conduzco.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

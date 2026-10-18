@@ -1,0 +1,27 @@
+{
+  "id": "es-familia-01",
+  "headword": "familia",
+  "article": "la",
+  "plural": "familias",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "family",
+      "example": "Toda la familia come junta el domingo.",
+      "exampleGloss": "The whole family eats together on Sunday."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "los parientes", "gloss": "relatives", "reason": "The wider family, not the close household." },
+    { "kind": "different-sense", "value": "la gente", "gloss": "people", "reason": "People in general, not a family." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "familia is feminine; the close group at home is la familia.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-archivo-01",
+  "headword": "archivo",
+  "article": "el",
+  "plural": "archivos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "file",
+      "example": "Guarda el archivo en el escritorio.",
+      "exampleGloss": "Save the file on the desktop."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la carpeta", "gloss": "folder", "reason": "A folder holds files." },
+    { "kind": "near-synonym", "value": "el documento", "gloss": "document", "reason": "A document, whether on paper or on screen." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "archivo is a computer file; carpeta is a folder.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

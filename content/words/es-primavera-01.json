@@ -1,0 +1,28 @@
+{
+  "id": "es-primavera-01",
+  "headword": "primavera",
+  "article": "la",
+  "plural": "primaveras",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time", "weather"],
+  "senses": [
+    {
+      "gloss": "spring",
+      "example": "En primavera Navarra está muy verde.",
+      "exampleGloss": "In spring Navarre is very green."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el verano", "gloss": "summer", "reason": "The hot season after spring." },
+    { "kind": "different-sense", "value": "el otoño", "gloss": "autumn", "reason": "The season after summer." },
+    { "kind": "different-sense", "value": "el invierno", "gloss": "winter", "reason": "The cold season." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "primavera is feminine; the four seasons are primavera, verano, otoño and invierno.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-escalera-01",
+  "headword": "escalera",
+  "article": "la",
+  "plural": "escaleras",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household", "city"],
+  "senses": [
+    {
+      "gloss": "stairs, staircase",
+      "example": "Subo por la escalera, no cojo el ascensor.",
+      "exampleGloss": "I go up the stairs, I do not take the lift."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el ascensor", "gloss": "lift", "reason": "The lift, not the stairs." },
+    { "kind": "different-sense", "value": "la escalera de mano", "gloss": "ladder", "reason": "A portable ladder, not the stairs." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "escalera is the staircase; a ladder is una escalera de mano.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

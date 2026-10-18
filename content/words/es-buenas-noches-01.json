@@ -1,0 +1,24 @@
+{
+  "id": "es-buenas-noches-01",
+  "headword": "buenas noches",
+  "partOfSpeech": "phrase",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "good evening, good night",
+      "example": "Buenas noches, hasta mañana.",
+      "exampleGloss": "Good night, see you tomorrow."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "buenas tardes", "gloss": "good afternoon", "reason": "Used in the afternoon, before dark." },
+    { "kind": "different-sense", "value": "hasta luego", "gloss": "see you later", "reason": "A farewell, not a greeting." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Used both as a greeting at night and as a goodbye before bed.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

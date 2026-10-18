@@ -1,0 +1,24 @@
+{
+  "id": "es-costar-01",
+  "headword": "costar",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping"],
+  "senses": [
+    {
+      "gloss": "to cost",
+      "example": "¿Cuánto cuesta esta camisa?",
+      "exampleGloss": "How much does this shirt cost?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el precio", "gloss": "price", "reason": "The noun, not the verb." },
+    { "kind": "near-synonym", "value": "valer", "gloss": "to be worth, to cost", "reason": "Also used for prices: ¿cuánto vale?" }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "o-ue stem change: cuesta, cuestan.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

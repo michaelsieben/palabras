@@ -1,0 +1,24 @@
+{
+  "id": "es-enfermo-01",
+  "headword": "enfermo",
+  "partOfSpeech": "adjective",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "ill, sick",
+      "example": "Hoy estoy enfermo y no voy a trabajar.",
+      "exampleGloss": "Today I am ill and I am not going to work."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "sano", "gloss": "healthy", "reason": "The opposite of ill." },
+    { "kind": "near-synonym", "value": "malo", "gloss": "unwell", "reason": "Colloquial: estar malo means to be ill." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "estar enfermo is the fixed pattern; ser enfermo would mean being a sickly person.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

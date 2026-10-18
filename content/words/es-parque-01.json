@@ -1,0 +1,27 @@
+{
+  "id": "es-parque-01",
+  "headword": "parque",
+  "article": "el",
+  "plural": "parques",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "leisure"],
+  "senses": [
+    {
+      "gloss": "park",
+      "example": "Paseamos por el parque de la Taconera.",
+      "exampleGloss": "We walk in the Taconera park."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el jardín", "gloss": "garden", "reason": "A private garden, not a public park." },
+    { "kind": "near-synonym", "value": "la plaza", "gloss": "square", "reason": "An open paved space, not a green park." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "el parque de la Taconera is a well-known park in Pamplona.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

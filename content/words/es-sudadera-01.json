@@ -1,0 +1,27 @@
+{
+  "id": "es-sudadera-01",
+  "headword": "sudadera",
+  "article": "la",
+  "plural": "sudaderas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["clothing"],
+  "senses": [
+    {
+      "gloss": "sweatshirt, hoodie",
+      "example": "Me pongo la sudadera para salir.",
+      "exampleGloss": "I put on my hoodie to go out."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el jersey", "gloss": "jumper", "reason": "A knitted jumper, not a sweatshirt." },
+    { "kind": "different-sense", "value": "la chaqueta", "gloss": "jacket", "reason": "A jacket, worn over a top." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "sudadera is a casual top with a hood or a sweatshirt.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

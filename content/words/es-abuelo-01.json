@@ -1,0 +1,27 @@
+{
+  "id": "es-abuelo-01",
+  "headword": "abuelo",
+  "article": "el",
+  "plural": "abuelos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "grandfather",
+      "example": "Mi abuelo vive en un pueblo de Navarra.",
+      "exampleGloss": "My grandfather lives in a village in Navarre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la abuela", "gloss": "grandmother", "reason": "The female pair of abuelo." },
+    { "kind": "register", "value": "el yayo", "gloss": "grandad", "reason": "Affectionate Peninsular word for grandfather." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "abuelos also means grandparents; the pair is abuelo/abuela.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

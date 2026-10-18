@@ -1,0 +1,24 @@
+{
+  "id": "es-bien-01",
+  "headword": "bien",
+  "partOfSpeech": "adverb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "well, fine",
+      "example": "Estoy bien, gracias.",
+      "exampleGloss": "I am fine, thank you."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "mal", "gloss": "badly, unwell", "reason": "The opposite." },
+    { "kind": "near-synonym", "value": "fenomenal", "gloss": "great", "reason": "Stronger than bien and very common in Spain." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "bien is the adverb; bueno is the adjective.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-galleta-01",
+  "headword": "galleta",
+  "article": "la",
+  "plural": "galletas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "biscuit",
+      "example": "Mojo la galleta en la leche.",
+      "exampleGloss": "I dip the biscuit in the milk."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el bollo", "gloss": "bun, pastry", "reason": "A soft baked bun, not a dry biscuit." },
+    { "kind": "near-synonym", "value": "la magdalena", "gloss": "small sponge cake", "reason": "A soft individual cake, common at breakfast." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "galleta is a biscuit; a chocolate one is una galleta de chocolate.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

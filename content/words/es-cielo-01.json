@@ -1,0 +1,27 @@
+{
+  "id": "es-cielo-01",
+  "headword": "cielo",
+  "article": "el",
+  "plural": "cielos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A2",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "sky",
+      "example": "El cielo está muy despejado.",
+      "exampleGloss": "The sky is very clear."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la nube", "gloss": "cloud", "reason": "A cloud, not the sky." },
+    { "kind": "near-synonym", "value": "el firmamento", "gloss": "the heavens", "reason": "Literary word for the sky." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "cielo is the sky and also heaven.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

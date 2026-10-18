@@ -1,0 +1,24 @@
+{
+  "id": "es-vestirse-01",
+  "headword": "vestirse",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine", "clothing"],
+  "senses": [
+    {
+      "gloss": "to get dressed",
+      "example": "Me visto en cinco minutos.",
+      "exampleGloss": "I get dressed in five minutes."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "ponerse", "gloss": "to put on", "reason": "To put on a garment, not to get dressed." },
+    { "kind": "near-synonym", "value": "llevar", "gloss": "to wear", "reason": "To have something on, not to put it on." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Reflexive with an e-i stem change: me visto, te vistes.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

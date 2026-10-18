@@ -1,0 +1,27 @@
+{
+  "id": "es-bar-01",
+  "headword": "bar",
+  "article": "el",
+  "plural": "bares",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure", "food"],
+  "senses": [
+    {
+      "gloss": "bar, café",
+      "example": "Desayunamos en el bar de la esquina.",
+      "exampleGloss": "We have breakfast at the bar on the corner."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la cafetería", "gloss": "café", "reason": "A café, often with more seating and cakes." },
+    { "kind": "near-synonym", "value": "el pub", "gloss": "pub", "reason": "A more night-time venue, common in Spanish cities." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "in Spain a bar is where you have coffee and pinchos, not only drinks.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

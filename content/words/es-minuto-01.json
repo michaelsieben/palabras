@@ -1,0 +1,27 @@
+{
+  "id": "es-minuto-01",
+  "headword": "minuto",
+  "article": "el",
+  "plural": "minutos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "minute",
+      "example": "Espera un minuto, por favor.",
+      "exampleGloss": "Wait a minute, please."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la hora", "gloss": "hour", "reason": "Sixty minutes, the unit above." },
+    { "kind": "near-synonym", "value": "el momento", "gloss": "moment", "reason": "A very short, indefinite time." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "un minuto is the everyday just-a-moment phrase.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}

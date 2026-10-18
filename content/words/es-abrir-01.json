@@ -1,0 +1,24 @@
+{
+  "id": "es-abrir-01",
+  "headword": "abrir",
+  "partOfSpeech": "verb",
+  "cefr": "A1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "to open",
+      "example": "Abre la ventana, hace mucho calor.",
+      "exampleGloss": "Open the window, it is very hot."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "cerrar", "gloss": "to close", "reason": "The opposite action." },
+    { "kind": "near-synonym", "value": "destapar", "gloss": "to uncover, to open", "reason": "To remove a lid or top." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "abrir has the participle abierto: he abierto.",
+  "createdAt": "2026-10-18T23:59:00Z"
+}
