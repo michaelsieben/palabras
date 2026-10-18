@@ -21,24 +21,30 @@ public sealed class M2ContentImportTests : IDisposable
     }
 
     [Fact]
-    public async Task CorpusImports58WordsThenReportsZeroChanges()
+    public async Task CorpusImportsOneEntryPerFileThenReportsZeroChanges()
     {
+        var files = CorpusFiles();
         var importer = new ContentImporter(_settings);
         var first = await importer.ImportAsync(CorpusDirectory(), false, CancellationToken.None);
-        Assert.Equal(new[] { 58, 0, 0, 0 }, Counts(first));
+        Assert.Equal(new[] { files.Length, 0, 0, 0 }, Counts(first));
         await using var database = _settings.CreateContext();
-        Assert.Equal(58, await database.Words.CountAsync());
-        Assert.Equal(58, await database.WordRevisions.CountAsync());
-        Assert.All(await database.Words.ToListAsync(), word =>
+        Assert.Equal(files.Length, await database.Words.CountAsync());
+        Assert.Equal(files.Length, await database.WordRevisions.CountAsync());
+        var words = await database.Words.ToListAsync();
+        Assert.Equal(files.Select(CorpusKey).Order(StringComparer.Ordinal),
+            words.Select(word => word.Key).Order(StringComparer.Ordinal));
+        var pluralByKey = files.ToDictionary(CorpusKey,
+            path => JsonNode.Parse(File.ReadAllText(path))!["plural"]?.GetValue<string>());
+        Assert.All(words, word =>
         {
             Assert.Equal("pending_review", word.Status);
             Assert.Equal(1, word.Version);
             Assert.Equal(64, word.ContentHash.Length);
-            Assert.Null(word.Plural);
+            Assert.Equal(pluralByKey[word.Key], word.Plural);
         });
         var second = await importer.ImportAsync(CorpusDirectory(), false, CancellationToken.None);
-        Assert.Equal(new[] { 0, 0, 58, 0 }, Counts(second));
-        Assert.Equal(58, await database.WordRevisions.CountAsync());
+        Assert.Equal(new[] { 0, 0, files.Length, 0 }, Counts(second));
+        Assert.Equal(files.Length, await database.WordRevisions.CountAsync());
     }
 
     [Fact]
@@ -258,11 +264,12 @@ public sealed class M2ContentImportTests : IDisposable
     [Fact]
     public async Task PartialDirectoryNeverRetiresMissingWords()
     {
+        var corpusSize = CorpusFileCount();
         await new ContentImporter(_settings).ImportAsync(CorpusDirectory(), false, CancellationToken.None);
         await Write(Seed());
         Assert.Equal(new[] { 0, 0, 1, 0 }, Counts(await Import()));
         await using var database = _settings.CreateContext();
-        Assert.Equal(58, await database.Words.CountAsync());
+        Assert.Equal(corpusSize, await database.Words.CountAsync());
         Assert.Equal(0, await database.Words.CountAsync(word => word.Status == "retired"));
     }
 
@@ -287,6 +294,20 @@ public sealed class M2ContentImportTests : IDisposable
     private static int[] Counts(ContentImportResult result) => [result.Created, result.Updated, result.Unchanged, result.Rejected.Count];
     private async Task Write(JsonNode source) => await File.WriteAllTextAsync(Path.Combine(_words, source["id"]!.GetValue<string>() + ".json"), source.ToJsonString());
     internal static JsonNode Seed() => JsonNode.Parse(File.ReadAllText(Path.Combine(CorpusDirectory(), "es-nevera-01.json")))!;
+
+    // The corpus grows with every content batch, so expectations are derived from the files on disk.
+    // A frozen count here is a tripwire for the next batch, not a property of the importer.
+    internal static string[] CorpusFiles()
+    {
+        var files = Directory.GetFiles(CorpusDirectory(), "*.json");
+        Assert.NotEmpty(files); // a vanished corpus must fail loudly instead of passing vacuously
+        return files;
+    }
+
+    internal static int CorpusFileCount() => CorpusFiles().Length;
+
+    private static string CorpusKey(string path) => Path.GetFileNameWithoutExtension(path);
+
     internal static string CorpusDirectory()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

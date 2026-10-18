@@ -37,7 +37,7 @@ public sealed class ContentCliTests : IDisposable
     [Fact]
     public async Task ApproveKeysWritesApproveSnapshotWithoutChangingContentAndRepeatIsNoOp()
     {
-        await Import();
+        var corpusSize = await Import();
         await using var database = _settings.CreateContext();
         var before = await database.Words.AsNoTracking().SingleAsync(word => word.Key == "es-nevera-01");
         var result = await Run(["content", "approve", "es-nevera-01", "es-coger-01", "es-nevera-01"]);
@@ -60,77 +60,89 @@ public sealed class ContentCliTests : IDisposable
         var repeat = await Run(["content", "approve", "es-nevera-01", "es-coger-01"]);
         Assert.Equal(0, repeat.Exit);
         Assert.Contains("approved=0 unchanged=2", repeat.Output);
-        Assert.Equal(60, await database.WordRevisions.CountAsync());
+        // one import revision per corpus file plus the two explicit approvals above
+        Assert.Equal(corpusSize + 2, await database.WordRevisions.CountAsync());
         Assert.Equal(word.UpdatedAt, (await database.Words.AsNoTracking().SingleAsync(value => value.Id == word.Id)).UpdatedAt);
     }
 
     [Fact]
     public async Task ApproveAllSelectsOnlyPendingAndStatusReportsEveryStatusIncludingZeros()
     {
-        await Import();
+        var corpusSize = await Import();
         await using var database = _settings.CreateContext();
         var statuses = new[] { "draft", "approved", "needs_change", "rejected", "retired" };
         var exceptions = await database.Words.OrderBy(word => word.Id).Take(statuses.Length).ToListAsync();
         for (var index = 0; index < statuses.Length; index++) exceptions[index].Status = statuses[index];
         await database.SaveChangesAsync();
+        var pending = corpusSize - statuses.Length;
         var before = await Run(["content", "status"]);
         Assert.Equal(0, before.Exit);
-        Assert.Contains("pending_review=53", before.Output);
-        Assert.Contains("total=58", before.Output);
+        var beforeCounts = StatusCounts(before.Output);
+        Assert.All(statuses, status => Assert.Equal(1, beforeCounts[status]));
+        Assert.Equal(pending, beforeCounts["pending_review"]);
+        Assert.Equal(corpusSize, beforeCounts["total"]);
+        Assert.Equal(beforeCounts["total"], beforeCounts.Where(pair => pair.Key != "total").Sum(pair => pair.Value));
         var result = await Run(["content", "approve", "--all-pending"]);
         Assert.Equal(0, result.Exit);
-        Assert.Contains("approved=53 unchanged=0", result.Output);
+        Assert.Contains($"approved={pending} unchanged=0", result.Output);
         var after = await Run(["content", "status"]);
         Assert.Equal(0, after.Exit);
-        Assert.Contains("approved=54", after.Output);
-        Assert.Contains("pending_review=0", after.Output);
-        foreach (var status in statuses.Where(status => status != "approved")) Assert.Contains(status + "=1", after.Output);
+        var afterCounts = StatusCounts(after.Output);
+        Assert.Equal(corpusSize - statuses.Length + 1, afterCounts["approved"]);
+        Assert.Equal(0, afterCounts["pending_review"]);
+        foreach (var status in statuses.Where(status => status != "approved")) Assert.Equal(1, afterCounts[status]);
+        Assert.Equal(corpusSize, afterCounts["total"]);
+        Assert.Equal(afterCounts["total"], afterCounts.Where(pair => pair.Key != "total").Sum(pair => pair.Value));
         var repeat = await Run(["content", "approve", "--all-pending"]);
         Assert.Equal(0, repeat.Exit);
         Assert.Contains("approved=0 unchanged=0", repeat.Output);
-        Assert.Equal(53, await database.WordRevisions.CountAsync(revision => revision.Action == "approve"));
+        Assert.Equal(pending, await database.WordRevisions.CountAsync(revision => revision.Action == "approve"));
     }
 
     [Fact]
     public async Task UnknownKeyFailsWithoutPartiallyApprovingKnownKeys()
     {
-        await Import();
+        var corpusSize = await Import();
         var result = await Run(["content", "approve", "es-nevera-01", "es-unknown-01"]);
         Assert.Equal(1, result.Exit);
         Assert.Contains("Unknown word key(s): es-unknown-01", result.Error);
         Assert.Contains("No words approved", result.Error);
         await using var database = _settings.CreateContext();
-        Assert.Equal(58, await database.Words.CountAsync(word => word.Status == "pending_review"));
-        Assert.Equal(58, await database.WordRevisions.CountAsync());
+        Assert.Equal(corpusSize, await database.Words.CountAsync(word => word.Status == "pending_review"));
+        Assert.Equal(corpusSize, await database.WordRevisions.CountAsync());
     }
 
     [Fact]
     public async Task RevisionWriteFailureRollsBackStatusChanges()
     {
-        await Import();
+        var corpusSize = await Import();
         await using var database = _settings.CreateContext();
         await database.Database.ExecuteSqlRawAsync("CREATE TRIGGER fail_approval BEFORE INSERT ON word_revisions WHEN NEW.action='approve' BEGIN SELECT RAISE(ABORT, 'forced approval failure'); END;");
         var result = await Run(["content", "approve", "--all-pending"]);
         Assert.Equal(1, result.Exit);
         Assert.Contains("approval transaction rolled back", result.Error);
-        Assert.Equal(58, await database.Words.CountAsync(word => word.Status == "pending_review"));
-        Assert.Equal(58, await database.WordRevisions.CountAsync());
+        Assert.Equal(corpusSize, await database.Words.CountAsync(word => word.Status == "pending_review"));
+        Assert.Equal(corpusSize, await database.WordRevisions.CountAsync());
     }
 
     [Fact]
     public async Task ProcessDispatchApprovesCorpusReportsStatusAndReturnsUnknownKeyExitCode()
     {
-        await Import();
+        var corpusSize = await Import();
         var before = await RunProcess(["content", "status"]);
         Assert.Equal(0, before.Exit);
-        Assert.Contains("pending_review=58", before.Output);
+        var beforeCounts = StatusCounts(before.Output);
+        Assert.Equal(corpusSize, beforeCounts["pending_review"]);
+        Assert.Equal(corpusSize, beforeCounts["total"]);
         var approve = await RunProcess(["content", "approve", "--all-pending"]);
         Assert.Equal(0, approve.Exit);
-        Assert.Contains("approved=58 unchanged=0", approve.Output);
+        Assert.Contains($"approved={corpusSize} unchanged=0", approve.Output);
         var after = await RunProcess(["content", "status"]);
         Assert.Equal(0, after.Exit);
-        Assert.Contains("approved=58", after.Output);
-        Assert.Contains("pending_review=0", after.Output);
+        var afterCounts = StatusCounts(after.Output);
+        Assert.Equal(corpusSize, afterCounts["approved"]);
+        Assert.Equal(0, afterCounts["pending_review"]);
+        Assert.Equal(corpusSize, afterCounts["total"]);
         var repeat = await RunProcess(["content", "approve", "--all-pending"]);
         Assert.Equal(0, repeat.Exit);
         Assert.Contains("approved=0 unchanged=0", repeat.Output);
@@ -138,14 +150,23 @@ public sealed class ContentCliTests : IDisposable
         Assert.Equal(1, unknown.Exit);
         Assert.Contains("Unknown word key(s): es-unknown-01", unknown.Error);
         await using var database = _settings.CreateContext();
-        Assert.Equal(58, await database.WordRevisions.CountAsync(revision => revision.Action == "approve"));
+        Assert.Equal(corpusSize, await database.WordRevisions.CountAsync(revision => revision.Action == "approve"));
     }
 
-    private async Task Import()
+    // `content status` prints `status=count` lines plus `total=count`; parsing them lets a test assert that the
+    // numbers agree with each other instead of pinning the size of a corpus that grows every batch.
+    private static Dictionary<string, int> StatusCounts(string output) => output
+        .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(line => line.Split('='))
+        .ToDictionary(parts => parts[0], parts => int.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture));
+
+    private async Task<int> Import()
     {
+        var corpusSize = M2ContentImportTests.CorpusFileCount();
         var result = await new ContentImporter(_settings).ImportAsync(M2ContentImportTests.CorpusDirectory(), false, CancellationToken.None);
-        Assert.Equal(58, result.Created);
+        Assert.Equal(corpusSize, result.Created);
         Assert.Empty(result.Rejected);
+        return corpusSize;
     }
 
     private async Task<(int Exit, string Output, string Error)> Run(string[] args)

@@ -33,22 +33,24 @@ public sealed class ContentImportCliTests : IDisposable
     [Fact]
     public async Task MissingDirectoryFailsAndDryRunPrintsCountsWithoutCreatingDatabase()
     {
+        var corpusSize = CorpusSize();
         Assert.Equal(1, (await Run(["import", Path.Combine(_directory, "missing")])).Exit);
         var dryRun = await Run(["import", M2ContentImportTests.CorpusDirectory(), "--dry-run"]);
         Assert.Equal(0, dryRun.Exit);
-        Assert.Contains("Dry run: created=58 updated=0 unchanged=0 rejected=0", dryRun.Output);
+        Assert.Contains($"Dry run: created={corpusSize} updated=0 unchanged=0 rejected=0", dryRun.Output);
         Assert.False(File.Exists(_settings.FilePath));
     }
 
     [Fact]
     public async Task CliImportsThenReportsUnchangedAndMalformedBatchExitsOneWithoutWrites()
     {
+        var corpusSize = CorpusSize();
         var first = await Run(["import", M2ContentImportTests.CorpusDirectory()]);
         Assert.Equal(0, first.Exit);
-        Assert.Contains("created=58 updated=0 unchanged=0 rejected=0", first.Output);
+        Assert.Contains($"created={corpusSize} updated=0 unchanged=0 rejected=0", first.Output);
         var repeat = await Run(["import", M2ContentImportTests.CorpusDirectory()]);
         Assert.Equal(0, repeat.Exit);
-        Assert.Contains("created=0 updated=0 unchanged=58 rejected=0", repeat.Output);
+        Assert.Contains($"created=0 updated=0 unchanged={corpusSize} rejected=0", repeat.Output);
         var words = Path.Combine(_directory, "words");
         Directory.CreateDirectory(words);
         var source = M2ContentImportTests.Seed();
@@ -60,8 +62,8 @@ public sealed class ContentImportCliTests : IDisposable
         Assert.Contains("created=0 updated=0 unchanged=0 rejected=1", malformed.Output);
         Assert.Contains("zzz-bad.json", malformed.Error);
         await using var database = _settings.CreateContext();
-        Assert.Equal(58, await database.Words.CountAsync());
-        Assert.Equal(58, await database.WordRevisions.CountAsync());
+        Assert.Equal(corpusSize, await database.Words.CountAsync());
+        Assert.Equal(corpusSize, await database.WordRevisions.CountAsync());
         Assert.DoesNotContain(await database.Words.ToListAsync(), word => word.Notes == "should not be written");
     }
 
@@ -89,12 +91,13 @@ public sealed class ContentImportCliTests : IDisposable
     [Fact]
     public async Task ProgramDispatchUsesEnvironmentDatabaseAndActualProcessExitCodes()
     {
+        var corpusSize = CorpusSize();
         var first = await RunProcess(["import", M2ContentImportTests.CorpusDirectory()]);
         Assert.Equal(0, first.Exit);
-        Assert.Contains("created=58 updated=0 unchanged=0 rejected=0", first.Output);
+        Assert.Contains($"created={corpusSize} updated=0 unchanged=0 rejected=0", first.Output);
         var repeat = await RunProcess(["import", M2ContentImportTests.CorpusDirectory()]);
         Assert.Equal(0, repeat.Exit);
-        Assert.Contains("created=0 updated=0 unchanged=58 rejected=0", repeat.Output);
+        Assert.Contains($"created=0 updated=0 unchanged={corpusSize} rejected=0", repeat.Output);
         var words = Path.Combine(_directory, "broken");
         Directory.CreateDirectory(words);
         await File.WriteAllTextAsync(Path.Combine(words, "bad.json"), "{");
@@ -103,9 +106,11 @@ public sealed class ContentImportCliTests : IDisposable
         Assert.Contains("rejected=1", malformed.Output);
         Assert.Contains("bad.json", malformed.Error);
         await using var database = _settings.CreateContext();
-        Assert.Equal(58, await database.Words.CountAsync());
-        Assert.Equal(58, await database.WordRevisions.CountAsync());
+        Assert.Equal(corpusSize, await database.Words.CountAsync());
+        Assert.Equal(corpusSize, await database.WordRevisions.CountAsync());
     }
+
+    private static int CorpusSize() => M2ContentImportTests.CorpusFileCount();
 
     private async Task<(int Exit, string Output, string Error)> Run(string[] args)
     {
