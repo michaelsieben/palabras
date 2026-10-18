@@ -8,7 +8,7 @@ namespace Palabras.Content;
 // Host/operator-only CLI, like `user`; never exposed through an HTTP endpoint.
 internal static class ContentCli
 {
-    private const string Usage = "Usage: content approve <key…> | content approve --all-pending | content status";
+    private const string Usage = "Usage: content approve <key…> | content approve --all-pending | content retire <key…> | content status";
     private static readonly string[] Statuses = ["draft", "pending_review", "approved", "needs_change", "rejected", "retired"];
 
     internal static async Task<int> RunAsync(string[] args, DatabaseSettings settings, TextWriter output,
@@ -16,6 +16,16 @@ internal static class ContentCli
     {
         try
         {
+            if (args is ["content", "retire", .. var retireKeys] && retireKeys.Length > 0
+                && retireKeys.All(value => !string.IsNullOrWhiteSpace(value) && !value.StartsWith("-", StringComparison.Ordinal)))
+            {
+                await DatabaseLifecycle.InitializeAsync(settings, cancellationToken);
+                await using var retirementDatabase = settings.CreateContext();
+                var retired = await ContentRetirement.RetireAsync(retirementDatabase,
+                    retireKeys.Distinct(StringComparer.Ordinal).ToArray(), cancellationToken);
+                await output.WriteLineAsync($"retired={retired}");
+                return 0;
+            }
             var (status, allPending, keys) = args switch
             {
                 ["content", "status"] => (true, false, Array.Empty<string>()),
@@ -47,7 +57,9 @@ internal static class ContentCli
             or InvalidOperationException or JsonException or DbUpdateException or SqliteException)
         {
             await error.WriteLineAsync(exception is DbUpdateException or SqliteException
-                ? "Error: Database operation failed; approval transaction rolled back."
+                ? args is ["content", "retire", ..]
+                    ? "Error: Database operation failed; retirement transaction rolled back."
+                    : "Error: Database operation failed; approval transaction rolled back."
                 : "Error: " + exception.Message);
             return 1;
         }

@@ -25,7 +25,7 @@ public sealed class ContentCliTests : IDisposable
     [InlineData("content", "approve", "--unknown")]
     [InlineData("content", "approve", "--all-pending", "es-nevera-01")]
     [InlineData("content", "status", "extra")]
-    [InlineData("content", "retire", "es-nevera-01")]
+    [InlineData("content", "retire")]
     public async Task InvalidArgumentsFailBeforeDatabaseAccess(params string[] args)
     {
         var result = await Run(args);

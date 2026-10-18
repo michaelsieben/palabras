@@ -9,7 +9,7 @@ internal sealed record ContentApprovalResult(int Approved, int Unchanged);
 internal static class ContentApproval
 {
     internal static async Task<ContentApprovalResult> ApproveAsync(PalabrasDbContext database,
-        IReadOnlyList<string> keys, bool allPending, CancellationToken cancellationToken)
+        IReadOnlyList<string> keys, bool allPending, CancellationToken cancellationToken, TimeProvider? timeProvider = null)
     {
         await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
         var words = await database.Words.Where(word => allPending ? word.Status == "pending_review" : keys.Contains(word.Key))
@@ -21,6 +21,8 @@ internal static class ContentApproval
         }
         var approved = 0;
         var unchanged = 0;
+        var changedWordIds = new HashSet<int>();
+        var now = (timeProvider ?? TimeProvider.System).GetUtcNow();
         foreach (var word in words)
         {
             if (word.Status == "approved")
@@ -37,7 +39,6 @@ internal static class ContentApproval
                 ?? throw new InvalidOperationException("Missing content snapshot for word: " + word.Key + ". No words approved.");
             var snapshot = JsonNode.Parse(source)?.AsObject()
                 ?? throw new InvalidOperationException("Invalid content snapshot for word: " + word.Key);
-            var now = DateTimeOffset.UtcNow;
             snapshot["status"] = "approved";
             snapshot["updatedAt"] = now.ToString("O");
             word.Status = "approved";
@@ -49,7 +50,14 @@ internal static class ContentApproval
                 ActorUserId = null, SnapshotJson = snapshot.ToJsonString(), CreatedAt = word.UpdatedAt
             });
             approved++;
+            changedWordIds.Add(word.Id);
         }
+        await database.SaveChangesAsync(cancellationToken);
+        // --all-pending also repairs the pre-SRS approved corpus, even with no pending words.
+        var wordIds = allPending
+            ? await database.Words.Where(word => word.Status == "approved").Select(word => word.Id).ToArrayAsync(cancellationToken)
+            : words.Select(word => word.Id).ToArray();
+        await ContentCardLifecycle.ApproveAsync(database, wordIds, changedWordIds, now.ToUnixTimeMilliseconds(), cancellationToken);
         await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return new(approved, unchanged);

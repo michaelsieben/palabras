@@ -137,6 +137,7 @@ internal sealed class ContentImporter
             }
             else
             {
+                await ContentCardLifecycle.DemoteAsync(database, word.Id, cancellationToken);
                 word.Version++;
                 word.Status = "pending_review";
                 updated++;
@@ -193,7 +194,7 @@ internal sealed class ContentImporter
             sense.AccentsAreThePoint = source["accentsAreThePoint"]?.GetValue<bool>() ?? false;
             sense.Notes = Text(source, "notes");
         }
-        database.Senses.RemoveRange(senses.Where(sense => sense.SenseOrder >= sourceSenses.Count));
+        await ContentCardLifecycle.ReconcileSensesAsync(database, senses, sourceSenses.Count, cancellationToken);
         database.WordAlternatives.RemoveRange(await database.WordAlternatives.Where(alternative => alternative.WordId == word.Id).ToListAsync(cancellationToken));
         foreach (var (source, index) in root["alternatives"]!.AsArray().Select((source, index) => (source!, index)))
         {
