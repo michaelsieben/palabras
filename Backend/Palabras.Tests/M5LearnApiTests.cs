@@ -646,6 +646,149 @@ public sealed class M5LearnApiTests
             item => Assert.True(item.GetProperty("isNew").GetBoolean()));
     }
 
+    [Theory]
+    [InlineData("2026-10-18T09:00:00Z", "2026-10-18", "2026-10-19")]
+    // Fall-back day: the local day is 25 hours long and midnight is a normal boundary.
+    [InlineData("2026-10-25T09:00:00Z", "2026-10-25", "2026-10-26")]
+    // Spring-forward day: 23 hours; the next local midnight is 22:00Z.
+    [InlineData("2027-03-28T09:00:00Z", "2027-03-28", "2027-03-29")]
+    public async Task BuryHidesTheCardOnlyForTheRestOfTheLocalDay(string now, string localToday, string localTomorrow)
+    {
+        var instant = DateTimeOffset.Parse(now, CultureInfo.InvariantCulture);
+        var clock = new LearnerClock(new FakeTimeProvider(instant), "Europe/Madrid");
+        var today = DateOnly.ParseExact(localToday, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var tomorrow = DateOnly.ParseExact(localTomorrow, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        Assert.Equal(today, clock.LocalToday);
+        using var factory = new LearnApplicationFactory(instant, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela");
+            AddCard(database, 1, 1, state: CardState.Review, dueMs: instant.ToUnixTimeMilliseconds());
+        });
+        using var client = await LearnerClientAsync(factory);
+        using (var bury = await PostJsonAsync(client, "/api/learn/cards/1/bury", new { }))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, bury.StatusCode);
+        }
+        using (var database = factory.OpenDatabase())
+        {
+            // Encoded as the last hidden day, not the first visible one.
+            Assert.Equal(localToday, (await database.Cards.SingleAsync(card => card.Id == 1)).BuriedUntilLocalDate);
+        }
+
+        // Later the same local day (23:58 local): still buried.
+        factory.Time.Advance(clock.EndOfLocalDayUtc.AddMinutes(-1) - instant);
+        using (var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan", CancellationToken.None)))
+        {
+            Assert.Equal(localToday, body.RootElement.GetProperty("localDate").GetString());
+            Assert.DoesNotContain(body.RootElement.GetProperty("items").EnumerateArray(),
+                item => item.GetProperty("cardId").GetInt32() == 1);
+        }
+
+        // One minute after the next local midnight: back in the plan.
+        factory.Time.Advance(clock.StartOfLocalDateUtc(tomorrow).AddMinutes(1) - factory.Time.GetUtcNow());
+        using (var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan", CancellationToken.None)))
+        {
+            Assert.Equal(localTomorrow, body.RootElement.GetProperty("localDate").GetString());
+            Assert.Contains(body.RootElement.GetProperty("items").EnumerateArray(),
+                item => item.GetProperty("cardId").GetInt32() == 1);
+        }
+    }
+
+    [Fact]
+    public async Task StaleEpochOutranksSuspended()
+    {
+        // §3.2 order: stale_epoch, then suspended. A card that is both must report stale_epoch,
+        // otherwise an invalidated answer would look like a plain pause and the client copy would
+        // tell the learner the wrong thing.
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela");
+            AddCard(database, 1, 1, state: CardState.Review, dueMs: Now.ToUnixTimeMilliseconds(),
+                epoch: 3, suspended: "manual");
+        });
+        using var client = await LearnerClientAsync(factory);
+        using var response = await PostJsonAsync(client, "/api/learn/attempts", new
+        {
+            attempts = new[]
+            {
+                new
+                {
+                    clientAttemptId = Guid.NewGuid().ToString(), cardId = 1, cardEpoch = 2, sessionId = "s",
+                    mode = "recognition", rating = 3, isCorrectMeaning = (bool?)null, isCorrectForm = (bool?)null,
+                    overridden = false, feedbackKind = (string?)null, answerText = (string?)null,
+                    durationMs = 700, reviewedAtUtc = Now.AddMinutes(-10)
+                }
+            }
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using (var body = await JsonAsync(response))
+        {
+            Assert.Equal("stale_epoch", body.RootElement.GetProperty("results").EnumerateArray().Single()
+                .GetProperty("status").GetString());
+        }
+        using (var database = factory.OpenDatabase())
+        {
+            var card = await database.Cards.SingleAsync(candidate => candidate.Id == 1);
+            Assert.Equal(3, card.Epoch);
+            Assert.Equal("manual", card.SuspendedReason);
+            Assert.Equal(0, card.Reps);
+            var log = await database.ReviewLogs.SingleAsync();
+            Assert.Equal(2, log.CardEpoch);
+            Assert.False(log.CountsForSrs);
+        }
+    }
+
+    [Fact]
+    public async Task AbsentSettingsRowUsesLockedDefaultsInMemory()
+    {
+        // No code path writes users.timezone or a user_settings row yet, so every learner runs on
+        // the in-memory defaults of UserSettings plus the Europe/Madrid fallback. Pin the locked
+        // numbers here so a drift between those defaults and the migration defaults is visible.
+        var defaults = new UserSettings();
+        Assert.Equal(0.90, defaults.DesiredRetention);
+        Assert.Equal(12, defaults.NewPerDay);
+        Assert.Equal(200, defaults.MaxReviewsPerDay);
+        Assert.Equal(150, defaults.BacklogThreshold);
+        Assert.Equal(600, defaults.SessionTargetS);
+        Assert.Equal(900, defaults.SessionMaxS);
+        Assert.Equal(730, defaults.MaxIntervalDays);
+        Assert.True(defaults.EnableFuzz);
+        Assert.Equal("[\"00:01:00\",\"00:10:00\"]", defaults.LearningSteps);
+        Assert.Equal("[\"00:10:00\"]", defaults.RelearningSteps);
+        Assert.Equal(8, defaults.LeechLapses);
+        Assert.Null(defaults.WeightsJson);
+        Assert.Equal(0, defaults.WeightsVersion);
+
+        var options = LearnSettings.ToSchedulerOptions(defaults);
+        Assert.Equal(0.90, options.DesiredRetention);
+        Assert.Equal(730, options.MaximumIntervalDays);
+        Assert.True(options.EnableFuzz);
+        Assert.Equal(new[] { TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(10) }, options.LearningSteps);
+        Assert.Equal(new[] { TimeSpan.FromMinutes(10) }, options.RelearningSteps);
+        Assert.Null(options.Weights);
+        Assert.Equal(0, options.WeightsVersion);
+
+        // Endpoint path with no row at all: new_per_day = 12 caps the offered new cards.
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            for (var id = 1; id <= 20; id++)
+            {
+                AddWord(database, id, $"es-new-{id:D3}", $"nueva{id}");
+                AddCard(database, id, id, state: CardState.New, dueMs: Now.ToUnixTimeMilliseconds());
+            }
+        });
+        using var client = await LearnerClientAsync(factory);
+        using (var database = factory.OpenDatabase())
+        {
+            Assert.Empty(await database.UserSettings.ToListAsync());
+            Assert.Null((await database.Users.SingleAsync(user => user.Id == 1)).Timezone);
+        }
+        using (var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan", CancellationToken.None)))
+        {
+            Assert.Equal(12, body.RootElement.GetProperty("counts").GetProperty("newOffered").GetInt32());
+        }
+    }
+
     [Fact]
     public async Task QueueQueryTranslatesEntirelyToSqliteSql()
     {
@@ -771,8 +914,7 @@ public sealed class M5LearnApiTests
         {
             Assert.DoesNotContain(body.RootElement.GetProperty("items").EnumerateArray(),
                 item => item.GetProperty("cardId").GetInt32() == 1);
-        }
-        using (var missing = await PostJsonAsync(client, "/api/learn/cards/9999/bury", new { }))
+        }        using (var missing = await PostJsonAsync(client, "/api/learn/cards/9999/bury", new { }))
         {
             await AssertJsonError(missing, HttpStatusCode.NotFound, "not_found");
         }
@@ -803,7 +945,8 @@ public sealed class M5LearnApiTests
         using (var database = factory.OpenDatabase())
         {
             var buried = await database.Cards.SingleAsync(candidate => candidate.Id == 1);
-            Assert.Equal("2026-10-19", buried.BuriedUntilLocalDate);
+            // Last hidden local date = the day of the bury, so the card returns tomorrow.
+            Assert.Equal("2026-10-18", buried.BuriedUntilLocalDate);
             Assert.Null(buried.SuspendedReason);
             var revived = await database.Cards.SingleAsync(candidate => candidate.Id == 4);
             Assert.Null(revived.SuspendedReason);

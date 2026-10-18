@@ -129,7 +129,11 @@ internal static class LearnEndpoints
                     return Error(StatusCodes.Status401Unauthorized, "unauthorized");
                 }
                 var clock = CreateClock(timeProvider, learner.Timezone, loggerFactory);
-                card.BuriedUntilLocalDate = clock.LocalToday.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                // Plan §4 "buried until local tomorrow": the column holds the LAST local date the
+                // card stays out of the queue, and LearnQueries keeps it out while that date is not
+                // before today. Storing today therefore hides it for the rest of today only and the
+                // card is back in tomorrow's plan (a +1 here hid it for two days).
+                card.BuriedUntilLocalDate = clock.LocalToday.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 break;
             }
             case CardAction.Suspend:

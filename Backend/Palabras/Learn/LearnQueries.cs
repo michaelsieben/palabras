@@ -37,6 +37,9 @@ internal static class LearnQueries
         // not part of the corpus. Only the current version's snapshot says which ordinals are live,
         // because a manual/leech card on a removed sense keeps its non-null/none reason.
         var activeSenseIds = active.SenseIds.ToArray();
+        // Bury encoding (plan §4): buried_until_local_date is the LAST local date the card stays
+        // hidden, so it is visible once that date is before today. Bury stores today => hidden for
+        // the rest of today and planned again tomorrow. Keep this in step with LearnEndpoints.Bury.
         return database.Cards.AsNoTracking().Where(card => card.UserId == userId
             && card.SuspendedReason == null
             && card.DueMs <= endOfLocalDayMs
