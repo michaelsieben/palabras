@@ -5,7 +5,10 @@ namespace Palabras.Learn;
 // (case-insensitive "true"). Anything else — absent, empty, "false", "1", garbage — stays OFF,
 // so the safe state needs no opt-in. In the container the setting is the environment variable
 // M7__DayRolloverEnabled. Kill switch: set it false (or remove it) and restart/recreate the app
-// — no rebuild, no DB downgrade; past ticks stop, the migration and its rows stay.
+// — no rebuild, no DB downgrade; past ticks stop, the migration and its rows stay. The cutover
+// instant is durable in app_meta (T-20261018-2105 step 11): restarting a host that observes the
+// gate enabled fixes it once, and re-enabling later reads the same instant back rather than
+// re-anchoring to a new host start.
 // Bound to the same explicit static-binder convention as DatabaseSettings.FromConfiguration.
 internal sealed record DayRolloverSettings(bool Enabled)
 {

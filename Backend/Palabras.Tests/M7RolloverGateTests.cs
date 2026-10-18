@@ -18,14 +18,33 @@ namespace Palabras.Tests;
 // M7 rollover rollout gate (T-20261018-2105 C1). A fresh deploy must migrate the schema but
 // never write `missed` history unless M7:DayRolloverEnabled is literally true, and even when
 // enabled the first post-enable ticks may not invent missed days for the period before the
-// cutover (the backfill guard). Tests cover: config binding, a disabled host across startup,
-// repeated ticks and restart; enabled ticks being idempotent across repeats and a restart;
-// and the pre-enable day refusal through direct DayRollover runs, like M7DayStatusTests.
+// cutover (the backfill guard). Step 11 made that cutover durable: it is fixed in app_meta by
+// the first enabled observation of the database and read back unchanged by every restart,
+// redeploy or re-enable, so a restart can no longer move it and strand the day under way.
+// Tests cover: config binding, a disabled host across startup, repeated ticks and restart
+// (writing neither history nor a cutover marker); enabled ticks being idempotent across repeats
+// and a restart; the restart not losing a day; cutover sharing across service instances over one
+// database; kill-switch re-enablement keeping the original cutover; an unreadable marker
+// re-anchoring without inventing history; and the pre-enable day refusal through direct
+// DayRollover runs, like M7DayStatusTests.
 public sealed class M7RolloverGateTests
 {
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     private static DateTimeOffset Moment(string iso) => DateTimeOffset.Parse(iso, Inv);
+
+    // A service instance without a web host: ExecuteAsync never runs, ticks are driven directly.
+    private static DayRolloverService NewService(GateRig rig, FakeTimeProvider time, bool enabled) =>
+        new(rig.Settings, new DayRolloverSettings(enabled), time, NullLogger<DayRolloverService>.Instance);
+
+    private static async Task<long> ReadCutoverMarkerMs(GateRig rig)
+    {
+        await using var database = rig.OpenDatabase();
+        var markers = await database.AppMetas.AsNoTracking().ToListAsync(CancellationToken.None);
+        var marker = Assert.Single(markers);
+        Assert.Equal(DayRollover.CutoverKey, marker.Key);
+        return long.Parse(marker.Value, Inv);
+    }
 
     [Theory]
     [InlineData(null, false)]
@@ -76,6 +95,8 @@ public sealed class M7RolloverGateTests
             Assert.Empty(await database.DayStatuses.ToListAsync(CancellationToken.None));
             Assert.Empty(await database.DaySkips.ToListAsync(CancellationToken.None));
             Assert.Empty(await database.PracticeSessions.ToListAsync(CancellationToken.None));
+            // A disabled host never observes the gate enabled, so it also never fixes a cutover.
+            Assert.Empty(await database.AppMetas.ToListAsync(CancellationToken.None));
         }
     }
 
@@ -88,8 +109,11 @@ public sealed class M7RolloverGateTests
         Assert.True(host.Services.GetRequiredService<DayRolloverSettings>().Enabled);
         var service = host.RolloverService();
         Assert.True(service.Enabled);
-        // The enable instant is fixed at host start (the container's clock at first run).
-        Assert.Equal(now, service.TrackingStart);
+        // The enable instant is durable: the first enabled observation fixes the cutover at the
+        // host-start instant and writes it to app_meta (T-20261018-2105 step 11 replaced the
+        // old per-process TrackingStart capture that moved on every restart).
+        Assert.Equal(now, await service.CutoverAsync(CancellationToken.None));
+        Assert.Equal(now.ToUnixTimeMilliseconds(), await ReadCutoverMarkerMs(rig));
         await using (var database = rig.OpenDatabase())
         {
             Assert.Empty(await database.DayStatuses.ToListAsync(CancellationToken.None));
@@ -121,12 +145,15 @@ public sealed class M7RolloverGateTests
         host.Time.Advance(TimeSpan.FromDays(1));
         Assert.Equal(2, await service.RunTickAsync(CancellationToken.None));
 
-        // Restart mid-day: a fresh process on the same database re-derives its own tracking
-        // start; committed rows stay exactly one per (account, day) and the refused pre-cutover
-        // days are never retroactively written.
+        // Restart mid-day: a fresh process on the same database reads back the SAME persisted
+        // cutover instead of re-deriving one from its own host start; committed rows stay
+        // exactly one per (account, day) and the refused pre-cutover days are never
+        // retroactively written.
         using (var restarted = new GateHost(rig, now, "true"))
         {
             var second = restarted.RolloverService();
+            Assert.Equal(now, await second.CutoverAsync(CancellationToken.None));
+            Assert.Equal(now.ToUnixTimeMilliseconds(), await ReadCutoverMarkerMs(rig));
             restarted.Time.Advance(TimeSpan.FromDays(2)); // 2026-10-20: candidate 19 is committed.
             Assert.Equal(0, await second.RunTickAsync(CancellationToken.None));
             restarted.Time.Advance(TimeSpan.FromDays(1)); // candidate 20 is committed.
@@ -181,6 +208,112 @@ public sealed class M7RolloverGateTests
             var rows = await database.DayStatuses.ToListAsync(CancellationToken.None);
             Assert.Equal(2, rows.Count);
             Assert.All(rows, row => Assert.Equal("2026-10-18", row.LocalDate));
+        }
+    }
+
+    [Fact]
+    public async Task ARestartDoesNotMoveTheCutoverAndStillMarksTheRestartDay()
+    {
+        // Regression for the step-11 defect: while TrackingStart was captured per host start,
+        // every restart or poll redeploy moved the cutover forward and the restart day was
+        // refused forever, silently leaving it without a history row.
+        using var rig = new GateRig();
+        var firstStart = Moment("2026-10-18T09:00:00Z");
+        using (var host = new GateHost(rig, firstStart, "true"))
+        {
+            var service = host.RolloverService();
+            Assert.Equal(firstStart, await service.CutoverAsync(CancellationToken.None));
+        }
+
+        // Redeploy the next morning: 2026-10-19 (Madrid) began at 2026-10-18T22:00Z — before the
+        // new host start but after the persisted cutover — so it is still the first missable day.
+        var restart = Moment("2026-10-19T09:00:00Z");
+        using (var host = new GateHost(rig, restart, "true"))
+        {
+            var service = host.RolloverService();
+            Assert.Equal(firstStart, await service.CutoverAsync(CancellationToken.None));
+            host.Time.Advance(TimeSpan.FromDays(1)); // 2026-10-20: candidate 2026-10-19.
+            Assert.Equal(2, await service.RunTickAsync(CancellationToken.None));
+            Assert.Equal(firstStart, await service.CutoverAsync(CancellationToken.None));
+        }
+        await using (var database = rig.OpenDatabase())
+        {
+            var rows = await database.DayStatuses.ToListAsync(CancellationToken.None);
+            Assert.Equal(2, rows.Count);
+            Assert.All(rows, row => Assert.Equal("2026-10-19", row.LocalDate));
+            // The marker was written once, by the first enabled host, and never moved.
+            Assert.Equal(firstStart.ToUnixTimeMilliseconds(), await ReadCutoverMarkerMs(rig));
+        }
+    }
+
+    [Fact]
+    public async Task ASecondServiceInstanceOnTheSameDatabaseReusesThePersistedCutover()
+    {
+        using var rig = new GateRig();
+        var first = Moment("2026-10-18T09:00:00Z");
+        var firstTime = new FakeTimeProvider(first);
+        var firstService = NewService(rig, firstTime, enabled: true);
+        Assert.Equal(first, await firstService.CutoverAsync(CancellationToken.None));
+        firstTime.Advance(TimeSpan.FromDays(2)); // 2026-10-20: candidate 19 is the first full day.
+        Assert.Equal(2, await firstService.RunTickAsync(CancellationToken.None));
+
+        // Restart two days later: the cutover is the stored instant, not this instance's start.
+        var secondTime = new FakeTimeProvider(Moment("2026-10-20T15:00:00Z"));
+        var secondService = NewService(rig, secondTime, enabled: true);
+        Assert.Equal(first, await secondService.CutoverAsync(CancellationToken.None));
+        secondTime.Advance(TimeSpan.FromDays(1)); // 2026-10-21: candidate 2026-10-20.
+        Assert.Equal(2, await secondService.RunTickAsync(CancellationToken.None));
+        await using (var database = rig.OpenDatabase())
+        {
+            var dates = (await database.DayStatuses.ToListAsync(CancellationToken.None))
+                .Select(row => row.LocalDate).Distinct().Order(StringComparer.Ordinal).ToArray();
+            Assert.Equal(["2026-10-19", "2026-10-20"], dates);
+            Assert.Equal(first.ToUnixTimeMilliseconds(), await ReadCutoverMarkerMs(rig));
+        }
+    }
+
+    [Fact]
+    public async Task ReEnablingTheGateAfterAKillSwitchKeepsTheOriginalCutover()
+    {
+        using var rig = new GateRig();
+        var start = Moment("2026-10-18T09:00:00Z");
+        var first = NewService(rig, new FakeTimeProvider(start), enabled: true);
+        Assert.Equal(start, await first.CutoverAsync(CancellationToken.None));
+
+        // Kill switch: a disabled host never reads or writes the marker (C1 contract kept).
+        var off = NewService(rig, new FakeTimeProvider(Moment("2026-10-20T09:00:00Z")), enabled: false);
+        Assert.Equal(0, await off.RunTickAsync(CancellationToken.None));
+        await using (var during = rig.OpenDatabase())
+        {
+            Assert.Empty(await during.DayStatuses.ToListAsync(CancellationToken.None));
+        }
+
+        // Re-enable: the original cutover is read back, not re-anchored to the new host start.
+        var back = NewService(rig, new FakeTimeProvider(Moment("2026-10-25T09:00:00Z")), enabled: true);
+        Assert.Equal(start, await back.CutoverAsync(CancellationToken.None));
+        Assert.Equal(start.ToUnixTimeMilliseconds(), await ReadCutoverMarkerMs(rig));
+    }
+
+    [Fact]
+    public async Task AnUnreadableCutoverMarkerIsReanchoredWithoutInventingHistory()
+    {
+        using var rig = new GateRig();
+        await using (var seed = rig.OpenDatabase())
+        {
+            seed.AppMetas.Add(new AppMeta { Key = DayRollover.CutoverKey, Value = "not-an-instant" });
+            await seed.SaveChangesAsync(CancellationToken.None);
+        }
+        var now = Moment("2026-10-18T09:00:00Z");
+        var time = new FakeTimeProvider(now);
+        var service = NewService(rig, time, enabled: true);
+        // Re-anchoring is the safe direction: it only tightens the refusal window.
+        Assert.Equal(now, await service.CutoverAsync(CancellationToken.None));
+        time.Advance(TimeSpan.FromDays(1)); // 2026-10-19: candidate 18 began before the marker did.
+        Assert.Equal(0, await service.RunTickAsync(CancellationToken.None));
+        Assert.Equal(now.ToUnixTimeMilliseconds(), await ReadCutoverMarkerMs(rig));
+        await using (var database = rig.OpenDatabase())
+        {
+            Assert.Empty(await database.DayStatuses.ToListAsync(CancellationToken.None));
         }
     }
 

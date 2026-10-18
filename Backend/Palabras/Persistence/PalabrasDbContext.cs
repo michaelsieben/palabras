@@ -18,6 +18,7 @@ internal sealed class PalabrasDbContext : DbContext
     public DbSet<DayStatus> DayStatuses => Set<DayStatus>();
     public DbSet<DaySkip> DaySkips => Set<DaySkip>();
     public DbSet<PracticeSession> PracticeSessions => Set<PracticeSession>();
+    public DbSet<AppMeta> AppMetas => Set<AppMeta>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -125,6 +126,7 @@ internal sealed class PalabrasDbContext : DbContext
         revision.Property(value => value.CreatedAt).HasColumnName("created_at");
         ConfigureSrs(modelBuilder);
         ConfigureDayTracking(modelBuilder);
+        ConfigureAppMeta(modelBuilder);
     }
 
     // M7: day_status, day_skips and practice_sessions (design.md:103-120, design-amendment.md
@@ -185,6 +187,17 @@ internal sealed class PalabrasDbContext : DbContext
         // ΔF:640 (`ix_day_skips_window ... WHERE refunded_at IS NULL`) is raw SQL in the
         // migration: EF Core merges two indexes declared over the same columns into one.
         skip.HasIndex(value => new { value.UserId, value.LocalDate }).IsUnique();
+    }
+
+    // App-wide durable markers (T-20261018-2105 step 11). The M7 rollover cutover is the first
+    // key; its value is a UTC unix-ms decimal string, the repo-wide instant convention.
+    private static void ConfigureAppMeta(ModelBuilder modelBuilder)
+    {
+        var meta = modelBuilder.Entity<AppMeta>();
+        meta.ToTable("app_meta");
+        meta.HasKey(value => value.Key);
+        meta.Property(value => value.Key).HasColumnName("key").IsRequired();
+        meta.Property(value => value.Value).HasColumnName("value").IsRequired();
     }
 
     private static void ConfigureSrs(ModelBuilder modelBuilder)
