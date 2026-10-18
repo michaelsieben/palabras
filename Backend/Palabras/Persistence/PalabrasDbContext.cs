@@ -15,6 +15,9 @@ internal sealed class PalabrasDbContext : DbContext
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<ReviewLog> ReviewLogs => Set<ReviewLog>();
     public DbSet<UserSettings> UserSettings => Set<UserSettings>();
+    public DbSet<DayStatus> DayStatuses => Set<DayStatus>();
+    public DbSet<DaySkip> DaySkips => Set<DaySkip>();
+    public DbSet<PracticeSession> PracticeSessions => Set<PracticeSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -121,6 +124,67 @@ internal sealed class PalabrasDbContext : DbContext
         revision.Property(value => value.SnapshotJson).HasColumnName("snapshot_json").IsRequired();
         revision.Property(value => value.CreatedAt).HasColumnName("created_at");
         ConfigureSrs(modelBuilder);
+        ConfigureDayTracking(modelBuilder);
+    }
+
+    // M7: day_status, day_skips and practice_sessions (design.md:103-120, design-amendment.md
+    // ΔF:631-640). Local dates are stored as yyyy-MM-dd TEXT in the learner's zone; the day
+    // boundary is decided by LearnerClock, never by the container clock.
+    private static void ConfigureDayTracking(ModelBuilder modelBuilder)
+    {
+        var session = modelBuilder.Entity<PracticeSession>();
+        session.ToTable("practice_sessions", table =>
+        {
+            table.HasCheckConstraint("ck_practice_sessions_status",
+                "status IN ('in_progress', 'completed', 'abandoned')");
+        });
+        session.HasKey(value => value.Id);
+        session.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
+        session.Property(value => value.UserId).HasColumnName("user_id");
+        session.HasOne<User>().WithMany().HasForeignKey(value => value.UserId).OnDelete(DeleteBehavior.NoAction);
+        session.Property(value => value.LocalDate).HasColumnName("local_date").IsRequired();
+        session.Property(value => value.StartedAtMs).HasColumnName("started_at_ms");
+        session.Property(value => value.CompletedAtMs).HasColumnName("completed_at_ms");
+        session.Property(value => value.DurationS).HasColumnName("duration_s");
+        session.Property(value => value.PlannedS).HasColumnName("planned_s");
+        session.Property(value => value.NewCount).HasColumnName("new_count");
+        session.Property(value => value.ReviewCount).HasColumnName("review_count");
+        session.Property(value => value.Status).HasColumnName("status").IsRequired();
+        session.HasIndex(value => new { value.UserId, value.LocalDate });
+
+        var day = modelBuilder.Entity<DayStatus>();
+        day.ToTable("day_status", table =>
+        {
+            // 'frozen' is removed (ΔD:291, ΔF:632): only an explicit skip keeps a day alive.
+            table.HasCheckConstraint("ck_day_status_status", "status IN ('done', 'skipped', 'missed')");
+        });
+        day.HasKey(value => new { value.UserId, value.LocalDate });
+        day.Property(value => value.UserId).HasColumnName("user_id");
+        day.HasOne<User>().WithMany().HasForeignKey(value => value.UserId).OnDelete(DeleteBehavior.NoAction);
+        day.Property(value => value.LocalDate).HasColumnName("local_date").IsRequired();
+        day.Property(value => value.Status).HasColumnName("status").IsRequired();
+        day.Property(value => value.SessionId).HasColumnName("session_id");
+        day.HasOne<PracticeSession>().WithMany().HasForeignKey(value => value.SessionId)
+            .OnDelete(DeleteBehavior.NoAction);
+        day.Property(value => value.DecidedAtMs).HasColumnName("decided_at_ms");
+
+        var skip = modelBuilder.Entity<DaySkip>();
+        skip.ToTable("day_skips", table =>
+        {
+            table.HasCheckConstraint("ck_day_skips_source", "source IN ('app', 'notification')");
+        });
+        skip.HasKey(value => value.Id);
+        skip.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
+        skip.Property(value => value.UserId).HasColumnName("user_id");
+        skip.HasOne<User>().WithMany().HasForeignKey(value => value.UserId).OnDelete(DeleteBehavior.NoAction);
+        skip.Property(value => value.LocalDate).HasColumnName("local_date").IsRequired();
+        skip.Property(value => value.Source).HasColumnName("source").IsRequired();
+        skip.Property(value => value.CreatedAtMs).HasColumnName("created_at_ms");
+        skip.Property(value => value.RefundedAtMs).HasColumnName("refunded_at_ms");
+        // ΔF:639 / design.md:120: one row per learner per day. The rolling-window index at
+        // ΔF:640 (`ix_day_skips_window ... WHERE refunded_at IS NULL`) is raw SQL in the
+        // migration: EF Core merges two indexes declared over the same columns into one.
+        skip.HasIndex(value => new { value.UserId, value.LocalDate }).IsUnique();
     }
 
     private static void ConfigureSrs(ModelBuilder modelBuilder)

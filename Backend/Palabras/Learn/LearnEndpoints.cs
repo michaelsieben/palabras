@@ -259,9 +259,10 @@ internal static class LearnEndpoints
         return Results.Ok(new WordsResponse(items));
     }
 
-    private sealed record LearnerIdentity(int Id, string? Timezone);
+    internal sealed record LearnerIdentity(int Id, string? Timezone);
 
-    private static async Task<LearnerIdentity?> LoadLearnerAsync(PalabrasDbContext database, int userId,
+    // Shared with DayEndpoints (M7): one clock/identity path for every /api/learn route.
+    internal static async Task<LearnerIdentity?> LoadLearnerAsync(PalabrasDbContext database, int userId,
         CancellationToken cancellationToken)
     {
         var row = await database.Users.AsNoTracking().Where(user => user.Id == userId)
@@ -277,7 +278,7 @@ internal static class LearnEndpoints
         return settings ?? new UserSettings { UserId = userId };
     }
 
-    private static LearnerClock CreateClock(TimeProvider timeProvider, string? timezone, ILoggerFactory loggerFactory)
+    internal static LearnerClock CreateClock(TimeProvider timeProvider, string? timezone, ILoggerFactory loggerFactory)
     {
         if (!string.IsNullOrWhiteSpace(timezone) && !TimeZoneInfo.TryFindSystemTimeZoneById(timezone, out _))
         {
@@ -290,7 +291,7 @@ internal static class LearnEndpoints
         return new LearnerClock(timeProvider, timezone);
     }
 
-    private static int? CurrentUserId(HttpContext context)
+    internal static int? CurrentUserId(HttpContext context)
     {
         var value = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
         return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var id) ? id : null;

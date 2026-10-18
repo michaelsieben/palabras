@@ -73,6 +73,7 @@ builder.Services.AddSingleton<AccountAuthentication>();
 // Single clock seam: nothing in Palabras.Learn or Palabras.Srs reads DateTimeOffset.UtcNow.
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHostedService<BackupService>();
+builder.Services.AddHostedService<DayRolloverService>();
 builder.Services.AddSingleton<IScheduler, FsrsSharpScheduler>();
 var keysPath = builder.Configuration["DataProtection:KeysPath"];
 if (string.IsNullOrWhiteSpace(keysPath))
@@ -221,6 +222,7 @@ app.MapGet("/healthz", async (HttpContext context) =>
 app.MapGet("/api/ping", () => Results.Ok(new { status = "ok", version }));
 app.MapAuthEndpoints();
 app.MapLearnEndpoints();
+app.MapDayEndpoints();
 app.MapStatsEndpoints();
 app.MapExportEndpoints();
 // simplification: M4 will replace this reviewer queue placeholder with real content.

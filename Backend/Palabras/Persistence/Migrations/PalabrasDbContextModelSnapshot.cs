@@ -124,6 +124,134 @@ namespace Palabras.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Palabras.Persistence.DaySkip", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<long>("CreatedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at_ms");
+
+                    b.Property<string>("LocalDate")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("local_date");
+
+                    b.Property<long?>("RefundedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("refunded_at_ms");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("source");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "LocalDate")
+                        .IsUnique();
+
+                    b.ToTable("day_skips", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_day_skips_source", "source IN ('app', 'notification')");
+                        });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.DayStatus", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("LocalDate")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("local_date");
+
+                    b.Property<long>("DecidedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("decided_at_ms");
+
+                    b.Property<int?>("SessionId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("status");
+
+                    b.HasKey("UserId", "LocalDate");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("day_status", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_day_status_status", "status IN ('done', 'skipped', 'missed')");
+                        });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.PracticeSession", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<long?>("CompletedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("completed_at_ms");
+
+                    b.Property<int?>("DurationS")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("duration_s");
+
+                    b.Property<string>("LocalDate")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("local_date");
+
+                    b.Property<int>("NewCount")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("new_count");
+
+                    b.Property<int?>("PlannedS")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("planned_s");
+
+                    b.Property<int>("ReviewCount")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("review_count");
+
+                    b.Property<long>("StartedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("started_at_ms");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("status");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "LocalDate");
+
+                    b.ToTable("practice_sessions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_practice_sessions_status", "status IN ('in_progress', 'completed', 'abandoned')");
+                        });
+                });
+
             modelBuilder.Entity("Palabras.Persistence.ReviewLog", b =>
                 {
                     b.Property<int>("Id")
@@ -700,6 +828,38 @@ namespace Palabras.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Palabras.Persistence.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.DaySkip", b =>
+                {
+                    b.HasOne("Palabras.Persistence.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.DayStatus", b =>
+                {
+                    b.HasOne("Palabras.Persistence.PracticeSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("Palabras.Persistence.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.PracticeSession", b =>
+                {
                     b.HasOne("Palabras.Persistence.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
