@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { readFile, mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -34,32 +35,49 @@ test('cache version is deterministic and changes when public/app content changes
     assert.equal(await readFile(join(directory, 'sw.js'), 'utf8'), one)
     await writeFile(join(directory, 'index.html'), 'build two')
     await generateWorker(directory)
-    assert.notEqual(await readFile(join(directory, 'sw.js'), 'utf8'), one)
+    const two = await readFile(join(directory, 'sw.js'), 'utf8')
+    assert.notEqual(two, one)
+    const registrationDigest = source => createHash('sha256').update(source).digest('hex')
+    assert.notEqual(registrationDigest(one), registrationDigest(two), 'app build changes must change browser registration URL digest')
     assert.ok(!one.includes('"/sw.js"'))
   } finally { await rm(directory, { recursive: true }) }
 })
 
-function harness(offline = false, networkResponse = 'network') {
+function harness(offline = false, networkResponse = 'network', authResponse = new Response('{}', { status: 200 })) {
   const events = {}; const deleted = []; let skipped = false; let claimed = false
   const context = createContext({
-    URL,
+    URL, Response,
     self: { location: { origin: 'https://palabras.test' }, addEventListener: (event, handler) => { events[event] = handler }, skipWaiting: () => { skipped = true }, clients: { claim: async () => { claimed = true } } },
-    caches: { open: async () => ({ addAll: async urls => { assert.ok(urls.includes('/login')); assert.ok(!urls.includes('/index.html')) }, match: async url => `cached:${url}` }), keys: async () => ['palabras-shell-old', 'palabras-shell-new', 'other-app'], delete: async key => { deleted.push(key) } },
-    fetch: async () => { if (offline) throw new Error('offline'); return networkResponse },
+    caches: { open: async () => ({ addAll: async urls => { assert.ok(!urls.includes('/login')); assert.ok(!urls.includes('/index.html')) }, keys: async () => [], match: async url => `cached:${url}` }), keys: async () => ['palabras-shell-old', 'palabras-shell-new', 'other-app'], delete: async key => { deleted.push(key) } },
+    fetch: async (request, options) => {
+      if (offline) throw new Error('offline')
+      assert.equal(options.cache, 'no-store')
+      if (request === '/api/auth/me') { assert.equal(options.credentials, 'include'); return authResponse }
+      return networkResponse
+    },
   })
-  runInContext(workerSource('new', ['/login', '/offline.htm', '/assets/app.js']), context)
+  runInContext(workerSource('new', ['/offline.htm', '/assets/app.js']), context)
   return { events, deleted, skipped: () => skipped, claimed: () => claimed }
 }
 
-test('update waits for explicit message, then only deletes this app old caches and claims clients', async () => {
+test('update switches only after atomic install, then deletes only app old caches and claims clients', async () => {
   const h = harness()
   let pending
   h.events.install({ waitUntil: promise => { pending = promise } }); await pending
-  assert.equal(h.skipped(), false)
-  h.events.message({ data: { type: 'OTHER' } }); assert.equal(h.skipped(), false)
+  assert.equal(h.skipped(), true)
+  h.events.message({ data: { type: 'OTHER' } }); assert.equal(h.skipped(), true)
   h.events.message({ data: { type: 'SKIP_WAITING' } }); assert.equal(h.skipped(), true)
   h.events.activate({ waitUntil: promise => { pending = promise } }); await pending
   assert.deepEqual(h.deleted, ['palabras-shell-old']); assert.equal(h.claimed(), true)
+})
+
+test('authoritative auth 401 redirects to login, never uses offline fallback or cached document', async () => {
+  const h = harness(false, 'must not fetch protected document', new Response('{"error":"unauthorized"}', { status: 401 }))
+  let response
+  h.events.fetch({ request: { url: 'https://palabras.test/revisar', method: 'GET', mode: 'navigate' }, respondWith: promise => { response = promise } })
+  const result = await response
+  assert.equal(result.status, 302)
+  assert.equal(result.headers.get('location'), 'https://palabras.test/login?next=%2Frevisar')
 })
 
 test('offline navigation never implies signed-in access, including known routes', async () => {
