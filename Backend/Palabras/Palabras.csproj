@@ -6,6 +6,8 @@
     <Version>0.0.1</Version>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Exact copy of content/schema/word.schema.json; parity test prevents drift. Docker builds only Backend. -->
+    <EmbeddedResource Include="Vocabulary/word.schema.json" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
     <!-- Patched native SQLite; EF's default transitive 2.1.11 has GHSA-2m69-gcr7-jv3q. -->
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.14" />

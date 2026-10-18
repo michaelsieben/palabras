@@ -1,0 +1,281 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palabras.siebentower.nl/schema/word.schema.json",
+  "title": "Palabras word entry",
+  "description": "One Peninsular (Castilian) Spanish vocabulary entry, A2-oriented. One JSON file = exactly one entry object, stored as content/words/<id>.json. The id is the stable primary key: es-<ascii-folded headword slug>-<2-digit sense ordinal>, lower-case ascii with hyphens, accents and enye folded (melocoton, panaderia), e.g. es-nevera-01. Once assigned an id never changes, even if the headword/gloss is later edited; a rejected entry keeps its id and moves status to rejected.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "headword",
+    "partOfSpeech",
+    "cefr",
+    "region",
+    "register",
+    "topics",
+    "senses",
+    "alternatives",
+    "status",
+    "provenance",
+    "createdAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^es-[a-z0-9]+(?:-[a-z0-9]+)*-[0-9]{2}$",
+      "description": "Stable key. es-<ascii-folded headword slug>-<2-digit sense ordinal>. Never reassigned."
+    },
+    "headword": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60,
+      "description": "Spanish headword with correct orthography (accents, enye). Multi-word entries use a single space, e.g. 'fin de semana'."
+    },
+    "article": {
+      "enum": ["el", "la", "los", "las"],
+      "description": "Only for nouns. Definite article of the headword; plural-only nouns (gafas, zapatillas) take los/las."
+    },
+    "gender": {
+      "enum": ["masculine", "feminine", "common", "not_applicable"]
+    },
+    "partOfSpeech": {
+      "enum": [
+        "noun",
+        "verb",
+        "adjective",
+        "adverb",
+        "pronoun",
+        "preposition",
+        "conjunction",
+        "interjection",
+        "phrase"
+      ]
+    },
+    "cefr": {
+      "enum": ["A1", "A2", "B1", "B2", "C1", "C2"],
+      "description": "CEFR level of this sense as taught. Seed batches stay at A1/A2."
+    },
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["variant", "scope"],
+      "properties": {
+        "variant": {
+          "const": "es-ES",
+          "description": "Pins the entry to Peninsular/Castilian Spanish. Latin American (es-419) usage is never the taught variant."
+        },
+        "scope": {
+          "enum": ["peninsular-generic", "navarre", "pamplona"],
+          "description": "peninsular-generic = understood across Spain; navarre = Navarre-typical; pamplona = city-specific."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 300
+        }
+      }
+    },
+    "register": {
+      "enum": ["neutral", "colloquial", "informal", "formal", "vulgar", "humorous", "technical"],
+      "description": "Dominant register of the taught sense. 'vulgar' requires registerNotes."
+    },
+    "registerNotes": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "topics": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "household",
+          "food",
+          "weather",
+          "city",
+          "transport",
+          "small-talk",
+          "family",
+          "shopping",
+          "clothing",
+          "health",
+          "time",
+          "daily-routine",
+          "technology",
+          "leisure",
+          "navarre-culture"
+        ]
+      }
+    },
+    "senses": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "description": "One item = one sense: its own English gloss and its own Spanish example. Do not merge two meanings into one sense.",
+      "items": { "$ref": "#/$defs/sense" }
+    },
+    "alternatives": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "description": "Pre-generated replacements the reviewer can pick from when rejecting/editing the entry. The running app never generates these.",
+      "items": { "$ref": "#/$defs/alternative" }
+    },
+    "status": {
+      "enum": ["draft", "pending_review", "approved", "rejected", "needs_change"],
+      "description": "Lifecycle. draft -> pending_review -> approved | rejected | needs_change. rejected/needs_change keep the entry and its alternatives so the reviewer can pick one."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method"],
+      "properties": {
+        "method": {
+          "enum": ["hand-authored", "council"],
+          "description": "hand-authored = written by an agent/human; council = offline multi-model agreement step."
+        },
+        "run": {
+          "type": ["string", "null"],
+          "maxLength": 120,
+          "description": "Council run identifier when method=council, e.g. run-20261017-a."
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Reviewer-loop state, written by the review flow, not by authoring.",
+      "properties": {
+        "reviewedBy": { "type": ["string", "null"], "maxLength": 80 },
+        "reviewedAt": { "type": ["string", "null"], "format": "date-time" },
+        "rejectionReason": { "type": ["string", "null"], "maxLength": 300 },
+        "chosenAlternativeId": {
+          "type": ["string", "null"],
+          "maxLength": 80,
+          "description": "Alternative value the reviewer chose, or the already-approved word id it is replaced by."
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Authoring uncertainty: whether the word is Peninsular-only or shared, register doubts, level doubts. Required in spirit whenever confidence is low."
+    },
+    "lint": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Escape hatch for the content linter. Use sparingly and only with notes explaining why.",
+      "properties": {
+        "exemptTerms": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 40 }
+        }
+      }
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["partOfSpeech"],
+        "properties": { "partOfSpeech": { "const": "noun" } }
+      },
+      "then": {
+        "required": ["article", "gender"],
+        "properties": {
+          "gender": { "enum": ["masculine", "feminine", "common"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["partOfSpeech"],
+        "properties": { "partOfSpeech": { "const": "phrase" } }
+      },
+      "then": {
+        "properties": {
+          "gender": { "enum": ["not_applicable"] }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sense": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gloss", "example", "exampleGloss"],
+      "properties": {
+        "gloss": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "English gloss for exactly this one sense."
+        },
+        "example": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "Spanish sentence a Pamplona speaker would actually say. At most 12 words, Peninsular lexicon, Peninsular orthography."
+        },
+        "exampleGloss": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "English translation of the example."
+        },
+        "register": {
+          "enum": ["neutral", "colloquial", "informal", "formal", "vulgar", "humorous", "technical"]
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 300
+        }
+      }
+    },
+    "alternative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value", "reason"],
+      "properties": {
+        "kind": {
+          "enum": ["synonym", "near-synonym", "different-sense", "regional", "register"],
+          "description": "Why this alternative is offered. regional = another variety's word (the reviewer may still accept it); register = same meaning, different formality."
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "The alternative word/phrase the reviewer can pick instead."
+        },
+        "gloss": {
+          "type": ["string", "null"],
+          "maxLength": 120,
+          "description": "English gloss of the alternative. Null when the alternative is just another variety's word for the same gloss."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 300,
+          "description": "Short, concrete justification: why this is offered and when to prefer it."
+        },
+        "targetId": {
+          "type": ["string", "null"],
+          "pattern": "^es-[a-z0-9]+(?:-[a-z0-9]+)*-[0-9]{2}$",
+          "description": "Id of an existing entry when the alternative is already in the corpus."
+        },
+        "example": {
+          "type": ["string", "null"],
+          "maxLength": 140,
+          "description": "Optional Spanish sentence showing the alternative in use."
+        }
+      }
+    }
+  }
+}

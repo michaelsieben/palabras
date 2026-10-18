@@ -17,6 +17,105 @@ namespace Palabras.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
 
+            modelBuilder.Entity("Palabras.Persistence.Alternative", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Example")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("example");
+
+                    b.Property<string>("Gloss")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("gloss");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("kind");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("TargetId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("target_id");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("value");
+
+                    b.Property<int>("WordId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("word_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WordId", "Position")
+                        .IsUnique();
+
+                    b.ToTable("alternatives", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_alternatives_kind", "kind IN ('synonym','near-synonym','different-sense','regional','register')");
+                        });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.Sense", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Example")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("example");
+
+                    b.Property<string>("ExampleGloss")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("example_gloss");
+
+                    b.Property<string>("Gloss")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("gloss");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("notes");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Register")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("register");
+
+                    b.Property<int>("WordId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("word_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WordId", "Position")
+                        .IsUnique();
+
+                    b.ToTable("senses", (string)null);
+                });
+
             modelBuilder.Entity("Palabras.Persistence.User", b =>
                 {
                     b.Property<int>("Id")
@@ -66,6 +165,152 @@ namespace Palabras.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_users_username", "length(username) BETWEEN 3 AND 32 AND username = lower(trim(username)) COLLATE BINARY AND username NOT GLOB '*[^a-z0-9._-]*'");
                         });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.Word", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Article")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("article");
+
+                    b.Property<string>("Cefr")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("cefr");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("content_json");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("external_id");
+
+                    b.Property<string>("Gender")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("gender");
+
+                    b.Property<string>("Headword")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("headword");
+
+                    b.Property<string>("PartOfSpeech")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("part_of_speech");
+
+                    b.Property<string>("RegionNotes")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("region_notes");
+
+                    b.Property<string>("RegionScope")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("region_scope");
+
+                    b.Property<string>("RegionVariant")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("region_variant");
+
+                    b.Property<string>("Register")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("register");
+
+                    b.Property<string>("RegisterNotes")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("register_notes");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Cefr");
+
+                    b.HasIndex("ExternalId")
+                        .IsUnique();
+
+                    b.HasIndex("PartOfSpeech");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("words", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_words_status", "status IN ('draft','pending_review','approved','rejected','needs_change')");
+                        });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.WordTopic", b =>
+                {
+                    b.Property<int>("WordId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("word_id");
+
+                    b.Property<string>("Topic")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("topic");
+
+                    b.HasKey("WordId", "Topic");
+
+                    b.HasIndex("Topic", "WordId");
+
+                    b.ToTable("word_topics", (string)null);
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.Alternative", b =>
+                {
+                    b.HasOne("Palabras.Persistence.Word", null)
+                        .WithMany("Alternatives")
+                        .HasForeignKey("WordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.Sense", b =>
+                {
+                    b.HasOne("Palabras.Persistence.Word", null)
+                        .WithMany("Senses")
+                        .HasForeignKey("WordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.WordTopic", b =>
+                {
+                    b.HasOne("Palabras.Persistence.Word", null)
+                        .WithMany("Topics")
+                        .HasForeignKey("WordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.Word", b =>
+                {
+                    b.Navigation("Alternatives");
+
+                    b.Navigation("Senses");
+
+                    b.Navigation("Topics");
                 });
 #pragma warning restore 612, 618
         }

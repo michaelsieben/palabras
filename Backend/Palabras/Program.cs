@@ -9,8 +9,9 @@ using Microsoft.AspNetCore.StaticFiles;
 using Palabras.Auth;
 using Palabras.Accounts;
 using Palabras.Persistence;
+using Palabras.Vocabulary;
 
-if (args.Length > 0 && args[0] == "user")
+if (args.Length > 0 && args[0] is "user" or "import")
 {
     var cliConfiguration = new ConfigurationBuilder().SetBasePath(AppContext.BaseDirectory)
         .AddJsonFile("appsettings.json", optional: true).AddEnvironmentVariables().Build();
@@ -18,8 +19,11 @@ if (args.Length > 0 && args[0] == "user")
     Console.CancelKeyPress += (_, eventArgs) => { eventArgs.Cancel = true; cliCancellation.Cancel(); };
     try
     {
-        Environment.ExitCode = await UserCli.RunAsync(args, DatabaseSettings.FromConfiguration(cliConfiguration), Console.In,
-            Console.Out, Console.Error, cliCancellation.Token, Console.IsInputRedirected ? null : UserCli.ReadHiddenPassword);
+        var settings = DatabaseSettings.FromConfiguration(cliConfiguration);
+        Environment.ExitCode = args[0] == "import"
+            ? await ImportCli.RunAsync(args, settings, Console.Out, Console.Error, cliCancellation.Token)
+            : await UserCli.RunAsync(args, settings, Console.In, Console.Out, Console.Error, cliCancellation.Token,
+                Console.IsInputRedirected ? null : UserCli.ReadHiddenPassword);
     }
     catch (OperationCanceledException)
     {
@@ -187,6 +191,7 @@ app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api"), branch 
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok", version }));
 app.MapGet("/api/ping", () => Results.Ok(new { status = "ok", version }));
 app.MapAuthEndpoints();
+app.MapWordEndpoints();
 // simplification: M4 will replace this reviewer queue placeholder with real content.
 app.MapGet("/api/review/queue", () => Results.Ok(new { items = Array.Empty<object>(), note = "M4" })).RequireAuthorization("reviewer");
 app.MapFallback("/api/{**path}", () => Results.NotFound(new { error = "not_found" }));

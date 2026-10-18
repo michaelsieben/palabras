@@ -7,9 +7,14 @@ internal sealed class PalabrasDbContext : DbContext
     public PalabrasDbContext(DbContextOptions<PalabrasDbContext> options) : base(options) { }
 
     public DbSet<User> Users => Set<User>();
+    public DbSet<Word> Words => Set<Word>();
+    public DbSet<Sense> Senses => Set<Sense>();
+    public DbSet<Alternative> Alternatives => Set<Alternative>();
+    public DbSet<WordTopic> WordTopics => Set<WordTopic>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        VocabularyModel.Configure(modelBuilder);
         var user = modelBuilder.Entity<User>();
         user.ToTable("users", table =>
         {
