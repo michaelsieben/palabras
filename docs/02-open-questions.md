@@ -5,8 +5,9 @@ Items resolved since `design-amendment.md` ΔJ are listed at the end so they are
 
 ## Q1. Compose folder on Unraid: `palablras` or `palabras`?
 
-`README.md` says `/mnt/user/docker/palablras/`; `AGENTS.md` says `/mnt/user/docker/palabras/`.
-Neither folder exists on the server yet (checked for this handoff; nothing has been deployed).
+`README.md` said `/mnt/user/docker/palablras/`; `AGENTS.md` says `/mnt/user/docker/palabras/`.
+**Resolved (2026-10-17):** `/mnt/user/docker/palabras` was created and the app deployed (`README.md:60-64,71`); a
+production incident followed on 2026-10-18 (`08-upgrade-rollback.md:285-289`). The default below was applied.
 
 **Default:** create `/mnt/user/docker/palabras/` and fix the README spelling in the next README
 refresh. Consequence: the folder name, compose project (`name: palabras`), container name and
@@ -62,11 +63,15 @@ no-cache; the `Content-Type` of `manifest.webmanifest` is unverified.
 **Default:** serve `index.html` with `Cache-Control: no-cache` (including from the SPA fallback)
 and `manifest.webmanifest` as `application/manifest+json`; cover both in tests during M1.
 
+**Resolved:** applied in `Program.cs:192,199-201,231` (see `00-handoff.md` §6.4).
+
 ## Q8. Unreported 8th backend test
 
 `M0ApiTests.cs` has 8 tests; the last reports say 7.
 
 **Default:** run `dotnet test` at the start of M1 and record the count in that run's report.
+
+**Resolved:** `M0ApiTests.cs` now has 9 tests; the full suite passes (825/0 at `83d29a5`, `00-handoff.md` §6.3).
 
 ## Q9. Content schema typo
 
@@ -81,6 +86,8 @@ record: after the first import, a further rename needs a data migration too.
 ## Q10. Content lint not in CI
 
 **Default:** add the step from the `tools/content-lint` README to `.github/workflows/ci.yml` in M2.
+
+**Resolved:** `Lint content` step at `.github/workflows/ci.yml:38-39`.
 
 ## Q11. Real-device viewport and battery behaviour
 

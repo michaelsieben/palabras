@@ -184,8 +184,8 @@ Learning steps happen *inside the session*: a failed or new card is re-queued by
 Cards come in two directions: `es_en` (recognition) and `en_es` (production). The `en_es` card for a sense unlocks only after `es_en` reaches state 2, so production follows recognition.
 
 Exercise types:
-1. **Presentación + Parejas (memory match)**: new cards only. A batch of up to 6 new words is shown first (ES with article, EN, example, TTS es-ES), then a 6-pair flip-match grid (ES ↔ EN). `counts_for_srs = false` (exposure). The first correct recall comes in the next exercise.
-2. **Opción múltiple ES→EN**: Learning/Relearning cards. 4 options, distractors from the same POS and topic. Correct → Good; wrong → Again. Recognition only, so Easy is never given.
+1. ~~**Presentación + Parejas (memory match)**: new cards only. A batch of up to 6 new words is shown first (ES with article, EN, example, TTS es-ES), then a 6-pair flip-match grid (ES ↔ EN). `counts_for_srs = false` (exposure). The first correct recall comes in the next exercise.~~ Superseded (owner decision, T-20261018-2105): not built; new cards start as `recognition` (`07-learn-api.md`, deviations).
+2. ~~**Opción múltiple ES→EN**: Learning/Relearning cards. 4 options, distractors from the same POS and topic. Correct → Good; wrong → Again. Recognition only, so Easy is never given.~~ Superseded (owner decision, T-20261018-2105): not built; the shipped modes are `recognition`, `typed`, `cloze` only.
 3. **Tarjeta ES→EN (flip, self-graded)**: Review `es_en`. Shows ES (+ TTS). User reveals and taps Again/Hard/Good/Easy: four directly visible buttons with a "forgot → Again" hint (locked 2026-10-18). ~~Default buttons are Again/Good, with Hard/Easy reachable by long-press (keeps it fast).~~
 4. **Escribe EN→ES (typed production)**: Review `en_es`, and Learning `en_es`. Auto-graded after normalising (trim, lowercase, optional article):
    - exact match → Good ~~(Easy if < 4 s)~~; slower than 12 s → Hard. The 12 s typed / 8 s recognition-reveal thresholds are provisional, kept as named constants in one place and revisited after the first real sessions (O-4, T-20261018-0124);
@@ -199,7 +199,7 @@ Exercise types:
 **Selection:** by card state + direction, as listed. A small variety rule prevents more than 3 of the same type in a row.
 
 **Session composition** (server returns an ordered plan; client executes it):
-`[due reviews, interleaved, ~70%] → [new batch: Presentación+Parejas → MC] → [learning re-queue] → [refuerzo pad if under floor]`. A progress bar shows the estimated minutes remaining. The session ends early with "Bien hecho" if the timer passes 900 s, and the rest remains due.
+`[due reviews, interleaved, ~70%] → [new batch: Presentación+Parejas → MC] → [learning re-queue] → [refuerzo pad if under floor]`. ~~A progress bar shows the estimated minutes remaining. The session ends early with "Bien hecho" if the timer passes 900 s, and the rest remains due.~~ Superseded (owner decision, T-20261018-2105): composer budgeting replaces the estimate and the timed end; the new batch is plain `recognition` cards (`07-learn-api.md`, deviations).
 
 **Per attempt record** (client → server, batched every 10 attempts and at session end, retried offline): `client_attempt_id, card_id, session_id, exercise_type, rating, correct, response_ms, answer_text, reviewed_at`. The server computes FSRS and fills the `*_before/_after` columns. Learning re-queue order is client-side, so a session runs fully offline after the plan is fetched. The server applies attempts in `reviewed_at` order per card.
 

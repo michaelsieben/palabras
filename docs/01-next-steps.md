@@ -76,11 +76,11 @@ suspends them.
 
 ## 4. M6 — session and exercise UI (MVP) — in progress
 
-- Session composer: `session_target_s = 600`, hard cap `session_max_s = 900`; due reviews
-  first, new cards (at most 12/day) only while the estimate stays under target (`design.md` budget rule).
-- Exercises 1–4 from `design.md`, replacing `Frontend/src/mock/demo.ts` with API calls. Feedback shows a Spanish
-  verdict with an English explanation; accent-only misses are accepted unless the card sets `accentsAreThePoint`;
-  the slow-answer thresholds (12 s typed, 8 s recognition reveal) are provisional named constants in one place.
+- Session composer: `session_target_s = 600`, hard cap `session_max_s = 900`; due reviews first, new cards (≤ 12/day)
+  only while the budget estimate stays under target. Replaces the `design.md` timer/estimate (`07-learn-api.md` deviations).
+- Exercises: `recognition` / `typed` / `cloze` on the real API (owner decision: replaces `design.md` types 1–2, see
+  `07-learn-api.md` deviations). Feedback: Spanish verdict, English explanation; accent-only misses accepted unless
+  `accentsAreThePoint`; slow-answer thresholds (12 s typed, 8 s recognition reveal) are provisional constants in one place.
 - Offline: IndexedDB queue for answers made without network, replayed on reconnect. Shipped in `21f1d52`
   (`Frontend/src/learn/attemptQueue.ts`, Chromium e2e `Frontend/tests/learnBrowser.mjs`); not yet checked on
   Android Chrome on the device.
@@ -88,8 +88,8 @@ suspends them.
   completion, ΔC). Then M9: confirm the tablet layout on the real OnePlus Tab 3.
 
 **Done when:** a learner completes a session end to end on the OnePlus 15 with only approved
-content; reviews written offline are applied after reconnect without duplicates; skip rules are
-covered by unit tests at the day boundary in the user's timezone (fallback `Europe/Madrid`, ΔC.4).
+content; reviews written offline are applied after reconnect without duplicates. Skip/streak tests at the day
+boundary belong to M7 (ΔD test list, `design-amendment.md:672`), not to M6.
 
 ## 5. M3 + M4 — reviewer view (MVP)
 
@@ -133,7 +133,7 @@ copy passes the M1 login test. Shipped contract: `07-learn-api.md`, `restore-dri
 
 - Refresh `README.md`: mock UI exists, manifest/service worker exist, ΔG milestone numbers,
   compose folder spelling.
-- Confirm the 8th backend test passes and record it in a report.
+- ~~Confirm the 8th backend test passes and record it in a report.~~ Done: `M0ApiTests.cs` has 9 tests; suite 825/0 at `83d29a5`.
 - Measure real CSS viewports on both devices (`runs/13-pwa-ultrawide.md`).
 
 ## Status, 2026-10-18 (T-20261018-0124)
@@ -150,8 +150,14 @@ Appended below the queue so the line numbers above stay stable. Backend state as
 - **M10 implemented.** Nightly backup, keep 7, JSON/CSV export, `restore-progress` CLI, isolated drill
   (`restore-drill.md`). Production recovery stays owner-run.
 - **M6 in progress.** Grader, copy module and session UI are committed; IndexedDB offline attempt queue and
-  Chromium browser e2e landed in `21f1d52`. Not done: the Android Chrome device check (OnePlus 15), so its "done
-  when" above is not yet met.
+  Chromium browser e2e landed in `21f1d52`. Not done: the Android Chrome device check (OnePlus 15; checklist in
+  `Frontend/HOSTING.md`), so its "done when" above is not yet met. Scope settled by the owner (T-20261018-2105):
+  exercise types 1–2 and the timer/estimate are replaced (`07-learn-api.md` deviations; the ±20 % estimate
+  criterion is dropped). Learner callers for `bury` / `suspend` / `unsuspend` are optional, not M6 deliverables;
+  progress export is M10 scope (`07-learn-api.md`), not M6.
+- **M7 backend implemented** (`83d29a5`): `GET /api/learn/day/status`, `POST /api/learn/day/skip`,
+  `POST /api/learn/day/done`, minute rollover, migration `DayStatusAndSkips` (`07-learn-api.md`, M7 section). Not
+  done: frontend wiring and the late-completion fix (O-M7-9).
 - **Health of `main` at `6e41d0f` (T-20261018-2005).** `dotnet build` green; `dotnet test` 790 passed, 0 failed;
   `npm ci`, `npm run lint`, `npm run build` green; content lint `OK — 58 word file(s), 0 errors`. `docker build`
   was not run in that pass.

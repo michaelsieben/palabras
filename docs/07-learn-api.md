@@ -1,4 +1,4 @@
-# Learner API, backups and export (M5, M10)
+# Learner API, day status, backups and export (M5, M7, M10)
 
 Shipped in T-20261018-0124: FSRS scheduling and the `/api/learn/*` endpoints (M5), nightly backups and progress
 export (M10). The frozen contract is in `.opencode/runs/T-20261018-0124/02-retention-plan.md` §4; this file
@@ -168,7 +168,7 @@ first active sense's gloss. `stage` is the caller's furthest card: `nuevo` (no c
 
 ## Deliberate deviations from the design docs
 
-Reviewed and accepted in T-20261018-0124 (plan §10.4). `design.md` and `design-amendment.md` are older than these.
+Reviewed and accepted in T-20261018-0124 (plan §10.4); the last two rows are owner decisions of T-20261018-2105. `design.md` and `design-amendment.md` are older than these.
 
 | Deviation | Design doc said | Shipped | Why |
 | --- | --- | --- | --- |
@@ -177,6 +177,8 @@ Reviewed and accepted in T-20261018-0124 (plan §10.4). `design.md` and `design-
 | Golden-test oracle | `ts-fsrs` | py-fsrs 6.3.2 via `tools/fsrs-golden/`, output committed as `Backend/Palabras.Tests/Srs/golden.json` | Fsrs.Sharp 2.0.0 is validated against py-fsrs; a third implementation adds rounding noise |
 | Missing import file | `design.md` §8: missing entries → retired | never auto-retired; explicit `content retire` | a partial directory must not retire the corpus |
 | Approval before M4 | approval only in the M4 reviewer UI | owner CLI `content approve` in M2 | without it no cards exist and the learner queue stays empty (owner decision O-2) |
+| Exercises 1–2 (owner decision, T-20261018-2105) | `design.md` §4 types 1–2: new-word presentation + memory match, four-option multiple choice with same-POS/topic distractors | plan modes `recognition`, `typed`, `cloze` only (see `GET /api/learn/session/plan`); new cards start as `recognition` | deliberate substitution, not a gap: the shipped session contract replaces both types. ΔG M6 "exercises 1–4" now means this mode set |
+| Session timer and estimate (owner decision, T-20261018-2105) | `design.md` §4: progress bar with estimated minutes, wall-clock end at 900 s; frozen M4 acceptance (`runs/01-spanish-pwa-design.md:408`): estimate within ±20 % of actual over 3 sessions | composer budgeting only (`budgetS` / `session_target_s`, 8 s per review, 30 s per new card); the plan carries no duration estimate and the client does not end the session at 900 s | the ±20 % estimate criterion is **dropped**, not deferred: there is no estimate to measure. The rest of that acceptance (a 10-minute session completes in airplane mode and syncs) still applies |
 
 Fsrs.Sharp 2.0.0 is used from NuGet (pinned `[2.0.0]`): its `ReviewCard` accepts an explicit review time, so the
 vendored fallback was not needed.
@@ -308,3 +310,106 @@ Every count above is exact over the stored rows. Two figures are estimates:
 little under 24 h. A strict `> 24 h` test would miss exactly the rows the counter exists to flag. With 23 h every
 clamped row is counted, plus any row flushed 23–24 h late that was bucketed correctly. The count over-reports slightly
 by design: it only triggers a footnote and changes no other figure.
+
+## Day status, streak and skip (M7)
+
+Backend shipped in T-20261018-2005 (`83d29a5`); no frontend caller yet. Spec: `design-amendment.md` ΔD (skip, refund,
+rollover) and ΔF (schema). Code: `Backend/Palabras/Learn/DayEndpoints.cs`, `DayContracts.cs`, `LearnDayStatus.cs`,
+`DayRollover.cs`, `DayRolloverService.cs`; migration `DayStatusAndSkips` (tables `day_status`, `day_skips`,
+`practice_sessions`). Open items O-M7-n: `.opencode/runs/T-20261018-2005/10-m7-backend.md` §5. Placed at the end so
+existing line references into this file stay valid.
+
+| Method + route | Success | Errors |
+| --- | --- | --- |
+| `GET /api/learn/day/status` | 200 day status | — |
+| `POST /api/learn/day/skip` | 200 day status (`skipped`) | 400 `bad_request`, 409 `skip_unavailable`, 409 `already_done` |
+| `POST /api/learn/day/done` | 200 day status (`done`) | 400 `bad_request` |
+
+All rows also return the 401/403 of Common rules; the two POSTs need `X-Palabras: 1`. "Today" is the learner's local
+date under Common rules, read from the server clock; the client never chooses the day it writes.
+
+ΔD fixes only the skip route. The status route and its shape (O-M7-1) and the `done` completion signal (O-M7-2) are
+not in the design docs: they are the step-10 implementation choices, recorded here as shipped, not as reviewed design.
+
+### Day status payload
+
+All three routes answer with this shape. Nulls are sent, not omitted.
+
+```ts
+type DayStatusResponse = {
+  localDate: string;                               // learner's local today
+  status: 'done' | 'skipped' | 'missed' | null;    // today's day_status row; null when there is none yet
+  streak: number;
+  skipAvailable: boolean;
+  skipNextAvailable: string | null;                // first local date a new skip is allowed; null while available
+};
+```
+
+- **Streak**: consecutive local days with `done` or `skipped`, walked back from today. `done` adds 1; `skipped` keeps
+  the chain but adds 0 (ΔD:290). `missed` or a day with no row ends it. When today has no row yet the walk starts at
+  yesterday, so the streak shown before today's session is yesterday's chain (O-M7-4). The ISO-week clause of
+  `design.md` §3 is not applied (ΔD:292).
+- **Skip window**: a skip is available iff no non-refunded `day_skips` row falls in `[today − 6, today]`;
+  `skipNextAvailable` = latest such row + 7 days (ΔD:282-283).
+
+### `POST /api/learn/day/skip`
+
+```ts
+type SkipRequest = { localDate: string; source: 'app' | 'notification' };
+```
+
+- 200: today becomes `skipped` and one `day_skips` row is written. Response: `skipAvailable: false`,
+  `skipNextAvailable` = today + 7.
+- 200, idempotent: today is already `skipped`; no new ledger row.
+- 409 `{"reason":"already_done"}`: today is `done`.
+- 409 `{"reason":"skip_unavailable","nextAvailable":"yyyy-MM-dd"}`: a skip is already consumed in the window.
+- 400 `{"error":"bad_request"}`: no body, `source` not `app`/`notification`, `localDate` not exactly `yyyy-MM-dd`, or
+  `localDate` not the learner's local today (ΔD:281, so a stale notification tap after midnight cannot spend a skip).
+
+The window check and the insert run in one immediate SQLite transaction (`BEGIN IMMEDIATE`), so a double tap cannot
+consume two skips; the unique `(user_id, local_date)` index is the backstop. A skip writes no `review_log` row and
+changes no card (ΔD:299).
+
+Not settled: ΔD:288 writes the 409 body as snake_case `{reason, next_available}`; the shipped body is camelCase
+`nextAvailable` like the rest of the API (O-M7-5). The 400 for a non-today date has no code in ΔD (O-M7-6). An M8
+service worker should branch on the status code only.
+
+### `POST /api/learn/day/done`
+
+```ts
+type DayDoneRequest = { durationS?: number; plannedS?: number; newCount?: number; reviewCount?: number };  // all ≥ 0
+```
+
+- 200: today becomes `done`, one `practice_sessions` row (`status='completed'`, `started_at` = `completed_at` = now,
+  because the endpoint does not know the start) is written and linked from `day_status.session_id`. A non-refunded
+  skip on **today** is refunded (`refunded_at` set), so the token is available again (ΔD:293). A skip on an earlier
+  day stays consumed. A `missed` row for today (reachable only after a zone change) is overwritten with `done` (O-M7-7).
+- 200, idempotent: today is already `done`; no second session row.
+- 400 `{"error":"bad_request"}`: no body or a negative value. `{}` is accepted.
+
+Not settled:
+
+- **Client-trusted** (O-M7-10): the server does not check that the composed session was finished or that ≥ 300 s
+  were logged (`design.md:171`). The authenticated client decides when to call it.
+- **Late completion** (O-M7-9, main M7 residual risk): the body has no `localDate`, so a call that reaches the server
+  after local midnight (offline flush, retry) marks the **new** day done, and the session day stays without `done`.
+  The step-10 recommendation is an optional `localDate` limited to today or yesterday before the summary screen is
+  wired; not implemented.
+
+### Rollover and missed days
+
+`DayRolloverService` (hosted in the web app) ticks every minute; the first tick is one minute after start. For each
+account (the loop does not filter by role), once local time is 00:05 or later, it writes `missed` for **yesterday**
+when yesterday has no `day_status` row (ΔD:297). It never overwrites `done` or `skipped`, never consumes a skip, and
+touches no card or `review_log` row (ΔD:298-300). A day before the account's creation date is never marked (O-M7-8).
+It is idempotent (existence check plus primary key); a failed tick is logged and retried on the next tick.
+
+- Only yesterday is written. After an outage longer than a day, earlier days keep no row. The streak treats a day
+  with no row like `missed`, so the streak is unaffected, but history has gaps.
+- Between local midnight and 00:05 yesterday may still have no row; the status route does not run the rollover.
+
+### Not covered yet
+
+- ΔD test "timezone change applies from the next day": no endpoint sets `users.timezone`, so it is untested.
+- M7 frontend (status strip, "Saltar hoy" button, `done` call from the session summary) and the M8 notification
+  action are not built.
