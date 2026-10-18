@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
+using Palabras;
 using Palabras.Auth;
 using Palabras.Accounts;
 using Palabras.Learn;
@@ -190,7 +191,13 @@ app.Use(async (context, next) =>
     await next(context);
 });
 app.UseAuthorization();
-var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
+// Read once at startup from the assembly metadata stamped by Palabras.csproj. Whatever the build
+// was told, this is what it reports: no request-time lookup, no environment read, no guessing.
+var build = BuildIdentity.FromAssembly(Assembly.GetExecutingAssembly());
+var version = build.Version;
+app.Logger.LogInformation(
+    "Palabras build {Version} milestone {Milestone} commit {CommitShort}.",
+    version, build.Milestone, build.CommitShort);
 var contentTypes = new FileExtensionContentTypeProvider();
 contentTypes.Mappings[".webmanifest"] = "application/manifest+json";
 var staticOptions = new StaticFileOptions
@@ -209,17 +216,33 @@ app.UseDefaultFiles();
 app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api"), branch => branch.UseStaticFiles(staticOptions));
 // The compose healthcheck and the deploy poll trust this endpoint, so it must prove the database is
 // reachable too: a container whose SQLite file disappeared would otherwise stay "healthy" indefinitely.
-// The success body stays byte-identical because the poll's `curl --fail` and the compose healthcheck
-// depend on it; failures answer 503 and never repeat the path, connection string or exception detail.
+// The existing `status`/`version` fields keep their names and order because the CI smoke test and the
+// deploy poll match on them; identity fields are appended so an operator can tell which build answers.
+// Failures answer 503 and never repeat the path, connection string or exception detail.
 app.MapGet("/healthz", async (HttpContext context) =>
 {
     if (await DatabaseHealth.CanReachAsync(databaseSettings, context.RequestAborted))
     {
-        return Results.Ok(new { status = "ok", version });
+        return Results.Ok(new
+        {
+            status = "ok",
+            version,
+            commit = build.Commit,
+            commitShort = build.CommitShort,
+            milestone = build.Milestone,
+        });
     }
     app.Logger.LogWarning("Health check failed: the database is not reachable.");
     return Results.Json(
-        new { status = "unhealthy", component = "database", version },
+        new
+        {
+            status = "unhealthy",
+            component = "database",
+            version,
+            commit = build.Commit,
+            commitShort = build.CommitShort,
+            milestone = build.Milestone,
+        },
         statusCode: StatusCodes.Status503ServiceUnavailable);
 });
 app.MapGet("/api/ping", () => Results.Ok(new { status = "ok", version }));

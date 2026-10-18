@@ -28,6 +28,75 @@ public sealed class M0ApiTests
     }
 
     [Fact]
+    public async Task HealthzKeepsItsExistingShapeAndAddsTheBuildIdentity()
+    {
+        using var factory = new M0ApplicationFactory();
+        using var client = factory.CreateHttpClient();
+
+        using var response = await client.GetAsync("/healthz", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadAsStringAsync(CancellationToken.None);
+        using var body = JsonDocument.Parse(content);
+        // The CI container smoke test and the deploy poll match this exact substring, and the
+        // compose healthcheck only looks at the status code: neither may be broken by the addition.
+        Assert.Contains("\"status\":\"ok\"", content, StringComparison.Ordinal);
+        // Existing fields keep their names and order; identity is appended, never renames them.
+        Assert.Equal(
+            ["status", "version", "commit", "commitShort", "milestone"],
+            body.RootElement.EnumerateObject().Select(property => property.Name).ToArray());
+
+        var version = body.RootElement.GetProperty("version").GetString();
+        var commit = body.RootElement.GetProperty("commit").GetString();
+        var commitShort = body.RootElement.GetProperty("commitShort").GetString();
+        var milestone = body.RootElement.GetProperty("milestone").GetString();
+
+        Assert.False(string.IsNullOrWhiteSpace(version));
+        Assert.False(string.IsNullOrWhiteSpace(milestone));
+        Assert.NotNull(commit);
+        Assert.NotNull(commitShort);
+        // This test build passes no CommitSha, so the honest answer is "unknown"; any value that is
+        // present must still look like a sha and agree with its short form.
+        if (commit == BuildIdentity.Unknown)
+        {
+            Assert.Equal(BuildIdentity.Unknown, commitShort);
+        }
+        else
+        {
+            Assert.Matches("^[0-9a-f]{7,40}$", commit);
+            Assert.Equal(commit[..7], commitShort);
+        }
+        // The health body is unauthenticated: no path, key or environment detail may reach it.
+        Assert.DoesNotContain(factory.DatabasePath, content);
+    }
+
+    [Fact]
+    public async Task HealthzCarriesIdentityWhenTheDatabaseIsUnreachable()
+    {
+        using var factory = new M0ApplicationFactory();
+        using var client = factory.CreateHttpClient();
+        using (var healthy = await client.GetAsync("/healthz", CancellationToken.None))
+        {
+            Assert.Equal(HttpStatusCode.OK, healthy.StatusCode);
+        }
+
+        File.Delete(factory.DatabasePath);
+        File.Delete(factory.DatabasePath + "-wal");
+        File.Delete(factory.DatabasePath + "-shm");
+
+        using var response = await client.GetAsync("/healthz", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(CancellationToken.None));
+        // A 503 still has to say which build answered: that is the case an operator debugging a
+        // failed upgrade is looking at.
+        Assert.Equal("unhealthy", body.RootElement.GetProperty("status").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(body.RootElement.GetProperty("version").GetString()));
+        Assert.False(string.IsNullOrWhiteSpace(body.RootElement.GetProperty("commit").GetString()));
+        Assert.False(string.IsNullOrWhiteSpace(body.RootElement.GetProperty("milestone").GetString()));
+    }
+
+    [Fact]
     public async Task HealthzReturnsServiceUnavailableWhenDatabaseIsUnreachable()
     {
         using var factory = new M0ApplicationFactory();

@@ -3,8 +3,23 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>0.0.1</Version>
+    <!-- Build identity, part 1 of 2 (the other half is CommitSha below). This file is the single
+         place that defines the version and the milestone; /healthz and the Ajustes screen read them
+         from the assembly, so nothing else may repeat a literal. Bump Version on a release decision
+         and Milestone when the milestone in docs/00-handoff.md §7 changes. -->
+    <Version>0.7.0</Version>
+    <Milestone>M7</Milestone>
+    <!-- Supplied by the image/CI build (-p:CommitSha=<sha>); never hardcoded. Empty means nobody
+         told us which commit this is, and the app then reports "unknown" instead of guessing. -->
+    <CommitSha Condition="'$(CommitSha)' == ''">unknown</CommitSha>
+    <!-- Keep the informational version clean: the sha is reported from CommitSha only, so a future
+         SourceLink addition cannot make two different values claim to be the build identity. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="CommitSha" Value="$(CommitSha)" />
+    <AssemblyMetadata Include="Milestone" Value="$(Milestone)" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fsrs.Sharp" Version="[2.0.0]" />
     <PackageReference Include="JsonSchema.Net" Version="[7.4.0]" />

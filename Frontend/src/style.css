@@ -117,6 +117,12 @@ fieldset { border: 0; margin: 0; padding: 0; }
 .bottom-nav a { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 10px 8px; border-radius: 12px; text-decoration: none; font-weight: 550; color: var(--muted); }
 .bottom-nav [aria-current=page] { background: var(--soft); color: var(--accent); }
 .settings { max-width: 42rem; }
+.build-info { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px; }
+.build-info h3 { font-size: .95rem; margin: 0 0 8px; }
+.build-info dl { display: grid; gap: 4px; margin: 0; font-size: .8rem; }
+.build-info dl > div { display: flex; gap: 8px; }
+.build-info dt { color: var(--muted); min-width: 4.5rem; }
+.build-info dd { margin: 0; overflow-wrap: anywhere; }
 .login-panel { max-width: 28rem; margin-inline: auto; }
 .login-panel form > button { width: 100%; margin-top: 8px; }
 .account-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 12px; min-width: 0; max-width: 100%; margin-left: auto; }

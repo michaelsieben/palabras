@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker build -t palabras:ci .
+          docker build -t palabras:ci --build-arg COMMIT_SHA="$GITHUB_SHA" .
           docker run -d --name palabras-ci-smoke -p 127.0.0.1:18480:18480 palabras:ci
           base=http://127.0.0.1:18480
           request=(curl --silent --show-error --connect-timeout 2 --max-time 5)
@@ -63,6 +63,9 @@ jobs:
           # Readiness is the health body, not the open socket.
           body=$(curl --retry-all-errors --retry 30 --retry-delay 1 --fail "$base/healthz")
           [[ "$body" == *'"status":"ok"'* ]] || { echo "FAIL /healthz body: $body"; exit 1; }
+          # The build arg must actually reach the assembly: a smoke test on a stale or empty
+          # identity would pass while the deploy host had no way to tell builds apart.
+          [[ "$body" == *"\"commit\":\"$GITHUB_SHA\""* ]] || { echo "FAIL /healthz commit: $body"; exit 1; }
 
           # Anonymous requests are challenged before routing, so the challenge owns the
           # contract: /api/* answers 401 with the JSON error shape, everything else is
