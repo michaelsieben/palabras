@@ -32,8 +32,8 @@ internal static class DayRollover
     // choice: the enable day stays a partial, never-marked day and nothing is backfilled).
     // A concurrent second writer loses the PK conflict and adopts the stored value, so the
     // recorded instant is always the first successfully persisted one. A marker that is corrupt,
-    // truncated or outside the DateTimeOffset range re-anchors to now through a conditional
-    // write, so two instances cannot keep two different cutovers.
+    // truncated, outside the DateTimeOffset range, or implausibly far in the future re-anchors to
+    // now through a conditional write, so two instances cannot keep two different cutovers.
     internal static async Task<DateTimeOffset> EnsureCutoverAsync(DatabaseSettings settings, TimeProvider time,
         ILogger logger, CancellationToken cancellationToken)
     {
@@ -57,7 +57,7 @@ internal static class DayRollover
                 // bypasses this context's own failed Added entity.
                 var stored = await database.AppMetas.AsNoTracking()
                     .FirstOrDefaultAsync(row => row.Key == CutoverKey, cancellationToken);
-                if (stored is not null && TryRead(stored.Value, out var adopted))
+                if (stored is not null && TryRead(stored.Value, now, out var adopted))
                 {
                     return adopted;
                 }
@@ -69,33 +69,40 @@ internal static class DayRollover
                 "days that began before it are never marked missed, and restarts reuse it unchanged.", now);
             return now;
         }
-        if (TryRead(marker.Value, out var persisted))
+        // One clock read serves both the future-bound check below and a possible re-anchor, so
+        // the instant we reject and the instant we store are the same observed "now". Read AFTER
+        // the marker (review 25): the concurrency tests stage their interleaving on this order.
+        var cutoverNow = time.GetUtcNow();
+        if (TryRead(marker.Value, cutoverNow, out var persisted))
         {
             return persisted;
         }
-        // A hand-edited, truncated or out-of-range marker must not silently decide the cutover;
-        // re-anchor to now so the refusal window can only shrink the tracked span, never invent
-        // rows. The write is conditional on the exact value observed (review F3): two instances
-        // that both saw the corrupt marker cannot each keep their own "now" — whoever loses the
-        // conditional update adopts the winner's stored instant below instead.
+        // A hand-edited, truncated, out-of-range or far-future marker must not silently decide
+        // the cutover; re-anchor to now so the refusal window can only shrink the tracked span,
+        // never invent rows. A far-future marker is the worst case of "silently decide": every
+        // real day would begin before it and rollover would stay disabled forever with no
+        // history and no explanation (review 25 nit 1). The write is conditional on the exact
+        // value observed (review F3): two instances that both saw the same bad marker cannot
+        // each keep their own "now" — whoever loses the conditional update adopts the winner's
+        // stored instant below instead.
         var observed = marker.Value;
-        var reanchored = time.GetUtcNow();
         var updated = await database.AppMetas
             .Where(row => row.Key == CutoverKey && row.Value == observed)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(row => row.Value, Format(reanchored)),
+            .ExecuteUpdateAsync(setters => setters.SetProperty(row => row.Value, Format(cutoverNow)),
                 cancellationToken);
         if (updated > 0)
         {
-            logger.LogWarning("Day rollover cutover marker {Key} is unreadable ({Value}); re-anchored to {Cutover}.",
-                CutoverKey, observed, reanchored);
-            return reanchored;
+            logger.LogWarning("Day rollover cutover marker {Key} is unreadable or lies further in " +
+                "the future than {Slack} allows ({Value}); re-anchored to {Cutover}.",
+                CutoverKey, FutureMarkerSlack, observed, cutoverNow);
+            return cutoverNow;
         }
         // The marker changed between our read and our conditional write. Adopt what is persisted
         // now instead of keeping a competing in-memory instant; a value that is still unreadable
         // means another instance is mid-re-anchor, and the next tick retries.
         var raced = await database.AppMetas.AsNoTracking()
             .FirstOrDefaultAsync(row => row.Key == CutoverKey, cancellationToken);
-        if (raced is not null && TryRead(raced.Value, out var winner))
+        if (raced is not null && TryRead(raced.Value, cutoverNow, out var winner))
         {
             logger.LogInformation("Day rollover cutover marker {Key} was re-anchored by a concurrent " +
                 "instance to {Cutover}; adopting it.", CutoverKey, winner);
@@ -111,16 +118,30 @@ internal static class DayRollover
     // DateTimeOffset.FromUnixTimeMilliseconds throws outside 0001-01-01T00:00:00Z ..
     // 9999-12-31T23:59:59.999Z, so a marker past that range is unreadable rather than fatal
     // (review F2): it takes the same re-anchor path as any other corrupt value instead of
-    // throwing out of every tick.
+    // throwing out of every tick. The same fail-safe reasoning rejects a marker that parses
+    // cleanly but lies further in the future than the reading clock's own "now" plus the slack
+    // below (review 25 nit 1).
     private static readonly long MaxUnixTimeMilliseconds = DateTimeOffset.MaxValue.ToUnixTimeMilliseconds();
 
-    private static bool TryRead(string value, out DateTimeOffset instant)
+    // Drift tolerance for the future bound: EnsureCutoverAsync always stores the writing
+    // instance's own GetUtcNow(), so a marker can only legitimately be ahead of a later reader's
+    // clock by transient clock skew or an NTP step-back between observations. One day bounds
+    // that generously on the natural time scale of this feature (a day-status row), while
+    // anything further ahead — the year-9000 class — is corruption and re-anchors instead of
+    // silently disabling rollover forever.
+    internal static readonly TimeSpan FutureMarkerSlack = TimeSpan.FromHours(24);
+
+    private static bool TryRead(string value, DateTimeOffset now, out DateTimeOffset instant)
     {
         if (long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var milliseconds) &&
             milliseconds >= 0 && milliseconds <= MaxUnixTimeMilliseconds)
         {
-            instant = DateTimeOffset.FromUnixTimeMilliseconds(milliseconds);
-            return true;
+            var parsed = DateTimeOffset.FromUnixTimeMilliseconds(milliseconds);
+            if (parsed <= now.Add(FutureMarkerSlack))
+            {
+                instant = parsed;
+                return true;
+            }
         }
         instant = default;
         return false;

@@ -26,8 +26,11 @@ namespace Palabras.Tests;
 // (writing neither history nor a cutover marker); enabled ticks being idempotent across repeats
 // and a restart; the restart not losing a day; cutover sharing across service instances over one
 // database; kill-switch re-enablement keeping the original cutover; an unreadable, out-of-range
-// or corrupt marker re-anchoring without inventing history; retrying a failed resolution without
-// a restart; two independent instances racing on the marker converging on one persisted cutover;
+// or corrupt marker re-anchoring without inventing history; a marker further in the future than
+// the drift slack re-anchoring too (review 25 nit 1: a year-9000 marker silently disabled
+// rollover forever); retrying a failed resolution without a restart; a marker row deleted
+// mid-re-anchor failing once and healing on the next tick (review 25: the throw branch was
+// untested); two independent instances racing on the marker converging on one persisted cutover;
 // the owner-only (learner) account rule; and the pre-enable day refusal through direct DayRollover
 // runs, like M7DayStatusTests.
 public sealed class M7RolloverGateTests
@@ -390,6 +393,121 @@ public sealed class M7RolloverGateTests
         }
     }
 
+    // Regression for review 25 nit 1: a marker that parses cleanly and sits inside the
+    // DateTimeOffset range but far in the future (the year-9000 class) used to be accepted as
+    // the cutover, so EVERY real day began before it and rollover stayed silently disabled
+    // forever — no missed history and nothing reporting why. It now fails the same TryRead as
+    // any other unreadable value and takes the re-anchor path, whose LogWarning makes the
+    // outcome observable. Markers within the drift slack (a writer whose clock legitimately ran
+    // slightly ahead of this reader's) stay accepted: rejecting those would move a real cutover.
+    [Theory]
+    [InlineData("2026-10-18T21:00:00Z", false)] // 12 h ahead: inside the 24 h slack, kept
+    [InlineData("2026-10-19T21:00:00Z", true)] // 36 h ahead: beyond the slack, re-anchored
+    [InlineData("3000-01-01T00:00:00Z", true)]
+    [InlineData("9000-01-01T00:00:00Z", true)] // the review's example; in range but absurd
+    public async Task AFutureCutoverMarkerBeyondTheSlackIsReanchored(string markerIso, bool reanchors)
+    {
+        using var rig = new GateRig();
+        var now = Moment("2026-10-18T09:00:00Z");
+        var marker = Moment(markerIso);
+        // The cases above bracket DayRollover.FutureMarkerSlack; if that bound is ever retuned,
+        // the expected outcomes must move with it, and this line fails loudly instead of
+        // silently testing a different regime.
+        Assert.Equal(reanchors, marker - now > DayRollover.FutureMarkerSlack);
+        await using (var seed = rig.OpenDatabase())
+        {
+            seed.AppMetas.Add(new AppMeta
+            {
+                Key = DayRollover.CutoverKey,
+                Value = marker.ToUnixTimeMilliseconds().ToString(Inv)
+            });
+            await seed.SaveChangesAsync(CancellationToken.None);
+        }
+        var time = new FakeTimeProvider(now);
+        var service = NewService(rig, time, enabled: true);
+
+        var cutover = await service.CutoverAsync(CancellationToken.None);
+        Assert.Equal(reanchors ? now : marker, cutover);
+        // Either way the stored marker now equals the returned cutover: the future value was
+        // either never disturbed or replaced by the re-anchor, and one row remains.
+        Assert.Equal(cutover.ToUnixTimeMilliseconds(), await ReadCutoverMarkerMs(rig));
+
+        // Neither branch invents history: the next tick's candidate day (the 18th, begun at
+        // 2026-10-17T22:00Z) started before the cutover whether it was re-anchored to now or
+        // kept as a modest future instant.
+        time.Advance(TimeSpan.FromDays(1));
+        Assert.Equal(0, await service.RunTickAsync(CancellationToken.None));
+        await using (var database = rig.OpenDatabase())
+        {
+            Assert.Empty(await database.DayStatuses.ToListAsync(CancellationToken.None));
+        }
+    }
+
+    // Review 25 finding 2: the branch where the marker row disappears between the read and the
+    // re-anchor (DayRollover's conditional update matches zero rows, the adopt re-read sees
+    // null, and the InvalidOperationException is thrown) was untested. Documented behaviour:
+    // the operation fails ONCE, the next tick takes the absent-marker insert path, no rows are
+    // invented by the failed attempt, and the service is not permanently poisoned.
+    [Fact]
+    public async Task AMarkerDeletedMidReanchorFailsOnceAndHealsOnTheNextTick()
+    {
+        using var rig = new GateRig();
+        await using (var seed = rig.OpenDatabase())
+        {
+            seed.AppMetas.Add(new AppMeta { Key = DayRollover.CutoverKey, Value = "not-an-instant" });
+            await seed.SaveChangesAsync(CancellationToken.None);
+        }
+        var start = Moment("2026-10-18T09:00:00Z");
+        var gate = new GatedTimeProvider(start);
+        var service = NewService(rig, gate, enabled: true);
+
+        // Same forced interleaving as the F3 races: the resolution has already READ the corrupt
+        // marker and pauses at its clock read — between the read and the re-anchor write.
+        var resolution = Task.Run(() => service.CutoverAsync(CancellationToken.None));
+        var reached = await Task.WhenAny(gate.Reached.Task, Task.Delay(TimeSpan.FromSeconds(30)));
+        Assert.True(reached == gate.Reached.Task,
+            "the resolution never reached its clock read, so the delete could not be staged.");
+
+        // Delete the row while it is paused, then release: the conditional update matches zero
+        // rows, the adopt re-read finds nothing, and the documented throw fires.
+        await using (var deleter = rig.OpenDatabase())
+        {
+            var doomed = await deleter.AppMetas
+                .SingleAsync(row => row.Key == DayRollover.CutoverKey, CancellationToken.None);
+            deleter.AppMetas.Remove(doomed);
+            await deleter.SaveChangesAsync(CancellationToken.None);
+        }
+        gate.Release();
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => resolution);
+        Assert.Contains(DayRollover.CutoverKey, failure.Message);
+        await using (var afterFailure = rig.OpenDatabase())
+        {
+            // The failed attempt wrote nothing: no marker, no invented history.
+            Assert.Empty(await afterFailure.AppMetas.ToListAsync(CancellationToken.None));
+            Assert.Empty(await afterFailure.DayStatuses.ToListAsync(CancellationToken.None));
+        }
+
+        // It fails ONCE: the same instance, no restart, heals through the absent-marker insert
+        // path on the next resolution.
+        gate.Advance(TimeSpan.FromMinutes(1));
+        var healed = Moment("2026-10-18T09:01:00Z");
+        Assert.Equal(healed, await service.CutoverAsync(CancellationToken.None));
+        Assert.Equal(healed.ToUnixTimeMilliseconds(), await ReadCutoverMarkerMs(rig));
+
+        // And the feature works afterwards — not a permanently poisoned state: the first full
+        // local day after the healed cutover is marked on its tick.
+        gate.Advance(TimeSpan.FromDays(2)); // 2026-10-20: candidate 2026-10-19.
+        Assert.Equal(1, await service.RunTickAsync(CancellationToken.None));
+        await using (var database = rig.OpenDatabase())
+        {
+            var row = Assert.Single(await database.DayStatuses.ToListAsync(CancellationToken.None));
+            Assert.Equal("2026-10-19", row.LocalDate);
+            Assert.Equal("missed", row.Status);
+            Assert.Equal(1, row.UserId); // owner only (C4)
+        }
+    }
+
     // F3 and the untested "concurrent winner" claim (review 17 §Q5): two INDEPENDENT service
     // instances over one shared database, genuinely concurrent — instance B runs on its own
     // thread, has already read "no marker", and is held at its clock read while A resolves and
@@ -539,6 +657,8 @@ public sealed class M7RolloverGateTests
         public override TimeZoneInfo LocalTimeZone => _inner.LocalTimeZone;
 
         internal void Release() => _release.SetResult();
+
+        internal void Advance(TimeSpan by) => _inner.Advance(by);
     }
 
     // Bare migrated database with both schema-allowed accounts (owner + reviewer), no web host.
