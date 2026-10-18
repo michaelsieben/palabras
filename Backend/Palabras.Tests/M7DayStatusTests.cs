@@ -253,6 +253,208 @@ public sealed class M7DayStatusTests
     }
 
     [Theory]
+    // O-M7-9 (C5): a named target must parse exactly and be today or yesterday in the learner
+    // zone. Two days back, tomorrow, a wrong format and an empty string are all refused, and
+    // the refusal never silently completes the receipt day.
+    [InlineData("2026-10-16")]
+    [InlineData("2026-10-19")]
+    [InlineData("18/10/2026")]
+    [InlineData("2026-10-18T00:00")]
+    [InlineData("")]
+    public async Task DoneOutsideTheBoundedLateDeliveryWindowIsRejected(string localDate)
+    {
+        using var factory = new DayApplicationFactory(Now);
+        using var client = await LearnerClientAsync(factory);
+
+        using var response = await PostJsonAsync(client, "/api/learn/day/done",
+            new { durationS = 600, localDate });
+        await AssertJsonError(response, HttpStatusCode.BadRequest, "bad_request");
+
+        await using var database = factory.OpenDatabase();
+        Assert.Empty(await database.DayStatuses.ToListAsync(CancellationToken.None));
+        Assert.Empty(await database.PracticeSessions.ToListAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ADoneBeforeMidnightFlushedAfterMidnightCompletesTheDayItNames()
+    {
+        // 23:00Z is 01:00 local on 2026-10-18 in Madrid: the receipt day is the 18th, the
+        // session completed on the 17th. Persistence, dedupe and the response follow the
+        // named target day, not the receipt day (C5).
+        var now = DateTimeOffset.Parse("2026-10-17T23:00:00Z", CultureInfo.InvariantCulture);
+        using var factory = new DayApplicationFactory(now);
+        using var client = await LearnerClientAsync(factory);
+
+        using var done = await PostJsonAsync(client, "/api/learn/day/done",
+            new { durationS = 620, localDate = "2026-10-17" });
+        Assert.Equal(HttpStatusCode.OK, done.StatusCode);
+        using var body = await JsonAsync(done);
+        Assert.Equal("2026-10-17", body.RootElement.GetProperty("localDate").GetString());
+        Assert.Equal("done", body.RootElement.GetProperty("status").GetString());
+
+        await using var database = factory.OpenDatabase();
+        Assert.Equal("2026-10-17", (await database.DayStatuses.SingleAsync(CancellationToken.None)).LocalDate);
+        Assert.Equal("2026-10-17", (await database.PracticeSessions.SingleAsync(CancellationToken.None)).LocalDate);
+        // The receipt day was not silently completed: today (2026-10-18) still has no row.
+        using var status = await JsonAsync(await client.GetAsync("/api/learn/day/status", CancellationToken.None));
+        Assert.Equal("2026-10-18", status.RootElement.GetProperty("localDate").GetString());
+        Assert.Equal(JsonValueKind.Null, status.RootElement.GetProperty("status").ValueKind);
+    }
+
+    [Fact]
+    public async Task ARetryAfterALostResponseRepeatsTheLateDoneWithoutDuplicates()
+    {
+        // The first response never arrived; the retry is delivered later the same receipt day.
+        // It is a no-op on the target day: one session row, one day row, same payload.
+        var now = DateTimeOffset.Parse("2026-10-17T23:30:00Z", CultureInfo.InvariantCulture);
+        using var factory = new DayApplicationFactory(now);
+        using var client = await LearnerClientAsync(factory);
+
+        using var first = await PostJsonAsync(client, "/api/learn/day/done",
+            new { durationS = 600, localDate = "2026-10-17" });
+        using var second = await PostJsonAsync(client, "/api/learn/day/done",
+            new { durationS = 700, localDate = "2026-10-17" });
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        using var body = await JsonAsync(second);
+        Assert.Equal("2026-10-17", body.RootElement.GetProperty("localDate").GetString());
+        Assert.Equal("done", body.RootElement.GetProperty("status").GetString());
+
+        await using var database = factory.OpenDatabase();
+        Assert.Equal(1, await database.DayStatuses.CountAsync(CancellationToken.None));
+        var session = await database.PracticeSessions.SingleAsync(CancellationToken.None);
+        Assert.Equal(600, session.DurationS);
+    }
+
+    [Fact]
+    public async Task ARetryAfterTheWindowRejectsInsteadOfCompletingANewDay()
+    {
+        // C5: the flush of the 17th arrives two receipt days late. The only accepted outcome
+        // is a refusal; nothing is written for any day, and certainly not for today.
+        using var factory = new DayApplicationFactory(Now); // today = 2026-10-18
+        using var client = await LearnerClientAsync(factory);
+
+        using var late = await PostJsonAsync(client, "/api/learn/day/done",
+            new { durationS = 600, localDate = "2026-10-16" });
+        await AssertJsonError(late, HttpStatusCode.BadRequest, "bad_request");
+
+        await using var database = factory.OpenDatabase();
+        Assert.Empty(await database.DayStatuses.ToListAsync(CancellationToken.None));
+        Assert.Empty(await database.PracticeSessions.ToListAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ADoneAgainstARolloverMissedRowOverwritesTheTargetDay()
+    {
+        // Completion versus rollover: the 00:05 tick already labelled the 17th missed. The
+        // late completion is the stronger fact (O-M7-7 applied to the named target day).
+        var now = DateTimeOffset.Parse("2026-10-17T23:00:00Z", CultureInfo.InvariantCulture);
+        using var factory = new DayApplicationFactory(now, database =>
+            AddDay(database, "2026-10-17", "missed"));
+        using var client = await LearnerClientAsync(factory);
+
+        using var done = await PostJsonAsync(client, "/api/learn/day/done",
+            new { durationS = 610, localDate = "2026-10-17" });
+        Assert.Equal(HttpStatusCode.OK, done.StatusCode);
+
+        await using var database = factory.OpenDatabase();
+        var day = await database.DayStatuses.SingleAsync(CancellationToken.None);
+        Assert.Equal("done", day.Status);
+        Assert.Equal("2026-10-17", day.LocalDate);
+        var session = await database.PracticeSessions.SingleAsync(CancellationToken.None);
+        Assert.Equal(day.SessionId, session.Id);
+    }
+
+    [Fact]
+    public async Task ALateDoneRefundsTheSkipOfTheDayItNames()
+    {
+        // ΔD:293 via C5: skipped the 17th, completed a session the 17th offline, the flush
+        // lands on the 18th. The refund moves with the target date, not the receipt date,
+        // and the refunded token leaves today's skip available again.
+        var now = DateTimeOffset.Parse("2026-10-17T23:00:00Z", CultureInfo.InvariantCulture);
+        using var factory = new DayApplicationFactory(now, database =>
+        {
+            AddDay(database, "2026-10-17", "skipped");
+            AddSkip(database, "2026-10-17");
+        });
+        using var client = await LearnerClientAsync(factory);
+
+        using var done = await PostJsonAsync(client, "/api/learn/day/done",
+            new { durationS = 540, localDate = "2026-10-17" });
+        Assert.Equal(HttpStatusCode.OK, done.StatusCode);
+
+        await using var database = factory.OpenDatabase();
+        Assert.NotNull((await database.DaySkips.SingleAsync(CancellationToken.None)).RefundedAtMs);
+        Assert.Equal("done", (await database.DayStatuses.SingleAsync(CancellationToken.None)).Status);
+        using var status = await JsonAsync(await client.GetAsync("/api/learn/day/status", CancellationToken.None));
+        Assert.True(status.RootElement.GetProperty("skipAvailable").GetBoolean());
+    }
+
+    [Fact]
+    public async Task TheLearnerZoneDecidesWhichLocalDatesCanBeCompleted()
+    {
+        // 02:00Z is 22:00 on 2026-10-17 in New York (UTC-4) but 04:00 on 2026-10-18 in Madrid.
+        // The bounded window is the New Yorker's today and yesterday; the Madrid calendar date
+        // is a future day there and must be refused, never silently completed.
+        var now = DateTimeOffset.Parse("2026-10-18T02:00:00Z", CultureInfo.InvariantCulture);
+        using var factory = new DayApplicationFactory(now, timezone: "America/New_York");
+        using var client = await LearnerClientAsync(factory);
+
+        using var yesterday = await PostJsonAsync(client, "/api/learn/day/done",
+            new { durationS = 600, localDate = "2026-10-16" });
+        Assert.Equal(HttpStatusCode.OK, yesterday.StatusCode);
+        using var today = await PostJsonAsync(client, "/api/learn/day/done",
+            new { durationS = 600, localDate = "2026-10-17" });
+        Assert.Equal(HttpStatusCode.OK, today.StatusCode);
+        using var body = await JsonAsync(today);
+        Assert.Equal("2026-10-17", body.RootElement.GetProperty("localDate").GetString());
+        Assert.Equal(2, body.RootElement.GetProperty("streak").GetInt32());
+
+        using var future = await PostJsonAsync(client, "/api/learn/day/done",
+            new { durationS = 600, localDate = "2026-10-18" });
+        await AssertJsonError(future, HttpStatusCode.BadRequest, "bad_request");
+        using var tooOld = await PostJsonAsync(client, "/api/learn/day/done",
+            new { durationS = 600, localDate = "2026-10-15" });
+        await AssertJsonError(tooOld, HttpStatusCode.BadRequest, "bad_request");
+
+        await using var database = factory.OpenDatabase();
+        var dates = (await database.DayStatuses.ToListAsync(CancellationToken.None))
+            .Select(row => row.LocalDate).OrderBy(date => date, StringComparer.Ordinal).ToArray();
+        Assert.Equal(["2026-10-16", "2026-10-17"], dates);
+    }
+
+    [Fact]
+    public async Task ADoneBeforeTheAccountExistedIsRejected()
+    {
+        // The bounded window alone could still name yesterday of an account created today.
+        // A completion cannot predate the account (O-M7-8 applied to the done path too).
+        using var factory = new DayApplicationFactory(Now,
+            createdAt: DateTimeOffset.Parse("2026-10-18T05:00:00Z", CultureInfo.InvariantCulture));
+        using var client = await LearnerClientAsync(factory);
+
+        using var response = await PostJsonAsync(client, "/api/learn/day/done",
+            new { durationS = 600, localDate = "2026-10-17" });
+        await AssertJsonError(response, HttpStatusCode.BadRequest, "bad_request");
+
+        await using var database = factory.OpenDatabase();
+        Assert.Empty(await database.DayStatuses.ToListAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task DoneWithoutADateStillCompletesTheReceiptDay()
+    {
+        // Old-caller compatibility: the pre-M7-9 body (no localDate) keeps marking today done.
+        using var factory = new DayApplicationFactory(Now);
+        using var client = await LearnerClientAsync(factory);
+
+        using var done = await PostJsonAsync(client, "/api/learn/day/done", new { durationS = 600 });
+        Assert.Equal(HttpStatusCode.OK, done.StatusCode);
+        using var body = await JsonAsync(done);
+        Assert.Equal(Today, body.RootElement.GetProperty("localDate").GetString());
+        Assert.Equal("done", body.RootElement.GetProperty("status").GetString());
+    }
+
+    [Theory]
     [InlineData("""{"durationS":-1}""")]
     [InlineData("""{"plannedS":-5}""")]
     [InlineData("""{"newCount":-1}""")]
@@ -477,7 +679,7 @@ public sealed class M7DayStatusTests
         // 00:04 local Madrid: the rollover window has not opened yet.
         Assert.Equal(0, await DayRollover.RunAsync(rig.Settings, new FakeTimeProvider(
             DateTimeOffset.Parse("2026-10-17T22:04:00Z", CultureInfo.InvariantCulture)),
-            NullLogger.Instance, CancellationToken.None));
+            NullLogger.Instance, DateTimeOffset.UnixEpoch, CancellationToken.None));
         await using (var database = rig.Settings.CreateContext())
         {
             Assert.Empty(await database.DayStatuses.ToListAsync(CancellationToken.None));
@@ -485,9 +687,11 @@ public sealed class M7DayStatusTests
 
         // 00:10 local Madrid: yesterday (2026-10-17) has no done/skipped row, so it is missed.
         var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-10-17T22:10:00Z", CultureInfo.InvariantCulture));
-        Assert.Equal(1, await DayRollover.RunAsync(rig.Settings, time, NullLogger.Instance, CancellationToken.None));
+        Assert.Equal(1, await DayRollover.RunAsync(rig.Settings, time, NullLogger.Instance,
+            DateTimeOffset.UnixEpoch, CancellationToken.None));
         // Idempotent: the minute tick runs again and writes nothing.
-        Assert.Equal(0, await DayRollover.RunAsync(rig.Settings, time, NullLogger.Instance, CancellationToken.None));
+        Assert.Equal(0, await DayRollover.RunAsync(rig.Settings, time, NullLogger.Instance,
+            DateTimeOffset.UnixEpoch, CancellationToken.None));
         await using (var database = rig.Settings.CreateContext())
         {
             var day = await database.DayStatuses.SingleAsync(CancellationToken.None);
@@ -510,7 +714,8 @@ public sealed class M7DayStatusTests
             await database.SaveChangesAsync(CancellationToken.None);
         }
         var time = new FakeTimeProvider(DateTimeOffset.Parse("2026-10-17T22:10:00Z", CultureInfo.InvariantCulture));
-        Assert.Equal(0, await DayRollover.RunAsync(rig.Settings, time, NullLogger.Instance, CancellationToken.None));
+        Assert.Equal(0, await DayRollover.RunAsync(rig.Settings, time, NullLogger.Instance,
+            DateTimeOffset.UnixEpoch, CancellationToken.None));
         await using (var database = rig.Settings.CreateContext())
         {
             Assert.Equal("done", (await database.DayStatuses.SingleAsync(CancellationToken.None)).Status);
@@ -521,7 +726,8 @@ public sealed class M7DayStatusTests
         using var freshRig = new DatabaseRig(createdAt: DateTimeOffset.Parse("2026-10-18T22:20:00Z",
             CultureInfo.InvariantCulture));
         var later = new FakeTimeProvider(DateTimeOffset.Parse("2026-10-18T22:10:00Z", CultureInfo.InvariantCulture));
-        Assert.Equal(0, await DayRollover.RunAsync(freshRig.Settings, later, NullLogger.Instance, CancellationToken.None));
+        Assert.Equal(0, await DayRollover.RunAsync(freshRig.Settings, later, NullLogger.Instance,
+            DateTimeOffset.UnixEpoch, CancellationToken.None));
         await using (var database = freshRig.Settings.CreateContext())
         {
             Assert.Empty(await database.DayStatuses.ToListAsync(CancellationToken.None));
@@ -663,7 +869,7 @@ public sealed class M7DayStatusTests
         private readonly FakeTimeProvider _time;
 
         internal DayApplicationFactory(DateTimeOffset now, Action<PalabrasDbContext>? seed = null,
-            string? timezone = null)
+            string? timezone = null, DateTimeOffset? createdAt = null)
         {
             _time = new FakeTimeProvider(now);
             Directory.CreateDirectory(Path.Combine(_root, "wwwroot"));
@@ -671,7 +877,7 @@ public sealed class M7DayStatusTests
             Directory.CreateDirectory(Path.GetDirectoryName(DatabasePath)!);
             using var database = new DatabaseSettings(DatabasePath).CreateContext();
             database.Database.Migrate();
-            var stamp = DateTimeOffset.UnixEpoch;
+            var stamp = createdAt ?? DateTimeOffset.UnixEpoch;
             database.Users.AddRange(
                 new User
                 {

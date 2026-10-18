@@ -73,6 +73,9 @@ builder.Services.AddSingleton<AccountAuthentication>();
 // Single clock seam: nothing in Palabras.Learn or Palabras.Srs reads DateTimeOffset.UtcNow.
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHostedService<BackupService>();
+// M7 rollover ships default-OFF (T-20261018-2105 C1): startup migrates the schema, but no
+// missed-day row is written until M7:DayRolloverEnabled (env M7__DayRolloverEnabled) is true.
+builder.Services.AddSingleton(DayRolloverSettings.FromConfiguration(builder.Configuration));
 builder.Services.AddHostedService<DayRolloverService>();
 builder.Services.AddSingleton<IScheduler, FsrsSharpScheduler>();
 var keysPath = builder.Configuration["DataProtection:KeysPath"];

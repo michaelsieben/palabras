@@ -74,11 +74,11 @@ internal static class DayEndpoints
         // Read-only answer first: already done and already skipped need no write.
         var statuses = await LearnDayStatus.LoadStatusesAsync(database, userId, cancellationToken);
         var activeSkips = await LearnDayStatus.LoadActiveSkipDatesAsync(database, userId, cancellationToken);
-        if (TodayStatus(statuses, key) == DayStatusValues.Done)
+        if (StatusOn(statuses, key) == DayStatusValues.Done)
         {
             return AlreadyDone();
         }
-        if (TodayStatus(statuses, key) == DayStatusValues.Skipped)
+        if (StatusOn(statuses, key) == DayStatusValues.Skipped)
         {
             return Results.Ok(LearnDayStatus.Compose(statuses, activeSkips, today, DayStatusValues.Skipped));
         }
@@ -158,15 +158,32 @@ internal static class DayEndpoints
         }
         var clock = LearnEndpoints.CreateClock(timeProvider, learner.Timezone, loggerFactory);
         var today = clock.LocalToday;
-        var key = LearnDayStatus.Key(today);
+        // O-M7-9 (C5): the offline flush may name the local day the session actually completed
+        // on. Absent means the receipt day (pre-M7-9 behavior, old callers unchanged). A named
+        // day must parse exactly and sit inside the agreed bounded window — today or yesterday
+        // in the learner zone, never before the account existed — or the request is refused;
+        // a retry that arrives after the window rejects, it never silently completes a new day.
+        var target = today;
+        if (request.LocalDate is not null)
+        {
+            if (!LearnDayStatus.TryParseLocalDate(request.LocalDate, out var requested)
+                || requested > today
+                || requested < today.AddDays(-1)
+                || requested < clock.LocalDateOf(learner.CreatedAt))
+            {
+                return Error(StatusCodes.Status400BadRequest, "bad_request");
+            }
+            target = requested;
+        }
+        var key = LearnDayStatus.Key(target);
 
-        // Repeat completion (offline flush retry, double tap) is a no-op: the day stays done and
-        // no second session row is written.
+        // Repeat completion (offline flush retry, double tap) is a no-op on the target day: it
+        // stays done and no second session row is written.
         var statuses = await LearnDayStatus.LoadStatusesAsync(database, userId, cancellationToken);
         var activeSkips = await LearnDayStatus.LoadActiveSkipDatesAsync(database, userId, cancellationToken);
-        if (TodayStatus(statuses, key) == DayStatusValues.Done)
+        if (StatusOn(statuses, key) == DayStatusValues.Done)
         {
-            return Results.Ok(LearnDayStatus.Compose(statuses, activeSkips, today, DayStatusValues.Done));
+            return Results.Ok(LearnDayStatus.Compose(statuses, activeSkips, target, DayStatusValues.Done));
         }
 
         var nowMs = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
@@ -179,7 +196,7 @@ internal static class DayEndpoints
                 // Another request completed the day first; report the committed state.
                 var currentSkips = await LearnDayStatus.LoadActiveSkipDatesAsync(database, userId,
                     cancellationToken);
-                return Results.Ok(LearnDayStatus.Compose(statuses, currentSkips, today, DayStatusValues.Done));
+                return Results.Ok(LearnDayStatus.Compose(statuses, currentSkips, target, DayStatusValues.Done));
             }
             // design.md:171: a completed session makes the day done. The session row keeps the
             // reported duration/counts; started_at is unknown to this endpoint and is stamped now.
@@ -205,8 +222,9 @@ internal static class DayEndpoints
             day.Status = DayStatusValues.Done;
             day.SessionId = session.Id;
             day.DecidedAtMs = nowMs;
-            // ΔD:293: a skip on the same day is refunded once the day is completed, so the token
-            // is available again. A skip on an earlier day stays consumed.
+            // ΔD:293: a skip on the completed day is refunded once that day is completed, so
+            // the token is available again. A skip on another day stays consumed. With a named
+            // target the refund follows the target date, not the receipt date (C5).
             var refund = await database.DaySkips.SingleOrDefaultAsync(
                 skip => skip.UserId == userId && skip.LocalDate == key && skip.RefundedAtMs == null,
                 cancellationToken);
@@ -217,15 +235,22 @@ internal static class DayEndpoints
             await database.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
-        return Results.Ok(await LearnDayStatus.ReadAsync(database, userId, clock, cancellationToken));
+        // The payload describes the target day, not the receipt day (C5 decision): a completion
+        // for yesterday reported after midnight shows yesterday's streak; the caller's today
+        // pane refetches GET /day/status for the receipt day.
+        var committedStatuses = await LearnDayStatus.LoadStatusesAsync(database, userId, cancellationToken);
+        var committedSkips = await LearnDayStatus.LoadActiveSkipDatesAsync(database, userId, cancellationToken);
+        return Results.Ok(LearnDayStatus.Compose(committedStatuses, committedSkips, target, DayStatusValues.Done));
     }
 
-    private static string? TodayStatus(IReadOnlyDictionary<string, string> statuses, string key) =>
+    private static string? StatusOn(IReadOnlyDictionary<string, string> statuses, string key) =>
         statuses.TryGetValue(key, out var status) ? status : null;
 
     private static IResult AlreadyDone() =>
         Results.Json(new { reason = "already_done" }, statusCode: StatusCodes.Status409Conflict);
 
+    // O-M7-5 (decided T-20261018-2105): camelCase `nextAvailable` follows the global API
+    // serialization convention (07-learn-api.md:11-17) over the ΔD:288 snake_case sketch.
     private static IResult SkipUnavailable(string? nextAvailable) =>
         Results.Json(new { reason = "skip_unavailable", nextAvailable },
             statusCode: StatusCodes.Status409Conflict);

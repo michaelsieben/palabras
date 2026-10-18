@@ -259,15 +259,17 @@ internal static class LearnEndpoints
         return Results.Ok(new WordsResponse(items));
     }
 
-    internal sealed record LearnerIdentity(int Id, string? Timezone);
+    // CreatedAt is read by the M7 completion window (O-M7-9: a done may not name a day that
+    // began before the account existed); the learn routes use Timezone only.
+    internal sealed record LearnerIdentity(int Id, string? Timezone, DateTimeOffset CreatedAt);
 
     // Shared with DayEndpoints (M7): one clock/identity path for every /api/learn route.
     internal static async Task<LearnerIdentity?> LoadLearnerAsync(PalabrasDbContext database, int userId,
         CancellationToken cancellationToken)
     {
         var row = await database.Users.AsNoTracking().Where(user => user.Id == userId)
-            .Select(user => new { user.Id, user.Timezone }).SingleOrDefaultAsync(cancellationToken);
-        return row is null ? null : new LearnerIdentity(row.Id, row.Timezone);
+            .Select(user => new { user.Id, user.Timezone, user.CreatedAt }).SingleOrDefaultAsync(cancellationToken);
+        return row is null ? null : new LearnerIdentity(row.Id, row.Timezone, row.CreatedAt);
     }
 
     private static async Task<UserSettings> LoadSettingsAsync(PalabrasDbContext database, int userId,

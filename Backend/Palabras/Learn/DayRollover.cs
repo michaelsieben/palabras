@@ -6,7 +6,9 @@ namespace Palabras.Learn;
 
 // ΔD:297: at 00:05 local, write `missed` for yesterday when it has no done or skipped row.
 // History only: no card, no review_log row and no skip is touched (ΔD:298-300). Idempotent, so
-// the minute tick can retry after a failure and a restart cannot duplicate a day.
+// the minute tick can retry after a failure and a restart cannot duplicate a day. Runs only
+// behind the DayRolloverSettings gate and only for days that began at or after its tracking
+// start (see the C1 guards in RunAsync and DayRolloverService).
 internal static class DayRollover
 {
     internal const string FallbackTimezone = "Europe/Madrid";
@@ -14,7 +16,7 @@ internal static class DayRollover
     internal static readonly TimeSpan EarliestRun = new(0, 5, 0);
 
     internal static async Task<int> RunAsync(DatabaseSettings settings, TimeProvider timeProvider,
-        ILogger logger, CancellationToken cancellationToken)
+        ILogger logger, DateTimeOffset trackingStart, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
         await using var database = settings.CreateContext();
@@ -35,6 +37,16 @@ internal static class DayRollover
             var yesterday = clock.LocalToday.AddDays(-1);
             // A day before the account existed is not a missed day.
             if (clock.LocalDateOf(user.CreatedAt) > yesterday)
+            {
+                continue;
+            }
+            // C1 backfill guard (T-20261018-2105): a day may only be marked missed if the
+            // rollover was enabled before that day began — while the gate was off the client
+            // had no day-completion signal, so an absent row there is not evidence of a
+            // missed day. This caps the first post-enable ticks: the enable day itself and
+            // every earlier day stay unwritten, and the first honest candidate is the first
+            // full local day after the cutover (C4).
+            if (trackingStart > clock.StartOfLocalDateUtc(yesterday))
             {
                 continue;
             }
