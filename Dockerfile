@@ -10,6 +10,7 @@ WORKDIR /src
 COPY Backend/Palabras/Palabras.csproj Backend/Palabras/
 RUN dotnet restore Backend/Palabras/Palabras.csproj
 COPY Backend/Palabras/ Backend/Palabras/
+COPY content/schema/ content/schema/
 RUN dotnet publish Backend/Palabras/Palabras.csproj -c Release --no-restore -p:UseAppHost=true -o /app/publish
 COPY --from=frontend /src/Frontend/dist/ /app/publish/wwwroot/
 

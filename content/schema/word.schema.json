@@ -35,6 +35,12 @@
       "enum": ["el", "la", "los", "las"],
       "description": "Only for nouns. Definite article of the headword; plural-only nouns (gafas, zapatillas) take los/las."
     },
+    "plural": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Optional Spanish plural form."
+    },
     "gender": {
       "enum": ["masculine", "feminine", "common", "not_applicable"]
     },
@@ -212,6 +218,24 @@
       "additionalProperties": false,
       "required": ["gloss", "example", "exampleGloss"],
       "properties": {
+        "acceptedEs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": "Accepted Spanish answers. Defaults to the headword when absent."
+        },
+        "acceptedEn": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": "Accepted English answers. Defaults to the gloss split on comma-space when absent."
+        },
+        "accentsAreThePoint": {
+          "type": "boolean",
+          "description": "Enforce accents for this sense rather than accepting accent-only misses. Defaults to false."
+        },
         "gloss": {
           "type": "string",
           "minLength": 1,

@@ -9,8 +9,9 @@ using Microsoft.AspNetCore.StaticFiles;
 using Palabras.Auth;
 using Palabras.Accounts;
 using Palabras.Persistence;
+using Palabras.Content;
 
-if (args.Length > 0 && args[0] == "user")
+if (args.Length > 0 && args[0] is "user" or "import" or "content")
 {
     var cliConfiguration = new ConfigurationBuilder().SetBasePath(AppContext.BaseDirectory)
         .AddJsonFile("appsettings.json", optional: true).AddEnvironmentVariables().Build();
@@ -18,8 +19,13 @@ if (args.Length > 0 && args[0] == "user")
     Console.CancelKeyPress += (_, eventArgs) => { eventArgs.Cancel = true; cliCancellation.Cancel(); };
     try
     {
-        Environment.ExitCode = await UserCli.RunAsync(args, DatabaseSettings.FromConfiguration(cliConfiguration), Console.In,
-            Console.Out, Console.Error, cliCancellation.Token, Console.IsInputRedirected ? null : UserCli.ReadHiddenPassword);
+        var cliSettings = DatabaseSettings.FromConfiguration(cliConfiguration);
+        Environment.ExitCode = args[0] == "import"
+            ? await ContentImportCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
+            : args[0] == "content"
+            ? await ContentCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
+            : await UserCli.RunAsync(args, cliSettings, Console.In,
+                Console.Out, Console.Error, cliCancellation.Token, Console.IsInputRedirected ? null : UserCli.ReadHiddenPassword);
     }
     catch (OperationCanceledException)
     {
