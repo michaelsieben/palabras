@@ -28,6 +28,8 @@ export const englishExplanations = {
   'empty-no-approved-words': "No approved words yet. Words appear here once they're approved.",
   'backlog-warning': '{n} reviews are waiting, so today is reviews only — no new words.',
   'offline-pending': "Offline: {n} answers saved on this phone, sent when you're back online.",
+  'audio-spanish-fallback': 'This device only offers another variety of Spanish; its pronunciation may differ from Spanish in Spain.',
+  'audio-no-spanish-voice': 'No Spanish voice is available yet. If audio stays unavailable, install a Spanish (Spain) voice in your device settings.',
 } as const
 export type CopyKey = keyof typeof englishExplanations
 
@@ -42,6 +44,8 @@ export const spanishChrome: Record<CopyKey, string> = {
   'stop-suggestion': 'Puedes parar aquí', 'empty-nothing-due': 'Sin repasos pendientes',
   'empty-no-approved-words': 'Aún no hay palabras aprobadas',
   'backlog-warning': 'Hoy, solo repasos', 'offline-pending': 'Respuestas guardadas sin conexión',
+  'audio-spanish-fallback': 'Escuchar · otra variedad de español',
+  'audio-no-spanish-voice': 'Audio en español no disponible',
 }
 
 export type CopyValues = Readonly<Record<string, string | number | null | undefined>>

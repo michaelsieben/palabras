@@ -6,7 +6,8 @@ import { gradeAnswer } from '../src/learn/grade.ts'
 const keys = ['correct', 'correct-but-slow', 'near-miss-accent', 'accent-required', 'near-miss-case',
   'near-miss-punctuation', 'missing-article', 'wrong-gender', 'wrong', 'skipped', 'self-override',
   'forgot-hint', 'leech', 'summary-line-1', 'summary-line-2', 'stop-suggestion',
-  'empty-nothing-due', 'empty-no-approved-words', 'backlog-warning', 'offline-pending']
+  'empty-nothing-due', 'empty-no-approved-words', 'backlog-warning', 'offline-pending',
+  'audio-spanish-fallback', 'audio-no-spanish-voice']
 const answerKeys = keys.slice(0, 11).concat('leech')
 const text = nodes => nodes.map(node => node.text).join('')
 const values = { answer: 'la casa', given: 'el casa', gloss: 'house', article: 'la', genderWord: 'feminine',
