@@ -1,5 +1,12 @@
 namespace Palabras.Srs;
 
+// The only place that turns UTC into the learner's local day (plan §3, zone = users.timezone ??
+// "Europe/Madrid"). Additive read-only helpers added in S7 for the plan/forecast windows:
+// - StartOfLocalDayUtc / EndOfLocalDayUtc: "today" and its inclusive end, i.e. they read the
+//   injected TimeProvider exactly like LocalToday does (never DateTimeOffset.UtcNow).
+// - StartOfLocalDateUtc(DateOnly) / EndOfLocalDateUtc(DateOnly): pure functions of the zone and
+//   the supplied date. They read no clock and never mutate state, so callers can ask about
+//   tomorrow, a forecast day or a DST edge without inventing a second conversion.
 internal sealed class LearnerClock
 {
     private readonly TimeProvider _timeProvider;
@@ -14,8 +21,10 @@ internal sealed class LearnerClock
 
     public DateOnly LocalToday => LocalDateOf(_timeProvider.GetUtcNow());
 
+    public DateTimeOffset StartOfLocalDayUtc => StartOfLocalDateUtc(LocalToday);
+
     // Inclusive millisecond boundary, matching the persisted queue instants and SQL <= predicate.
-    public DateTimeOffset EndOfLocalDayUtc => StartOfLocalDateUtc(LocalToday.AddDays(1)).AddMilliseconds(-1);
+    public DateTimeOffset EndOfLocalDayUtc => EndOfLocalDateUtc(LocalToday);
 
     public DateOnly LocalDateOf(DateTimeOffset utc) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(utc, _zone).DateTime);
@@ -28,7 +37,9 @@ internal sealed class LearnerClock
         return (reviewedAt < earliest ? earliest : reviewedAt > latest ? latest : reviewedAt).ToUniversalTime();
     }
 
-    private DateTimeOffset StartOfLocalDateUtc(DateOnly date)
+    public DateTimeOffset EndOfLocalDateUtc(DateOnly date) => StartOfLocalDateUtc(date.AddDays(1)).AddMilliseconds(-1);
+
+    public DateTimeOffset StartOfLocalDateUtc(DateOnly date)
     {
         DateTime local = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
         // Some IANA zones advance at midnight: use the first valid instant of that local day.

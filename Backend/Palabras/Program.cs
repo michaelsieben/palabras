@@ -8,10 +8,13 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Palabras.Auth;
 using Palabras.Accounts;
+using Palabras.Learn;
 using Palabras.Persistence;
 using Palabras.Content;
+using Palabras.Srs;
+using Palabras.Backup;
 
-if (args.Length > 0 && args[0] is "user" or "import" or "content")
+if (args.Length > 0 && args[0] is "user" or "import" or "content" or "restore-progress")
 {
     var cliConfiguration = new ConfigurationBuilder().SetBasePath(AppContext.BaseDirectory)
         .AddJsonFile("appsettings.json", optional: true).AddEnvironmentVariables().Build();
@@ -20,7 +23,9 @@ if (args.Length > 0 && args[0] is "user" or "import" or "content")
     try
     {
         var cliSettings = DatabaseSettings.FromConfiguration(cliConfiguration);
-        Environment.ExitCode = args[0] == "import"
+        Environment.ExitCode = args[0] == "restore-progress"
+            ? await RestoreProgressCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
+            : args[0] == "import"
             ? await ContentImportCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
             : args[0] == "content"
             ? await ContentCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
@@ -65,6 +70,10 @@ if (removedHostFilters == 0)
 }
 builder.Services.AddSingleton<AccountPasswordHasher>();
 builder.Services.AddSingleton<AccountAuthentication>();
+// Single clock seam: nothing in Palabras.Learn or Palabras.Srs reads DateTimeOffset.UtcNow.
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddHostedService<BackupService>();
+builder.Services.AddSingleton<IScheduler, FsrsSharpScheduler>();
 var keysPath = builder.Configuration["DataProtection:KeysPath"];
 if (string.IsNullOrWhiteSpace(keysPath))
 {
@@ -107,7 +116,11 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     };
     options.Events.OnRedirectToAccessDenied = context => AuthEndpoints.WriteError(context.Response, 403, "forbidden");
 });
-builder.Services.AddAuthorization(options => options.AddPolicy("reviewer", policy => policy.RequireRole("reviewer")));
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("reviewer", policy => policy.RequireRole("reviewer"));
+    options.AddPolicy("learner", policy => policy.RequireRole("learner"));
+});
 var app = builder.Build();
 await DatabaseLifecycle.InitializeAsync(databaseSettings, app.Lifetime.ApplicationStopping);
 app.UseForwardedHeaders();
@@ -193,6 +206,8 @@ app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api"), branch 
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok", version }));
 app.MapGet("/api/ping", () => Results.Ok(new { status = "ok", version }));
 app.MapAuthEndpoints();
+app.MapLearnEndpoints();
+app.MapExportEndpoints();
 // simplification: M4 will replace this reviewer queue placeholder with real content.
 app.MapGet("/api/review/queue", () => Results.Ok(new { items = Array.Empty<object>(), note = "M4" })).RequireAuthorization("reviewer");
 app.MapFallback("/api/{**path}", () => Results.NotFound(new { error = "not_found" }));
