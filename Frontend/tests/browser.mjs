@@ -9,7 +9,7 @@ const server = await preview({ preview: { host: '127.0.0.1', port: 4173, strictP
   name: 'test-update-response',
   configurePreviewServer(server) {
     server.middlewares.use((req, res, next) => {
-      // Match production's protected .html routes: precache must use public /login + .htm.
+      // Match production's protected .html routes: precache holds no app document (not even public /login), only neutral .htm.
       if (req.url === '/guarded-navigation' || req.url === '/api/raw401') { res.statusCode = 401; res.setHeader('Content-Type', 'text/plain'); res.end('Unauthorized test response') }
       else if (req.url === '/index.html' || req.url === '/offline.html') { res.statusCode = 302; res.setHeader('Location', '/login'); res.end() }
       else if (req.url?.startsWith('/sw.js') && swOverride) { res.setHeader('Content-Type', 'text/javascript'); res.setHeader('Cache-Control', 'no-cache'); res.end(swOverride) }
@@ -138,19 +138,20 @@ try {
   await cachedAuthPage.getByRole('button', { name: 'Iniciar sesión', exact: true }).waitFor()
   assert.equal(await cachedAuthPage.getByRole('button', { name: 'Mostrar respuesta' }).count(), 0)
   const cachedPaths = await cachedAuthPage.evaluate(async () => (await Promise.all((await caches.keys()).map(async name => (await (await caches.open(name)).keys()).map(request => new URL(request.url).pathname)))).flat())
-  assert.ok(cachedPaths.includes('/login'))
+  assert.ok(!cachedPaths.includes('/login'))
   assert.ok(cachedPaths.includes('/offline.htm'))
   assert.ok(!cachedPaths.includes('/index.html'))
   assert.ok(cachedPaths.every(path => !path.startsWith('/api')))
   const rawApi = await cachedAuthPage.evaluate(async () => { const response = await fetch('/api/raw401'); return { status: response.status, body: await response.text() } })
   assert.deepEqual(rawApi, { status: 401, body: 'Unauthorized test response' })
+  await cachedAuthContext.route('**/api/auth/me', route => route.fulfill({ json: { username: 'demo', role: 'owner' } }))
   const guarded = await cachedAuthPage.goto('http://127.0.0.1:4173/guarded-navigation')
   assert.equal(guarded.status(), 401)
   assert.equal(await cachedAuthPage.locator('body').textContent(), 'Unauthorized test response')
   await cachedAuthContext.setOffline(true)
   const offlineApi = await cachedAuthPage.evaluate(async () => { try { await fetch('/api/raw401'); return 'masked' } catch { return 'network failure' } })
   assert.equal(offlineApi, 'network failure')
-  console.log(`Built bundle with active SW and precached shell: /me 401 → /login, no learner view; ${cachedPaths.length} static cached paths, no API responses.`)
+  console.log(`Built bundle with active SW, no cached app document: /me 401 → /login, no learner view; ${cachedPaths.length} static cached paths, no API responses.`)
   console.log('Active SW: raw API and navigation 401 preserved with original body; offline API rejects, never receives fallback HTML. Protected .html precache URLs avoided.')
   await cachedAuthContext.close()
   for (const viewport of [{ width: 390, height: 844 }, { width: 2000, height: 1200 }]) {
@@ -227,13 +228,10 @@ try {
   await updatePage.evaluate(async () => { await navigator.serviceWorker.ready; if (!navigator.serviceWorker.controller) await new Promise(resolve => navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true })) })
   await updatePage.getByRole('button', { name: 'Mostrar respuesta' }).click()
   swOverride = (await readFile(new URL('../dist/sw.js', import.meta.url), 'utf8')).replace(/palabras-shell-[a-f0-9]+/, 'palabras-shell-browser-update')
-  await updatePage.evaluate(async () => { const reg = await navigator.serviceWorker.getRegistration(); await reg.update() })
-  await updatePage.getByRole('button', { name: 'Actualizar y reiniciar' }).waitFor()
-  assert.equal(await updatePage.locator('.answer h3').isVisible(), true, 'update does not discard current card before confirmation')
-  await Promise.all([updatePage.waitForEvent('load'), updatePage.getByRole('button', { name: 'Actualizar y reiniciar' }).click()])
+  await Promise.all([updatePage.waitForEvent('load'), updatePage.evaluate(() => window.dispatchEvent(new Event('focus')))])
   await updatePage.getByRole('button', { name: 'Mostrar respuesta' }).waitFor()
   assert.equal(await updatePage.getByRole('button', { name: 'Actualizar y reiniciar' }).count(), 0)
-  console.log('Update flow: changed worker waits, current answer preserved; explicit refresh activates new worker and reloads shell.')
+  console.log('Update flow: focus discovers changed worker without manual update/cache clear; atomic install activates and reloads shell once.')
   await updateContext.close()
   swOverride = undefined
   const context = await browser.newContext({ serviceWorkers: 'allow' })

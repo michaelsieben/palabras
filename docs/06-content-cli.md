@@ -4,6 +4,9 @@ Shipped in T-20261018-0124 (M2 content importer and owner approval, M5 card life
 commands are in `04-accounts.md`; the learner HTTP API is in `07-learn-api.md`; the backup/restore procedure is in
 `restore-drill.md`.
 
+> The parallel `Vocabulary` model and `GET /api/words` approach (remote commit `e0e7f40`, T-20261017-1516) was
+> superseded by the `Content` schema documented here and removed during the T-20261018-2005 reconciliation.
+
 ## How the CLI runs
 
 The same binary is the web app and the CLI. When the first argument is `user`, `import`, `content` or

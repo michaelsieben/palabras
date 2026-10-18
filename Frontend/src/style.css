@@ -128,8 +128,7 @@ fieldset { border: 0; margin: 0; padding: 0; }
 .auth-skeleton span { display: block; background: var(--soft); border-radius: 10px; height: 48px; }
 .auth-skeleton span:first-child { height: 16px; width: 60%; }
 .auth-error { color: var(--warning); }
-.update-banner, .install-banner { background: var(--soft); border-radius: 16px; padding: 16px; margin-top: 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.update-banner p { font-size: .875rem; margin-bottom: 0; }
+.install-banner { background: var(--soft); border-radius: 16px; padding: 16px; margin-top: 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .debug dl { margin: 0; }
 .debug dl > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; border-bottom: 1px solid var(--line); padding: 12px 0; }
 .debug dd { margin: 0; overflow-wrap: anywhere; }
