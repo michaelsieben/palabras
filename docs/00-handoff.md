@@ -130,7 +130,7 @@ Resolved here so the next session does not trip over them.
 5. **Bare `/api`.** `runs/07-m0-fixes.md` saw 404; `runs/09-m0-final-review.md` says bare `/api`
    falls through to the SPA. Verify with a test in M1; desired behaviour is 404.
 6. **Compose folder spelling.** Resolved: `palabras`. `README.md:71,74`, `AGENTS.md` and
-   `deploy/unraid-deploy.sh:19` all use `/mnt/user/docker/palabras/`, created during setup
+   `deploy/unraid-deploy.sh:32` all use `/mnt/user/docker/palabras/`, created during setup
    (`02-open-questions.md` Q1).
 7. **README is stale.** It still describes a placeholder screen, deferred manifest and the old
    milestone numbering (M7 = service worker, M8 = backups). Use ΔG numbering (§7). README is

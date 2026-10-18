@@ -210,8 +210,14 @@ the running image by hand before any upgrade (`docs/08-upgrade-rollback.md` §E.
 An unchanged run rejects a divergent Docker-share compose instead of silently accepting it;
 restore the canonical file to resolve it. Never delete `deployed.sha` to force a rebuild: that
 disables both data guards (docs/08-upgrade-rollback.md D.5).
-After build/up it retries Docker health plus host `/healthz` for up to 36 attempts at five-second
-intervals. Failure exits non-zero and retains the last healthy SHA; there is no automatic rollback.
+After build/up the candidate must be running and serve `{"status":"ok"…}` on host `/healthz`
+within a bounded wait (default 180 s; a crash loop fails at once). If it does not, the script
+restores the image that ran before the rebuild with `docker compose up -d --no-build
+--force-recreate`, verifies it serves again, logs `deploy FAILED, rolled back` (or `rollback FAILED`
+if it cannot) and exits non-zero, retaining the last healthy SHA. The database is not restored. The
+failed candidate is recorded in `failed.image` and never tagged as a rollback target. The next poll
+retries the same target every five minutes until paused. Settings (`PALABRAS_HEALTH_*`, read from
+the script's environment, not `.env`), log lines and limits: `docs/08-upgrade-rollback.md` §F.
 
 Build identity on Unraid is wired in the repo. `deploy/unraid/docker-compose.yml` carries the `build.args`
 entry `COMMIT_SHA: "${COMMIT_SHA:-unknown}"`, and `deploy/unraid-deploy.sh` exports `COMMIT_SHA` before
@@ -242,6 +248,8 @@ it) the missing-database refusal is skipped and zero accounts is only a warning.
 - Image id of that deploy: `/mnt/user/docker/palabras/deployed.image` (`<image id> <sha>`); the next
   poll compares it with the running container.
 - Preserved rollback tags: `/mnt/user/docker/palabras/rollback-images`, oldest first, newest two kept.
+- Last candidate that failed the health gate: `/mnt/user/docker/palabras/failed.image` (`<image id> <sha>`);
+  removed by the next successful deploy.
 - Immediate manual poll: `bash /boot/config/plugins/user.scripts/scripts/palabras-auto-deploy/script`.
 - Pause: `touch /mnt/user/docker/palabras/paused`; scheduled runs exit without fetching/building.
 - Resume: `rm /mnt/user/docker/palabras/paused`, then run the wrapper manually.

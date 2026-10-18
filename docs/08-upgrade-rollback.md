@@ -25,23 +25,26 @@ progress from a JSON export in `restore-drill.md`; CLI behaviour in `06-content-
   so the result can differ from what ran. The only exact rollback target is the image ID the container was
   actually running. The rebuild-based rollback in `README.md` is a source rollback, not an image rollback.
   Since T-20261018-2105 the poll itself tags the image the container is running as
-  `palabras:rollback-<image-id12>` before every rebuild (`:291-313`), idempotently, keeping the newest two tags
-  (`ROLLBACK_KEEP=2`, manifest `$DEPLOY/rollback-images`, `:315-360`) — so a poll rebuild no longer leaves its
-  outgoing image untagged. That does not retroactively cover an image that was already untagged before the poll
-  ran, and `docker image prune -a` still removes an unused tagged image.
+  `palabras:rollback-<image-id12>` before every rebuild (`:348-372`), idempotently, keeping the newest two tags
+  (`ROLLBACK_KEEP=2`, manifest `$DEPLOY/rollback-images`, `:38-40`, `:374-419`) — so a poll rebuild no longer leaves its
+  outgoing image untagged. A running image recorded in `$DEPLOY/failed.image` is never tagged (section F). That
+  does not retroactively cover an image that was already untagged before the poll ran, and `docker image prune -a`
+  still removes an unused tagged image.
 - The poll (`deploy/unraid-deploy.sh`) rebuilds and recreates the container whenever the container is not healthy,
-  the running container's image id is not the one the recorded sha deployed, or `origin/main` moved (`:431-492`).
+  the running container's image id is not the one the recorded sha deployed, or `origin/main` moved (`:584-626`).
   A stopped container therefore gets rebuilt within five minutes unless polling is paused. The pause file is
-  checked only after the run takes its lock (`:32-33`, `:363-366`), so a run already in progress finishes.
+  checked only after the run takes its lock (`:49-50`, `:513-516`), so a run already in progress finishes. Since
+  `884d663` a rebuilt candidate that does not serve `/healthz` within a bounded wait is replaced by the image that
+  ran before the rebuild (section F); the database is not restored.
 - Poll data guards, all enforced only once `deployed.sha` exists. The data directory is `APPDATA_PATH` parsed from
-  `$DEPLOY/.env` (`:76-94`, `:370-376`). (1) Before any fetch, a missing, symlinked, non-regular or 0-byte
-  `palabras.db` there aborts the run without writing `deployed.sha` (`:101-129`, `:376`); nothing is recreated.
+  `$DEPLOY/.env` (`:117-135`, `:519-525`). (1) Before any fetch, a missing, symlinked, non-regular or 0-byte
+  `palabras.db` there aborts the run without writing `deployed.sha` (`:142-170`, `:526`); nothing is recreated.
   (2) Before every rebuild, `palabras.db`, its `-wal`/`-shm` and `keys/` are copied with `cp -a` to
-  `$DEPLOY/backups/<UTC stamp>-<sha7>/`, newest 5 kept; any copy failure aborts (`:135-196`, `:488`). The copy is
+  `$DEPLOY/backups/<UTC stamp>-<sha7>/`, newest 5 kept; any copy failure aborts (`:176-237`, `:640`). The copy is
   taken without stopping the app, so it may need WAL recovery; prefer A step 6 for an upgrade. (3) After a rebuild
   and on every unchanged healthy poll, `docker exec palabras dotnet /app/Palabras.dll user list` must print a `ROLE`
   header and at least one account, and no fewer than the pre-rebuild count; otherwise the poll exits non-zero and
-  keeps the previous `deployed.sha`, even with the container healthy (`:198-243`, `:460`, `:499`). Without
+  keeps the previous `deployed.sha`, even with the container healthy (`:241-284`, `:610`, `:671`). Without
   `deployed.sha`, guard 1 is skipped and zero accounts is only a warning, so deleting it disables both for that run.
 - Recreating the container sends SIGTERM, then SIGKILL after the stop timeout. A SIGKILL during a migration can leave
   the EF migration lock behind (branch B below).
@@ -61,7 +64,8 @@ was not checked; provide one before starting. This runbook does not install anyt
 example the first deploy containing `ContentSchema` and `SrsCards`).
 
 **Preconditions:** downtime agreed; the production container exists (running or stopped) so its image ID can be
-read; free space checked in step 4.
+read; free space checked in step 4; a verified restore point exists before the migration (step 6, and section F
+"Backup expectation"). Production had no backup of any kind until 2026-10-18; never deploy without one again.
 
 ### Steps
 
@@ -170,8 +174,10 @@ read; free space checked in step 4.
    docker logs -f palabras                        # watch migrations finish; Ctrl-C stops only the log view
    ```
 
-   If `/healthz` is not reached within about three minutes (the poll's own limit, `deploy/unraid-deploy.sh:493-518`)
-   and the log stops at the migration lock, go to branch B. Any other failure: go to rollback.
+   If `/healthz` is not reached within about three minutes (the poll's default gate, `PALABRAS_HEALTH_TIMEOUT=180`,
+   `deploy/unraid-deploy.sh:83`; section F) and the log stops at the migration lock, go to branch B. Any other
+   failure: go to rollback. This manual upgrade bypasses the poll, so the poll's automatic image rollback does not
+   apply to it.
 
 ### Verification (acceptance)
 
@@ -529,7 +535,7 @@ let the next real upgrade do it.
   from branch B.
 - `$ROLLBACK_TAG` (the image tag created in A step 3) and any other image tagged from the running container: the
   exact running image ID is the only faithful rollback target; anything rebuilt from source is *not* a rollback.
-- `deployed.sha`: deleting it disables both poll data guards (`docs/08-upgrade-rollback.md:40`) and must never be used
+- `deployed.sha`: deleting it disables both poll data guards ("Facts", poll data guards) and must never be used
   to force a deployment through.
 - `$DEPLOY/backups/` (the poll's `cp -a` snapshots) — newest 5 kept automatically; do not prune them to free space for
   anything short of a proven-successful next upgrade.
@@ -655,7 +661,7 @@ is still the anchor until the next poll rebuild; the wiring itself is verified b
   **paused, unscheduled, or failing before its rebuild step** — not merely "lagging" (`12-prod-drift.md` §0).
 - **Host-only facts that tell those three apart** (inside `/mnt/user/docker/palabras`, not readable from the repo
   container; `12-prod-drift.md` §5):
-  1. `ls -la /mnt/user/docker/palabras/` — a `paused` file explains zero rebuilds (`deploy/unraid-deploy.sh:363-366`).
+  1. `ls -la /mnt/user/docker/palabras/` — a `paused` file explains zero rebuilds (`deploy/unraid-deploy.sh:513-516`).
   2. `cat /mnt/user/docker/palabras/deployed.sha` — which sha the poll believes is deployed, and whether it is
      consistent with the running image (see E.3, limitation A).
   3. `tail -n 100 /mnt/user/docker/palabras/deploy.log` — poll cadence, `paused; no fetch or rebuild`,
@@ -666,9 +672,11 @@ is still the anchor until the next poll rebuild; the wiring itself is verified b
 
 ### E.2 What the next successful deploy is
 
-If the operator pushes local `main`, the poll's full deploy path runs (guard-2 snapshot → compose mirror →
-preserve the running image as `palabras:rollback-<image-id12>`, newest two kept (E.3 item 5) → rebuild → recreate →
-180 s health → accounts guard): a **jump of at least ~37 commits** (37–38 measured at `3a6b4c9`; local `main` has
+If the operator pushes local `main`, the poll's full deploy path runs (preserve the running image as
+`palabras:rollback-<image-id12>`, newest two kept (E.3 item 5) → guard-2 snapshot → compose mirror → rebuild →
+recreate → bounded `/healthz` gate, with automatic image rollback on failure since `884d663` (section F) →
+accounts guard; order per `deploy/unraid-deploy.sh:637-671`): a **jump of at least ~37 commits** (37–38 measured
+at `3a6b4c9`; local `main` has
 moved on since, so count again from the running image's source commit in E.1, e.g.
 `git rev-list --count a4fe119..main`) **carrying five migrations** (`InitialAccounts`, `ContentSchema`, `SrsCards`,
 `DayStatusAndSkips`, `RolloverCutoverMarker`), the M6 frontend and service worker, and the M7 service. The poll now
@@ -676,10 +684,11 @@ also rebuilds when the running image id differs from the recorded one (E.3 item 
 image silently. A small fix pushed on top of `origin/main` without the M7 commits was measured as a ~32-commit jump
 with three migrations (`12-prod-drift.md` §3). This changes the risk relative to a small increment:
 
-- Migrations apply at startup on the live database, with no backup taken first and no automatic rollback; if the
-  new container never turns healthy, the old container is **already replaced** — the script only logs and
-  instructs manual rollback (`deploy/unraid-deploy.sh:517-518`; "Facts" section). Recreating the container sends
-  SIGTERM→SIGKILL, which can strand the EF migration lock (section B).
+- Migrations apply at startup on the live database, with no backup taken by the app first. At measurement time the
+  poll had no automatic rollback: a candidate that never turned healthy stayed live and the script only logged
+  (`24-m1-upgrade-drill.md` §7). Since `884d663` the poll restores the previous **image** when the candidate fails
+  its `/healthz` gate (section F), but the database stays migrated. Recreating the container sends SIGTERM→SIGKILL,
+  which can strand the EF migration lock (section B).
 - The frontend jump replaces the M1 shell with the M6 learner UI, its IndexedDB attempt queue and the hardened
   service worker; clients holding the old bundle interact with a new backend during rollout (`12-prod-drift.md` §4).
 - The M7 rollover gate ships **default-OFF** — `M7__DayRolloverEnabled` absent/`false` keeps the job from writing;
@@ -692,12 +701,12 @@ with three migrations (`12-prod-drift.md` §3). This changes the risk relative t
 Each of these is stated as measured behaviour of `deploy/unraid-deploy.sh` or recorded evidence; none is a
 prediction about cause.
 
-1. **`check_clean` fails first.** The script refuses on any tracked local edit (`deploy/unraid-deploy.sh:59-70`,
-   invoked at `:382-383`); the working tree currently has 13 modified tracked files, so the poll fails
+1. **`check_clean` fails first.** The script refuses on any tracked local edit (`deploy/unraid-deploy.sh:100-111`,
+   invoked at `:532-533`); the working tree currently has 13 modified tracked files, so the poll fails
    `tracked local edits; refusing to deploy` and keeps the last healthy `deployed.sha` (`12-prod-drift.md` §3).
 2. **The fast-forward guard.** With a clean tree, the poll still refuses because local `main` (`3a6b4c9`) is not an
    ancestor of the target `origin/main` (`42e285d`) — `origin/main is not a fast-forward; refusing reset/force`
-   (`deploy/unraid-deploy.sh:422-430`). Neither guard path runs a build.
+   (`deploy/unraid-deploy.sh:572-580`). Neither guard path runs a build.
 3. **Limitation — the no-op path never checked the running image id (fixed by T-20261018-2105).** At measurement
    time the unchanged-branch condition compared the poll's recorded `deployed.sha` with the target and the
    container's *health*; it never compared the container's running image id (then `deploy/unraid-deploy.sh:306-314`).
@@ -706,21 +715,21 @@ prediction about cause.
    never self-corrects. The mechanism is repo-verified; **whether it is the actual cause of this drift cannot be
    decided from here** — `deploy.log` and `deployed.sha` are host-only (E.1 item lists; `12-prod-drift.md` §2).
    The poll now records the image id of every accepted deploy in `$DEPLOY/deployed.image` and treats a running
-   container whose image id differs from that record as "needs deploy" (`:434-466`), so this class of silent drift
+   container whose image id differs from that record as "needs deploy" (`:584-617`), so this class of silent drift
    self-corrects instead of persisting. Two residual gaps are deliberate and logged, not silent: with no image
    record for the target sha (a hand-written `deployed.sha`, or a deployment recorded before this change) the
    match falls back to the tag `palabras:local` and is logged as unverified, and the poll still consults no CI
    (item 4 below).
 4. **Limitation — the poll does not consult CI at all.** The only pre-build checks are branch, tree cleanliness,
    data, fast-forward and now the running-image comparison; there is no CI-status check, no build/test preflight,
-   and the poll goes straight to `docker compose up -d --build` (`deploy/unraid-deploy.sh:431-492`). At
+   and the poll goes straight to `docker compose up -d --build` (`deploy/unraid-deploy.sh:584-657`). At
    measurement time `origin/main` CI was red (run `39154226392` on `42e285d`, per `12-prod-drift.md` §2) and the
    poll would have built it anyway.
 5. **Limitation — the pre-upgrade image was untagged (fixed for future rebuilds by T-20261018-2105).**
    `docker compose up -d --build` re-points the single floating tag `palabras:local`; the previously running image
    loses its tag and survives only as a dangling image — exactly today's state of `93d874b09d4f`
    (`12-prod-drift.md` §2, "Image tagging: none"). The poll now
-   tags the running image `palabras:rollback-<image-id12>` before it rebuilds (`:291-360`) and keeps the newest two
+   tags the running image `palabras:rollback-<image-id12>` before it rebuilds (`:348-419`) and keeps the newest two
    (manifest `$DEPLOY/rollback-images`). **Today's image stays untagged until a rebuild happens**, so E.4 step 1
    is still required for it.
 
@@ -744,7 +753,7 @@ are cited, not duplicated. `$DEPLOY`, `$DATA`, `$SAFE`, `$STAMP` as in section A
    Use section A step 3's exact commands; the tag name must encode that this is the currently running image
    (`palabras:local` will change meaning at the rebuild). Never prune until the upgrade is accepted.
    Since T-20261018-2105 the poll does this by itself for rebuilds it performs: it tags the running image
-   `palabras:rollback-<image-id12>` and keeps the newest two (`:291-360`). This manual step is still required for
+   `palabras:rollback-<image-id12>` and keeps the newest two (`:348-419`). This manual step is still required for
    today's already-untagged artifact and whenever polling is paused; a hand tag whose name does not start with
    `palabras:rollback-` is never touched by the poll's own pruning.
 2. **Pause the poll and diagnose first.** `touch "$DEPLOY/paused"`, wait for the lock, then read the host-only
@@ -791,3 +800,127 @@ Everything factual about production that this file cannot check from the repo co
 Proven only locally and to be labelled as such in any record: the backup round trip on synthetic data
 (`06-backup-roundtrip-evidence.md` §0) and the rollback drill on a scratch DB (`08-rollback-drill.md` §2). Neither
 has been executed against production.
+
+## F. Poll health gate and automatic image rollback (since `884d663`)
+
+Behaviour of `deploy/unraid-deploy.sh` from commit `884d663`. The host runs it only once that commit is on
+`origin/main` and the host checkout has fast-forwarded to it; until then the host runs the previous script, which
+left a failed candidate live (`24-m1-upgrade-drill.md` §7). Evidence: `30-poll-health-gate.md` (script harness with
+stubbed docker/git/curl, and a real-container run of the gate with test containers, never the production
+container). The deploy path has not run through the host's User Scripts schedule.
+
+**Why it exists.** The previous poll replaced the container before health was proven and, on failure, only logged.
+The broken candidate stayed live, and each later poll tagged that running candidate into the newest-two
+`rollback-*` rotation, so two more polls could untag the last good image (`24-m1-upgrade-drill.md` §7).
+
+### F.1 Deploy sequence
+
+1. Preserve the running image as `palabras:rollback-<image-id12>` and remember it as the rollback target
+   (`:637-639`), take the guard-2 backup, rebuild and recreate (`:640-657`).
+2. **Gate** (`wait_for_health`, `:429-469`): each attempt reads the container state and restart count. The
+   candidate passes only when it is `running` and `curl --fail` on `PALABRAS_HEALTH_URL` returns a body containing
+   `"status":"ok"`. A container that is `restarting`, `exited`, `dead`, `removing` or `paused`, or that is running
+   but has restarted and is not serving, fails at once as a crash loop. Otherwise the gate retries every
+   `PALABRAS_HEALTH_INTERVAL` seconds until `PALABRAS_HEALTH_TIMEOUT` and then fails; it never sleeps past the
+   deadline, so a run cannot hang.
+3. **Success:** the account check runs (`:671`), then `deployed.image`, `deployed.sha` are written, `failed.image`
+   is removed, and `DEPLOY OK` is logged (`:672-685`). The accepted image becomes the rollback target the next
+   rebuild preserves.
+4. **Failure** (`:662-668`, `rollback_previous_image` `:487-510`): the candidate's image id is written to
+   `failed.image`, its last 30 log lines go to `deploy.log`, then `palabras:local` is re-pointed to the previous image
+   and the container is recreated with `docker compose … up -d --no-build --force-recreate`. The restored container
+   must pass the same gate and the account check; only then the run logs `rollback ok` and exits 1 with
+   `deploy FAILED, rolled back`. `deployed.sha` and `deployed.image` keep naming the last healthy deploy. If there is
+   no previous image (container was absent), the preserved tag is missing, the recreate fails, or the restored image
+   does not serve, the run logs `rollback FAILED …` and exits 1; the candidate may still be live.
+
+**A failed candidate is never retained as a rollback target.** While a running image matches `failed.image`, the
+preserve step logs `preserve skipped: … recorded as failed …` and creates no tag and no manifest entry (`:358-361`),
+so a failed candidate cannot push the last good image out of the `ROLLBACK_KEEP=2` rotation. The rollback itself
+adds no manifest entry: the previous image was already recorded by the preserve step of the same run.
+
+**The rollback restores the binary, not the data.** The restored image starts on the database the candidate may
+already have migrated. That is option R-A; on an M7 deploy its compatibility evidence is D.2.
+
+### F.2 Settings and state files
+
+The `PALABRAS_HEALTH_*` variables are read from the environment of the script process (`:65-87`). The script does
+not read them from `$DEPLOY/.env`; set them in the User Scripts wrapper that runs the script. A value that is not a
+positive whole number falls back to the default with a `WARN` line.
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `PALABRAS_HEALTH_TIMEOUT` | `180` | Seconds for the whole gate, used for the candidate and again for the restored image. |
+| `PALABRAS_HEALTH_INTERVAL` | `5` | Seconds between attempts. |
+| `PALABRAS_HEALTH_MAX_TIME` | `5` | `curl --max-time` for one attempt. |
+| `PALABRAS_HEALTH_URL` | `http://127.0.0.1:18480/healthz` | Endpoint that must serve. Not validated. |
+
+The URL default hardcodes port 18480. The compose publishes `127.0.0.1:${APP_PORT:-18480}`
+(`deploy/unraid/docker-compose.yml:20`), so if `APP_PORT` is set in `$DEPLOY/.env`, set `PALABRAS_HEALTH_URL` to
+the same port, or every deploy fails the gate and is rolled back.
+
+State files in `$DEPLOY` (`/mnt/user/docker/palabras`):
+
+| File | Content | Written |
+| --- | --- | --- |
+| `deployed.sha` | last healthy sha | only on `DEPLOY OK` |
+| `deployed.image` | `<image id> <sha>` of that deploy | only on `DEPLOY OK` |
+| `rollback-images` | preserved `palabras:rollback-*` tags, oldest first, newest 2 kept | before each rebuild |
+| `failed.image` | `<image id> <sha>` of the last candidate that failed the gate | on gate failure; removed on `DEPLOY OK` |
+
+### F.3 Reading the outcome in `deploy.log`
+
+| Line | Meaning |
+| --- | --- |
+| `health ok (post-deploy sha=…)` followed by `DEPLOY OK sha=…` | candidate accepted and recorded |
+| `health FAILED (post-deploy …)`, `candidate FAILED the health gate`, `failed candidate recorded:` | candidate rejected; rollback starts |
+| `rollback ok (…)` followed by `ERROR deploy FAILED, rolled back sha=…` | previous image restored and serving; contained |
+| `rollback FAILED (…)` | **not** contained; the failed candidate may be live |
+| `preserve skipped: running image … recorded as failed` | a later poll found the failed candidate running and did not tag it |
+| `preserve FAILED` | the run stopped before the rebuild; unrelated to the gate |
+| `account check FAILED (post-rollback …)` | the restored image serves but its account check failed |
+
+```bash
+grep -n 'DEPLOY OK\|health ok (post-deploy\|candidate FAILED the health gate\|failed candidate recorded\|rollback ok\|deploy FAILED, rolled back\|rollback FAILED\|preserve FAILED\|preserve skipped' \
+     /mnt/user/docker/palabras/deploy.log | tail -n 20
+cat /mnt/user/docker/palabras/failed.image 2>/dev/null || echo 'no failed candidate recorded'
+```
+
+**A failing target is retried every five minutes.** `deployed.sha` is not advanced, so each scheduled run rebuilds
+the same target, fails the gate and rolls back again. The poll does not pause itself. Repeated `deploy FAILED,
+rolled back sha=<same sha>` lines mean a persistently failing target: `touch "$DEPLOY/paused"`, then work the
+failure as in E.4 and the Rollback section. On `rollback FAILED`, pause at once and preserve the container logs and
+database set (Rollback step 2) before anything else.
+
+### F.4 What this does not cover
+
+- **Data damage.** A migration that corrupts or truncates data, or a vanished `/data`, is not detected by `/healthz`;
+  a fresh account-less database answers 200 (`24-m1-upgrade-drill.md` §5c). Only the data guards and backups in
+  "Facts" catch or recover it, and R-B (restore a database set) stays a manual decision.
+- **A rollback target that was never tagged.** With no running container before the rebuild (first deploy), or a
+  preserved tag removed outside the poll (`docker image prune -a`), there is nothing to restore and the run logs
+  `rollback FAILED`. The already-untagged image of E.1 still needs E.4 step 1.
+- **A broken candidate that answers 200.** The gate proves the app serves and reaches its database, not that
+  content, SRS or day behaviour is correct.
+- **CI.** The poll still builds a commit whose CI is red (E.3 item 4).
+- **A compose-level rollback on the host.** The rollback's `docker compose … up -d --no-build --force-recreate` was
+  run only against stubbed docker in the harness. The real-container run replaced it with `docker rm` and
+  `docker run`, because the environment it ran in has no compose plugin (`docker: unknown command: docker compose`;
+  `30-poll-health-gate.md` §5). The first real automatic rollback through the host's compose is also its first test.
+- **A stranded EF migration lock.** Recreating a candidate that is still migrating sends SIGTERM→SIGKILL (section B).
+  If the restored image then does not serve, the run logs `rollback FAILED`; clearing the lock stays manual.
+
+### F.5 Backup expectation
+
+Before 2026-10-18, production had no backups: no app backup and no pre-upgrade set. For the M7 jump, the
+orchestrator recorded a pre-deploy copy at `/data/backups/palabras-pre-m7-20261018-231805.db` (inside the
+container; on the host under `$DATA/backups/`), with `PRAGMA integrity_check` `ok`, 3 migrations, 2 users and
+0 words. This docs step did not re-check that file. The same baseline (integrity `ok`, `InitialAccounts`,
+`ContentSchema`, `SrsCards`, 2 users, 0 words) was measured on a copy of the live database at 2026-10-18 23:21 CEST
+(`31-prod-content-load.md` §2).
+
+Expectation for every future deploy: a verified restore point taken **before** the new image migrates, either the
+A step 6 set (database, its own `-wal`/`-shm`, and `keys/`, with the app stopped) or at least a `VACUUM INTO` copy
+whose integrity check prints `ok`, recorded with its path, migration list and account count. The poll's guard-2
+copy is taken with the app running and is not a substitute for an upgrade (Facts, guard 2). Files under
+`$DATA/backups/` sit inside the data directory and do not contain `keys/` (D.7).
