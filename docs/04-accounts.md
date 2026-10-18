@@ -53,5 +53,8 @@ can override it (relative paths resolve under `DATA_DIR`). On Unraid `/data` is 
 `/app/Palabras` is the Linux apphost published in the image. The equivalent fallback is
 `docker exec -it palabras dotnet /app/Palabras.dll user list`.
 
+The Unraid deploy poll runs `user list` (without `-it`) as its acceptance check: zero accounts fails the poll
+(`../README.md`, "Automatic updates, pause and rollback").
+
 This step supplies persistence and the CLI only. Existing configuration-backed web auth is
 not changed here; the next step connects login/logout and route protection to these accounts.

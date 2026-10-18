@@ -49,7 +49,7 @@ curl --fail http://127.0.0.1:18480/healthz
 docker compose down
 ```
 
-Expected health JSON: `{"status":"ok","version":"0.0.1.0"}`. `/healthz` also opens the configured SQLite file and runs `SELECT 1`; when the database is unreachable it answers HTTP 503 with `{"status":"unhealthy","component":"database","version":"0.0.1.0"}`, so the compose healthcheck and the deploy poll cannot report a database-less container as healthy. `/api/ping` returns the same shape as a successful `/healthz` but does not check the database. Unknown API paths return 404; other extensionless paths use SPA fallback.
+Expected health JSON: `{"status":"ok","version":"0.0.1.0"}`. `/healthz` also opens the configured SQLite file and runs `SELECT 1`; when the database is unreachable it answers HTTP 503 with `{"status":"unhealthy","component":"database","version":"0.0.1.0"}`, so the compose healthcheck and the deploy poll cannot report a database-less container as healthy. It does not inspect data: a freshly created database with zero accounts still answers 200 (the deploy poll's account check covers that). `/api/ping` returns the same shape as a successful `/healthz` but does not check the database. Unknown API paths return 404; other extensionless paths use SPA fallback.
 
 ## Content authoring
 
@@ -89,7 +89,10 @@ server-owned and never overwritten by updates. The root compose is local-develop
 
 SQLite must not use the shfs/FUSE `/mnt/user` layer: locking semantics can cause errors or
 corruption. `/mnt/user/repos` and `/mnt/user/docker` are fine for source/configuration; use the
-direct cache-pool path for data, and keep the appdata share on that pool. Changing `APPDATA_PATH`
+direct cache-pool path for data. That path only stays populated if the Unraid mover never moves
+it: the share holding it must use cache mode Only (or Prefer), not Yes (cache → array). On
+2026-10-18 the `appdata` share was Yes, the mover moved the data to the array and the app started
+on an empty `/data`; see `docs/08-upgrade-rollback.md` section C. Changing `APPDATA_PATH`
 later does not move data; stop the app and migrate SQLite sidecars, keys and backups too.
 
 ### One-time private GitHub authentication
@@ -191,6 +194,18 @@ restore the canonical file, or remove `deployed.sha` and run the wrapper to forc
 After build/up it retries Docker health plus host `/healthz` for up to 36 attempts at five-second
 intervals. Failure exits non-zero and retains the last healthy SHA; there is no automatic rollback.
 
+Data guards (T-20261018-1547). The data directory is `APPDATA_PATH` read from the deployed `.env`.
+Once `deployed.sha` exists, every unpaused poll first refuses to run (before fetching) when
+`palabras.db` there is missing, a symlink, not a regular file or 0 bytes; it never writes
+`deployed.sha` or recreates data. Before every rebuild it copies `palabras.db`, its `-wal`/`-shm`
+and `keys/` to `/mnt/user/docker/palabras/backups/<UTC stamp>-<sha7>/` (newest 5 kept); a failed
+copy aborts the deploy. After a rebuild, and on every unchanged healthy poll, it runs
+`docker exec palabras dotnet /app/Palabras.dll user list`: zero accounts, fewer accounts than counted
+before the rebuild, or a CLI that fails or prints no `ROLE` header exits non-zero without recording
+the SHA, even when the container is healthy. Without `deployed.sha` (first deploy, or after deleting
+it) the missing-database refusal is skipped and zero accounts is only a warning. The guards detect data loss but cannot prevent it; see
+`docs/08-upgrade-rollback.md` ("C. Data directory emptied by the Unraid mover").
+
 - Log: `/mnt/user/docker/palabras/deploy.log`, rotated at 1 MiB, three historical files.
 - Last healthy deployed commit: `/mnt/user/docker/palabras/deployed.sha`.
 - Immediate manual poll: `bash /boot/config/plugins/user.scripts/scripts/palabras-auto-deploy/script`.
@@ -247,7 +262,7 @@ Android Chrome only (OnePlus 15 and OnePlus Tab 3). Manifest, icons, service wor
 
 ## Backup/restore
 
-No database or backup implementation in M0. `/data` is reserved for SQLite, keys and backups. On Unraid, keep `/mnt/cache/appdata/palabras` (or the equivalent pool path) inside the `appdata` share and include that share in the appdata backup strategy. Automated backup and a tested restore procedure arrive in M8. Container recreation and `docker compose down` preserve the bind directory; do not delete it.
+No database or backup implementation in M0. `/data` is reserved for SQLite, keys and backups. On Unraid, keep `/mnt/cache/appdata/palabras` (or the equivalent pool path) on a share whose cache mode is Only or Prefer (see "Layout and prerequisites") and include it in the appdata backup strategy. Automated backup and a tested restore procedure arrive in M8. Container recreation and `docker compose down` preserve the bind directory; do not delete it.
 
 ## Milestone implementation notes
 
