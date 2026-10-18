@@ -12,6 +12,10 @@ progress from a JSON export in `restore-drill.md`; CLI behaviour in `06-content-
 - The app migrates before it serves: `Program.cs:125` awaits `DatabaseLifecycle.InitializeAsync`, which calls EF
   `MigrateAsync` (`DatabaseLifecycle.cs:7-13`). No backup is taken first. The nightly backup service starts only
   after startup, so it never protects the first migration.
+- `/healthz` opens the configured SQLite file and runs `SELECT 1`; when that fails it answers HTTP 503 with a JSON
+  body naming the `database` component. The compose healthcheck and the deploy poll therefore cannot report a
+  database-less container as healthy. Startup itself is unchanged: a missing database file is still created and
+  migrated before the app serves.
 - Every CLI verb except `import --dry-run` and `restore-progress` also migrates, **including `content status`**
   (`06-content-cli.md`, CLI rules). The CLI from a newer clone upgrades whatever database it points at.
 - The Unraid compose (`deploy/unraid/docker-compose.yml:6-9`) builds `palabras:local` from the host clone. Rebuilding

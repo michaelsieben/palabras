@@ -203,7 +203,21 @@ var staticOptions = new StaticFileOptions
 };
 app.UseDefaultFiles();
 app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api"), branch => branch.UseStaticFiles(staticOptions));
-app.MapGet("/healthz", () => Results.Ok(new { status = "ok", version }));
+// The compose healthcheck and the deploy poll trust this endpoint, so it must prove the database is
+// reachable too: a container whose SQLite file disappeared would otherwise stay "healthy" indefinitely.
+// The success body stays byte-identical because the poll's `curl --fail` and the compose healthcheck
+// depend on it; failures answer 503 and never repeat the path, connection string or exception detail.
+app.MapGet("/healthz", async (HttpContext context) =>
+{
+    if (await DatabaseHealth.CanReachAsync(databaseSettings, context.RequestAborted))
+    {
+        return Results.Ok(new { status = "ok", version });
+    }
+    app.Logger.LogWarning("Health check failed: the database is not reachable.");
+    return Results.Json(
+        new { status = "unhealthy", component = "database", version },
+        statusCode: StatusCodes.Status503ServiceUnavailable);
+});
 app.MapGet("/api/ping", () => Results.Ok(new { status = "ok", version }));
 app.MapAuthEndpoints();
 app.MapLearnEndpoints();

@@ -28,6 +28,40 @@ public sealed class M0ApiTests
     }
 
     [Fact]
+    public async Task HealthzReturnsServiceUnavailableWhenDatabaseIsUnreachable()
+    {
+        using var factory = new M0ApplicationFactory();
+        using var client = factory.CreateHttpClient();
+        using (var healthy = await client.GetAsync("/healthz", CancellationToken.None))
+        {
+            Assert.Equal(HttpStatusCode.OK, healthy.StatusCode);
+        }
+
+        // Simulate the incident without touching startup: the file existed when the app booted and then
+        // vanished. A probe that opens with ReadWriteCreate would recreate it empty and answer 200, so
+        // this deletes the file exactly as the incident did and asserts it stays gone.
+        File.Delete(factory.DatabasePath);
+        File.Delete(factory.DatabasePath + "-wal");
+        File.Delete(factory.DatabasePath + "-shm");
+        Assert.False(File.Exists(factory.DatabasePath));
+
+        using var response = await client.GetAsync("/healthz", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        var content = await response.Content.ReadAsStringAsync(CancellationToken.None);
+        using var body = JsonDocument.Parse(content);
+        Assert.Equal("unhealthy", body.RootElement.GetProperty("status").GetString());
+        Assert.Equal("database", body.RootElement.GetProperty("component").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(body.RootElement.GetProperty("version").GetString()));
+        // No filesystem path or exception detail may reach the unauthenticated caller.
+        Assert.DoesNotContain(factory.DatabasePath, content);
+        Assert.DoesNotContain("Sqlite", content, StringComparison.OrdinalIgnoreCase);
+        // The probe must not have a write side effect: reporting unhealthy may not recreate the database.
+        Assert.False(File.Exists(factory.DatabasePath));
+    }
+
+    [Fact]
     public async Task PingReturnsDocumentedStatusAndVersionJsonShape()
     {
         using var factory = new M0ApplicationFactory();
@@ -143,6 +177,7 @@ public sealed class M0ApiTests
         private readonly string _root = Path.Combine(Path.GetTempPath(), "Palabras.Tests", Guid.NewGuid().ToString("N"));
 
         internal string MissingDataDirectory => Path.Combine(_root, "data");
+        internal string DatabasePath => Path.Combine(MissingDataDirectory, "palabras.db");
 
         internal M0ApplicationFactory()
         {

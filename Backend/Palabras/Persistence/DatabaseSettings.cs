@@ -24,11 +24,14 @@ internal sealed record DatabaseSettings(string FilePath)
         return new DatabaseSettings(Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(directory, path)));
     }
 
-    internal PalabrasDbContext CreateContext()
+    // The default keeps every existing caller on ReadWriteCreate. The health probe passes ReadWrite so a
+    // missing file fails the probe instead of being silently recreated empty.
+    internal PalabrasDbContext CreateContext(SqliteOpenMode mode = SqliteOpenMode.ReadWriteCreate)
     {
         var connection = new SqliteConnectionStringBuilder
         {
             DataSource = FilePath,
+            Mode = mode,
             ForeignKeys = true,
             // Separate short-lived CLI processes must never keep pooled handles across reset.
             Pooling = false,

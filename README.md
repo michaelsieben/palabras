@@ -49,7 +49,7 @@ curl --fail http://127.0.0.1:18480/healthz
 docker compose down
 ```
 
-Expected health JSON: `{"status":"ok","version":"0.0.1.0"}`. `/api/ping` returns the same shape. Unknown API paths return 404; other extensionless paths use SPA fallback.
+Expected health JSON: `{"status":"ok","version":"0.0.1.0"}`. `/healthz` also opens the configured SQLite file and runs `SELECT 1`; when the database is unreachable it answers HTTP 503 with `{"status":"unhealthy","component":"database","version":"0.0.1.0"}`, so the compose healthcheck and the deploy poll cannot report a database-less container as healthy. `/api/ping` returns the same shape as a successful `/healthz` but does not check the database. Unknown API paths return 404; other extensionless paths use SPA fallback.
 
 ## Content authoring
 
