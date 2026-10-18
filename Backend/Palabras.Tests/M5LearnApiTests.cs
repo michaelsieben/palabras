@@ -1,3 +1,4 @@
+using System.Data;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
@@ -5,6 +6,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -788,6 +790,230 @@ public sealed class M5LearnApiTests
             Assert.Equal(12, body.RootElement.GetProperty("counts").GetProperty("newOffered").GetInt32());
         }
     }
+
+    [Fact]
+    public async Task OverlappingDistinctAttemptsDoNotLoseCardMemory()
+    {
+        // The release-risk counterexample: two flushes for one card, the second one's preload
+        // completed before the first committed. The batch must take the write lock before it
+        // reads, so the second attempt sees reps/last_review from the first and applies on top.
+        var firstReview = Now.AddMinutes(-10);
+        var secondReview = Now.AddMinutes(-5);
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela");
+            AddCard(database, 1, 1, state: CardState.Review, dueMs: Now.ToUnixTimeMilliseconds());
+        });
+        var results = await WhileAnotherWriterHoldsTheLockAsync(factory,
+            async database =>
+            {
+                var card = await database.Cards.SingleAsync(candidate => candidate.Id == 1);
+                card.Reps = 1;
+                card.LastReviewMs = firstReview.ToUnixTimeMilliseconds();
+                card.DueMs = firstReview.AddDays(1).ToUnixTimeMilliseconds();
+                database.ReviewLogs.Add(Success("overlap-first", 1, 1, firstReview.ToUnixTimeMilliseconds()));
+                await database.SaveChangesAsync(CancellationToken.None);
+            },
+            async () =>
+            {
+                await using var database = factory.OpenDatabase();
+                return await ApplyAsync(factory, database, Normalize(Request(1, secondReview)));
+            });
+
+        var result = Assert.Single(results);
+        Assert.Equal(AttemptStatus.Applied, result.Status);
+        using var verify = factory.OpenDatabase();
+        var stored = await verify.Cards.SingleAsync(candidate => candidate.Id == 1);
+        Assert.Equal(2, stored.Reps);
+        Assert.Equal(secondReview.ToUnixTimeMilliseconds(), stored.LastReviewMs);
+        Assert.Equal(secondReview.AddDays(1).ToUnixTimeMilliseconds(), stored.DueMs);
+        var logs = await verify.ReviewLogs.OrderBy(log => log.ReviewedAtMs).ToListAsync();
+        Assert.Equal(2, logs.Count);
+        Assert.All(logs, log => Assert.True(log.CountsForSrs));
+    }
+
+    [Fact]
+    public async Task OverlappingDuplicateAttemptIdAnswersDuplicateInsteadOfFiveHundred()
+    {
+        // Same client_attempt_id on both sides of the interleaving. The duplicate set has to be
+        // read under the write lock, otherwise the insert loses to the UNIQUE index -> 500.
+        var reviewedAt = Now.AddMinutes(-10);
+        var clientId = Guid.NewGuid().ToString();
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela");
+            AddCard(database, 1, 1, state: CardState.Review, dueMs: Now.ToUnixTimeMilliseconds());
+        });
+        var results = await WhileAnotherWriterHoldsTheLockAsync(factory,
+            async database =>
+            {
+                var card = await database.Cards.SingleAsync(candidate => candidate.Id == 1);
+                card.Reps = 1;
+                card.LastReviewMs = reviewedAt.ToUnixTimeMilliseconds();
+                database.ReviewLogs.Add(new ReviewLog
+                {
+                    ClientAttemptId = clientId, UserId = 1, WordId = 1, CardId = 1, CardEpoch = 0,
+                    SessionId = "s", Rating = Rating.Good, ReviewedAtMs = reviewedAt.ToUnixTimeMilliseconds(),
+                    ReceivedAtMs = reviewedAt.ToUnixTimeMilliseconds(), Mode = "recognition",
+                    CountsForSrs = true
+                });
+                await database.SaveChangesAsync(CancellationToken.None);
+            },
+            async () =>
+            {
+                await using var database = factory.OpenDatabase();
+                return await ApplyAsync(factory, database, Normalize(Request(1, reviewedAt, clientId)));
+            });
+
+        Assert.Equal(AttemptStatus.Duplicate, Assert.Single(results).Status);
+        using var verify = factory.OpenDatabase();
+        Assert.Equal(1, await verify.ReviewLogs.CountAsync());
+        Assert.Equal(1, (await verify.Cards.SingleAsync(candidate => candidate.Id == 1)).Reps);
+    }
+
+    [Fact]
+    public async Task OverlappingOlderAttemptCannotRewindANewerReview()
+    {
+        var newerReview = Now.AddMinutes(-5);
+        var olderReview = Now.AddMinutes(-10);
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela");
+            AddCard(database, 1, 1, state: CardState.Review, dueMs: Now.ToUnixTimeMilliseconds());
+        });
+        var results = await WhileAnotherWriterHoldsTheLockAsync(factory,
+            async database =>
+            {
+                var card = await database.Cards.SingleAsync(candidate => candidate.Id == 1);
+                card.Reps = 1;
+                card.LastReviewMs = newerReview.ToUnixTimeMilliseconds();
+                card.DueMs = newerReview.AddDays(1).ToUnixTimeMilliseconds();
+                database.ReviewLogs.Add(Success("rewind-first", 1, 1, newerReview.ToUnixTimeMilliseconds()));
+                await database.SaveChangesAsync(CancellationToken.None);
+            },
+            async () =>
+            {
+                await using var database = factory.OpenDatabase();
+                return await ApplyAsync(factory, database, Normalize(Request(1, olderReview)));
+            });
+
+        Assert.Equal(AttemptStatus.OutOfOrder, Assert.Single(results).Status);
+        using var verify = factory.OpenDatabase();
+        var stored = await verify.Cards.SingleAsync(candidate => candidate.Id == 1);
+        Assert.Equal(1, stored.Reps);
+        Assert.Equal(newerReview.ToUnixTimeMilliseconds(), stored.LastReviewMs);
+        Assert.Equal(newerReview.AddDays(1).ToUnixTimeMilliseconds(), stored.DueMs);
+        var audit = await verify.ReviewLogs.SingleAsync(log => log.CountsForSrs == false);
+        Assert.Equal(olderReview.ToUnixTimeMilliseconds(), audit.ReviewedAtMs);
+    }
+
+    [Fact]
+    public async Task OverlappingDemotionOrSuspensionIsSeenByTheFlush()
+    {
+        // A content demotion (epoch bump + word_not_approved) and a plain suspend landing while
+        // the batch waits for the write lock. §3.2 precedence: stale_epoch outranks suspended.
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela");
+            AddWord(database, 2, "es-zapato-02", "zapato");
+            AddCard(database, 1, 1, state: CardState.Review, dueMs: Now.ToUnixTimeMilliseconds());
+            AddCard(database, 2, 2, state: CardState.Review, dueMs: Now.ToUnixTimeMilliseconds());
+        });
+        var results = await WhileAnotherWriterHoldsTheLockAsync(factory,
+            async database =>
+            {
+                var demoted = await database.Cards.SingleAsync(candidate => candidate.Id == 1);
+                demoted.Epoch = 1;
+                demoted.SuspendedReason = "word_not_approved";
+                var suspended = await database.Cards.SingleAsync(candidate => candidate.Id == 2);
+                suspended.SuspendedReason = "manual";
+                await database.SaveChangesAsync(CancellationToken.None);
+            },
+            async () =>
+            {
+                await using var database = factory.OpenDatabase();
+                return await ApplyAsync(factory, database,
+                    Normalize(Request(1, Now.AddMinutes(-5)), Request(2, Now.AddMinutes(-4))));
+            });
+
+        Assert.Equal(new[] { AttemptStatus.StaleEpoch, AttemptStatus.Suspended },
+            results.Select(result => result.Status).ToArray());
+        Assert.All(results, result => Assert.Null(result.Card));
+        using var verify = factory.OpenDatabase();
+        var demotedCard = await verify.Cards.SingleAsync(candidate => candidate.Id == 1);
+        Assert.Equal(1, demotedCard.Epoch);
+        Assert.Equal(0, demotedCard.Reps);
+        Assert.Equal("word_not_approved", demotedCard.SuspendedReason);
+        var suspendedCard = await verify.Cards.SingleAsync(candidate => candidate.Id == 2);
+        Assert.Equal(0, suspendedCard.Reps);
+        Assert.Null(suspendedCard.LastReviewMs);
+        Assert.Equal(2, await verify.ReviewLogs.CountAsync(log => log.CountsForSrs == false));
+    }
+
+    // Simulates the second writer the release-risk review describes (a concurrent request or the
+    // CLI import): it takes SQLite's write lock, mutates, and holds the lock while the batch under
+    // test starts. The batch can only see those rows if it takes the write lock before reading.
+    private static async Task<T> WhileAnotherWriterHoldsTheLockAsync<T>(LearnApplicationFactory factory,
+        Func<PalabrasDbContext, Task> whileHeld, Func<Task<T>> batch)
+    {
+        using var ready = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+        Exception? failure = null;
+        var writer = Task.Run(async () =>
+        {
+            try
+            {
+                await using var database = factory.OpenDatabase();
+                await database.Database.OpenConnectionAsync();
+                var connection = (SqliteConnection)database.Database.GetDbConnection();
+                await using var transaction = connection.BeginTransaction(IsolationLevel.Serializable, deferred: false);
+                // EF must join the manual transaction, or SaveChanges would try to BEGIN again.
+                await database.Database.UseTransactionAsync(transaction);
+                await whileHeld(database);
+                ready.Set();
+                release.Wait(TimeSpan.FromSeconds(30));
+                await transaction.CommitAsync();
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+                ready.Set();
+                throw;
+            }
+        });
+        Assert.True(ready.Wait(TimeSpan.FromSeconds(30)), "the second writer never acquired the write lock");
+        if (failure is not null)
+        {
+            throw failure;
+        }
+        try
+        {
+            var pending = Task.Run(batch);
+            // Long enough for the batch to reach its own BEGIN IMMEDIATE, or (with the defect) to
+            // finish its preload; then let the writer commit.
+            await Task.Delay(300);
+            release.Set();
+            return await pending;
+        }
+        finally
+        {
+            release.Set();
+            await writer;
+        }
+    }
+
+    private static Task<IReadOnlyList<AttemptResult>> ApplyAsync(LearnApplicationFactory factory,
+        PalabrasDbContext database, IReadOnlyList<LearnAttempts.NormalizedAttempt> attempts)
+        => LearnAttempts.ApplyAsync(database, 1, new LearnerClock(factory.Time, "Europe/Madrid"),
+            new UserSettings { UserId = 1 }, attempts, factory.Time.GetUtcNow(), new FakeScheduler(),
+            CancellationToken.None);
+
+    private static IReadOnlyList<LearnAttempts.NormalizedAttempt> Normalize(params AttemptRequest[] requests)
+        => LearnAttempts.Normalize(requests.Select(request => (AttemptRequest?)request).ToArray());
+
+    private static AttemptRequest Request(int cardId, DateTimeOffset reviewedAt, string? clientId = null,
+        int rating = 3, int epoch = 0) => new(clientId ?? Guid.NewGuid().ToString(), cardId, epoch, "s",
+        "recognition", rating, null, null, false, null, null, 800, reviewedAt);
 
     [Fact]
     public async Task QueueQueryTranslatesEntirelyToSqliteSql()

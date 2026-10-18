@@ -1,4 +1,6 @@
+using System.Data;
 using System.Globalization;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Palabras.Persistence;
 using Palabras.Srs;
@@ -55,6 +57,21 @@ internal static class LearnAttempts
         var ordered = attempts.OrderBy(attempt => attempt.Request.CardId)
             .ThenBy(attempt => attempt.ReviewedAtMs).ToArray();
 
+        // Plan §3.2 outcome precedence must be decided against CURRENT rows. SQLite serialises
+        // writers, not reads, and EF's default SQLite transaction is deferred: with `BEGIN` the
+        // first read below would still be taken before any write lock, so a second request or the
+        // CLI could commit in between and two flushes would both apply (reps = 1 twice, one
+        // memory surviving) or a duplicate id would lose to the UNIQUE index and surface as 500.
+        // Take the write lock before the first read: `BEGIN IMMEDIATE` (deferred: false) acquires
+        // SQLite's RESERVED lock up front, so every read and the save below run on one snapshot no
+        // other writer can move, and the batch stays one transaction. WAL keeps readers
+        // (plan/forecast) concurrent. A competing writer now waits (busy timeout, 30 s here)
+        // instead of being silently overwritten.
+        await database.Database.OpenConnectionAsync(cancellationToken);
+        var connection = (SqliteConnection)database.Database.GetDbConnection();
+        await using var transaction = connection.BeginTransaction(IsolationLevel.Serializable, deferred: false);
+        await database.Database.UseTransactionAsync(transaction, cancellationToken);
+
         var cardIds = ordered.Select(attempt => attempt.Request.CardId).Distinct().ToArray();
         var cards = await database.Cards.Where(card => card.UserId == userId && cardIds.Contains(card.Id))
             .ToDictionaryAsync(card => card.Id, cancellationToken);
@@ -75,7 +92,6 @@ internal static class LearnAttempts
             ownership.Values.Select(row => row.WordId).Distinct().ToArray(), cancellationToken);
 
         var results = new List<AttemptResult>(ordered.Length);
-        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
         foreach (var attempt in ordered)
         {
             var echoed = attempt.Request.ClientAttemptId!;
