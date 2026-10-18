@@ -34,7 +34,7 @@ learning steps 1 min / 10 min, relearning step 10 min, leech at 8 lapses, librar
 | `GET /api/learn/export?format=json\|csv` | 200 file | 400 `bad_format` |
 
 All rows also return the 401/403 above. `404 not_found` on card routes covers both a missing card and another
-user's card.
+user's card. `GET /api/learn/stats?from=&to=` (M6.6) is described under "Learner stats" at the end of this file.
 
 ### `GET /api/learn/session/plan`
 
@@ -209,3 +209,102 @@ Recorded from the T-20261018-0124 reviews. None is fixed by this file; each stat
   lose card state) is being fixed in a separate lane. This file does not describe that change.
 - **CI fails and is deferred** by owner decision. The local verify set in `AGENTS.md` is authoritative until CI is
   green.
+
+## Learner stats (M6.6)
+
+Shipped in T-20261018-0332 (`545ed2b`). Design: `.opencode/runs/T-20261018-0332/04-stats-design.md` §1/§3, with the
+correction note at its end. Code: `Backend/Palabras/Learn/StatsEndpoints.cs`, `LearnStats.cs`, `StatsContracts.cs`.
+Placed here, after the M5/M10 sections, so existing line references into this file stay valid.
+
+| Method + route | Success | Errors |
+| --- | --- | --- |
+| `GET /api/learn/stats?from=&to=` | 200 stats | 400 `bad_request` |
+
+- **Auth:** policy `learner`; the user id comes from the cookie only (Common rules). Reviewer → 403, anonymous → 401.
+  GET, so no `X-Palabras` header.
+- **Read-only, online-only.** Nothing is written. No new table, column or migration: every figure is counted from
+  existing `review_log` and `cards` rows. Stats is online-only (owner item O-17): no offline cache or queue.
+- **Owner items decided by the orchestrator** (owner did not answer): O-13, build now as a read-only surface with no
+  migration, ahead of the M6.5 `practice` column; O-14, see "hit" below.
+
+### Query parameters
+
+- `from`, `to`: inclusive local dates `yyyy-MM-dd` in the learner's zone. Defaults: `to` = local today,
+  `from` = `to − 29` (30 days). A blank value (`?from=&to=`) counts as absent.
+- 400 `{"error":"bad_request"}` when either value is present but not an exact `yyyy-MM-dd` date, `from` > `to`
+  (inverted range), `to` is after local today, or the range spans more than 366 days (366 is accepted).
+- The zone falls back as under Common rules. A blank `users.timezone` returns 500 here too: `StatsEndpoints.cs` copies
+  the `CreateClock` fallback from `LearnEndpoints.cs` (see Known limitations; still unreachable today).
+
+### Response
+
+```ts
+type StatsResponse = {
+  localDate: string; from: string; to: string;
+  totals: { answers: number; hits: number; misses: number; formSlips: number; overridden: number;
+            firstTry: number; secondLook: number; answerMs: number; activeDays: number; newWords: number };
+  days: { date: string; answers: number; hits: number; misses: number; newWords: number; answerMs: number }[];
+  byMode: { mode: string; answers: number; hits: number; misses: number; formSlips: number }[];
+  retention: { target: number;
+               all:  { reviews: number; passed: number };
+               esEn: { reviews: number; passed: number };
+               enEs: { reviews: number; passed: number } };
+  words: { approved: number;
+           stages: { nuevo: number; aprendiendo: number; reciente: number; consolidada: number; dominada: number };
+           leechCards: number; suspendedCards: { manual: number; leech: number } };
+  hardest: { key: string; article: string | null; headword: string; gloss: string; misses: number }[];
+  quality: { lateRows: number; missingDurationRows: number };
+};
+```
+
+Range figures (`totals`, `days`, `byMode`, `retention`, `hardest`, `quality`) use rows whose `reviewed_at_ms` falls in
+`[start of from, end of to]` local time. `words` is a snapshot of current state, not a range figure.
+
+- **`totals`, `days`.** `answers` counts every stored row, including rejected ones (`counts_for_srs = 0`:
+  `stale_epoch`, `suspended`, `out_of_order`), because the learner did answer them. Requeue repeats count too.
+  - **Hit** (O-14): any rating above Again (Hard, Good, Easy). **Miss**: rating Again. `hits + misses = answers`.
+  - `overridden`: rows the learner self-overrode. They are already in `hits`; the separate count shows how much of the
+    total they make up.
+  - `formSlips`: hits with `is_correct_form = 0` (missing article, wrong gender, accent near-miss). Typed and cloze only.
+  - `firstTry` / `secondLook` classify the **first** answer of each `(session_id, card_id)` group, the same rule as
+    the session summary: first row rated above Again → `firstTry`, rated Again → `secondLook`. The first row is the
+    lowest `reviewed_at_ms`, ties broken by row id. A row with a NULL `session_id` is its own group. So
+    `firstTry + secondLook` is the number of groups, not `answers`.
+  - Groups and `answers` are both limited to the requested range: a session that straddles `from` counts its first
+    **in-range** row as its first answer.
+  - `activeDays`: local dates in range with at least one answer. Not a streak (streaks are M7).
+  - `newWords`: `es_en` cards whose `introduced_local_date` is in range, the same rule as the daily new-word budget.
+    An `en_es` unlock is the same word and is not counted. An introduction alone does not make an active day.
+  - `days` is dense: one entry per local date `from..to`, zeros included, one bucket per date across DST changes.
+- **`byMode`.** One entry per stored `mode` string present in range, ordered by name. Unknown future modes pass
+  through. This is where machine-checked answers (`typed`, `cloze`: `en_es`) are reported separately from self-graded
+  recognition (`recognition`: `es_en`).
+- **`retention`.** Applied rows only (`counts_for_srs = 1`) whose `state_before` is Review: `passed` = rated above
+  Again. `esEn` is self-graded, `enEs` is checked. No percentage is sent; the client computes the ratio and hides it
+  below 20 reviews. `target` is `user_settings.desired_retention` (0.90 default). It is a pass rate, not proof of
+  recall. `all.reviews` can exceed `esEn.reviews + enEs.reviews` only for a row whose card no longer exists.
+- **`words`.** Approved words with at least one active sense, as in `GET /api/learn/words`. `stages` uses the same
+  furthest-card rule as the `stage` field there, so the two always agree. `leechCards` and `suspendedCards` count
+  cards, not words, and only the learner-owned reasons `manual` and `leech`.
+- **`hardest`.** Up to 5 approved words with the most misses in range, ordered by misses, then headword, then word id.
+  A word no longer approved stays in the totals but is never named.
+- **`quality.lateRows`**: rows with `received_at_ms − reviewed_at_ms` > **23 h**. `missingDurationRows`: rows with
+  no `duration_ms`.
+
+### Estimates and thresholds
+
+Every count above is exact over the stored rows. Two figures are estimates:
+
+- **Answer time.** `answerMs` sums the client-reported `duration_ms`: prompt to "Mostrar respuesta" for recognition,
+  prompt to submit for typed and cloze. Feedback reading and rating are excluded, each row is capped at 600 s
+  (600 000 ms), and a NULL adds nothing. It is a lower bound of time in the app; label it "tiempo respondiendo".
+  Real time in the app arrives with M7's daily record.
+- **Day bucket of a late flush.** The attempts endpoint clamps `reviewedAtUtc` to `[now − 24 h, now + 5 min]` at
+  arrival (see `POST /api/learn/attempts`). An offline answer flushed more than 24 h after it was given is stored at
+  arrival − 24 h and counted on that local day, not the day it was answered.
+
+**Why the late-flush threshold is 23 h, not 24 h.** 24 h is the clamp bound, not the detection threshold.
+`received_at_ms` is read before the clamp, so a clamped row has `received − reviewed = 24 h − processing time`, a
+little under 24 h. A strict `> 24 h` test would miss exactly the rows the counter exists to flag. With 23 h every
+clamped row is counted, plus any row flushed 23–24 h late that was bucketed correctly. The count over-reports slightly
+by design: it only triggers a footnote and changes no other figure.
