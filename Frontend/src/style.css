@@ -162,3 +162,13 @@ fieldset { border: 0; margin: 0; padding: 0; }
   .grading-row button:nth-child(n) { order: initial; }
 }
 @container (min-width: 360px) { .review-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); } .review-actions button:last-child { grid-column: auto; } }
+.learn-session { max-width: 52rem; width: 100%; }
+.typed-answer, .feedback-panel, .session-summary { max-width: 42rem; margin: 20px auto 0; }
+.typed-answer { padding: 16px; background: var(--surface); border-radius: 16px; }
+.typed-answer input { font-size: 1.2rem; }
+.accent-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.accent-row button { flex: 1 0 40px; padding-inline: 8px; }
+.answer-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.answer-buttons button { flex: 1 1 140px; }
+.session-notice { margin-bottom: 16px; background: var(--soft); }
+.learn-session .grading-row button:nth-child(n) { order: initial; }

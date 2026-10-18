@@ -1,0 +1,70 @@
+import { ApiError, apiRequest } from './client.ts'
+import type { FeedbackKind } from '../learn/grade.ts'
+
+export type Rating = 1 | 2 | 3 | 4
+export type PlanItem = {
+  cardId: number; cardEpoch: number; direction: 'es_en' | 'en_es'
+  mode: 'recognition' | 'typed' | 'cloze'; isNew: boolean
+  word: { key: string; headword: string; article: string | null; gender: string | null; pos: string }
+  sense: { gloss: string; exampleEs: string; exampleEn: string; clozeEs?: string
+    acceptedEs: string[]; acceptedEn: string[]; accentsAreThePoint: boolean }
+  notes: { region?: string; register?: string }
+}
+export type SessionPlan = {
+  sessionId: string; generatedAtUtc: string; localDate: string; items: PlanItem[]
+  counts: { due: number; newOffered: number; backlog: number }; warnings: string[]; nextDueUtc?: string
+}
+export type Attempt = {
+  clientAttemptId: string; cardId: number; cardEpoch: number; sessionId: string
+  mode: 'recognition' | 'typed' | 'cloze'; rating: Rating
+  isCorrectMeaning: boolean | null; isCorrectForm: boolean | null; overridden: boolean
+  feedbackKind: FeedbackKind | null; answerText: string | null; durationMs: number; reviewedAtUtc: string
+}
+export type AttemptResult = {
+  clientAttemptId: string; status: 'applied' | 'duplicate' | 'stale_epoch' | 'suspended' | 'out_of_order'
+  card?: { id: number; state: number; dueUtc: string; intervalDays: number; leech: boolean }
+}
+export type LearnerWord = { key: string; article: string | null; headword: string; gloss: string; topics: string[]; stage: string }
+
+const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+const strings = (value: unknown): value is string[] => Array.isArray(value) && value.every(item => typeof item === 'string')
+function planItem(value: unknown): value is PlanItem {
+  if (!object(value) || !object(value.word) || !object(value.sense) || !object(value.notes)) return false
+  const { word, sense, notes } = value
+  return Number.isSafeInteger(value.cardId) && Number.isSafeInteger(value.cardEpoch)
+    && ['es_en', 'en_es'].includes(String(value.direction)) && ['recognition', 'typed', 'cloze'].includes(String(value.mode))
+    && typeof value.isNew === 'boolean' && ['key', 'headword', 'pos'].every(key => typeof word[key] === 'string')
+    && (word.article === null || typeof word.article === 'string') && (word.gender === null || typeof word.gender === 'string')
+    && ['gloss', 'exampleEs', 'exampleEn'].every(key => typeof sense[key] === 'string')
+    && (sense.clozeEs === undefined || typeof sense.clozeEs === 'string')
+    && strings(sense.acceptedEs) && strings(sense.acceptedEn) && typeof sense.accentsAreThePoint === 'boolean'
+    && ['region', 'register'].every(key => notes[key] === undefined || typeof notes[key] === 'string')
+}
+export async function getSessionPlan(options: { maxNew?: number; budgetS?: number } = {}, signal?: AbortSignal): Promise<SessionPlan> {
+  const query = new URLSearchParams()
+  if (options.maxNew !== undefined) query.set('maxNew', String(options.maxNew))
+  if (options.budgetS !== undefined) query.set('budgetS', String(options.budgetS))
+  const body = await apiRequest(`/api/learn/session/plan${query.size ? `?${query}` : ''}`, { signal })
+  if (!object(body) || !['sessionId', 'generatedAtUtc', 'localDate'].every(key => typeof body[key] === 'string')
+    || !Array.isArray(body.items) || !body.items.every(planItem) || !object(body.counts)
+    || !['due', 'newOffered', 'backlog'].every(key => typeof (body.counts as Record<string, unknown>)[key] === 'number')
+    || !strings(body.warnings) || (body.nextDueUtc !== undefined && typeof body.nextDueUtc !== 'string')) throw new ApiError('invalid-response')
+  return body as SessionPlan
+}
+export async function postAttempts(attempts: readonly Attempt[]): Promise<{ results: AttemptResult[] }> {
+  const body = await apiRequest('/api/learn/attempts', { method: 'POST', body: JSON.stringify({ attempts }) })
+  if (!object(body) || !Array.isArray(body.results) || !body.results.every(item => object(item)
+    && typeof item.clientAttemptId === 'string' && ['applied', 'duplicate', 'stale_epoch', 'suspended', 'out_of_order'].includes(String(item.status))
+    && (item.card === undefined || (object(item.card) && Number.isSafeInteger(item.card.id)
+      && Number.isSafeInteger(item.card.state) && typeof item.card.dueUtc === 'string'
+      && typeof item.card.intervalDays === 'number' && typeof item.card.leech === 'boolean')))) throw new ApiError('invalid-response')
+  return body as { results: AttemptResult[] }
+}
+export async function getLearnerWords(q: string, topic: string, signal?: AbortSignal): Promise<LearnerWord[]> {
+  const query = new URLSearchParams({ q, topic })
+  const body = await apiRequest(`/api/learn/words?${query}`, { signal })
+  if (!object(body) || !Array.isArray(body.items) || !body.items.every(item => object(item)
+    && ['key', 'headword', 'gloss', 'stage'].every(key => typeof item[key] === 'string')
+    && (item.article === null || typeof item.article === 'string') && strings(item.topics))) throw new ApiError('invalid-response')
+  return body.items as LearnerWord[]
+}
