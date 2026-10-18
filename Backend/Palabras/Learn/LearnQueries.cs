@@ -49,21 +49,29 @@ internal static class LearnQueries
                 && database.Words.Any(word => word.Id == sense.WordId && word.Status == "approved")));
     }
 
-    // Plan §3.4 / H4: an en_es card unlocks only when its es_en sibling reached Review and
+    // Plan §3.4 / H4: an en_es card is visible only when its es_en sibling reached Review and
     // was answered correctly on an earlier local date. Implemented as a predicate, so no
-    // extra column and no back-fill is needed.
-    internal static IQueryable<Card> Reviewable(PalabrasDbContext database, IQueryable<Card> eligible, long startOfLocalDayMs)
+    // extra column and no back-fill is needed. Shared by Reviewable (cards already out of New)
+    // and New (the introduction path): with the predicate applied in only one of them an en_es
+    // card can never leave state New, which is exactly the T-20261018-0332 defect.
+    internal static IQueryable<Card> DirectionVisible(PalabrasDbContext database, IQueryable<Card> cards,
+        long startOfLocalDayMs)
     {
         ArgumentNullException.ThrowIfNull(database);
+        ArgumentNullException.ThrowIfNull(cards);
+        return cards.Where(card => card.Direction == "es_en"
+            || database.Cards.Any(sibling => sibling.UserId == card.UserId
+                && sibling.SenseId == card.SenseId && sibling.Direction == "es_en"
+                && sibling.State == CardState.Review
+                && database.ReviewLogs.Any(log => log.CardId == sibling.Id && log.UserId == sibling.UserId
+                    && log.CardEpoch == sibling.Epoch && log.CountsForSrs == true
+                    && log.Rating > Rating.Again && log.ReviewedAtMs < startOfLocalDayMs)));
+    }
+
+    internal static IQueryable<Card> Reviewable(PalabrasDbContext database, IQueryable<Card> eligible, long startOfLocalDayMs)
+    {
         ArgumentNullException.ThrowIfNull(eligible);
-        return eligible.Where(card => card.State != CardState.New
-            && (card.Direction == "es_en"
-                || database.Cards.Any(sibling => sibling.UserId == card.UserId
-                    && sibling.SenseId == card.SenseId && sibling.Direction == "es_en"
-                    && sibling.State == CardState.Review
-                    && database.ReviewLogs.Any(log => log.CardId == sibling.Id && log.UserId == sibling.UserId
-                        && log.CardEpoch == sibling.Epoch && log.CountsForSrs == true
-                        && log.Rating > Rating.Again && log.ReviewedAtMs < startOfLocalDayMs))));
+        return DirectionVisible(database, eligible.Where(card => card.State != CardState.New), startOfLocalDayMs);
     }
 
     // Learning/Relearning first (short-term steps keep the session ordered), then due_ms.
@@ -76,15 +84,20 @@ internal static class LearnQueries
         return limit is { } take ? query.Take(take) : query;
     }
 
-    // New cards are es_en only, ordered by CEFR then content order (plan §2.3).
+    // New cards are introduced in plan §2.3 order (CEFR, then content order). Both directions are
+    // admitted: `en_es` is not excluded outright, it is gated by the same §3.4 sibling predicate the
+    // due path uses (T-20261018-0332). The new-card budget is a WORD budget (O-5 = no): an en_es
+    // unlock is the same word in the other direction, so it does not spend a slot of new_per_day
+    // (PlanComposer counts es_en introductions only). It does share the plan's `LIMIT`, so a
+    // graduation-day round can be unlock-only; fresh words follow in the next round/day.
     internal static IQueryable<Card> New(PalabrasDbContext database, QueueBounds bounds, ActiveSenses active, int? limit)
     {
         ArgumentNullException.ThrowIfNull(bounds);
+        var fresh = Eligible(database, bounds, active).Where(card => card.State == CardState.New);
         IQueryable<Card> query =
-            from card in Eligible(database, bounds, active)
+            from card in DirectionVisible(database, fresh, bounds.StartOfLocalDayMs)
             join sense in database.Senses on card.SenseId equals sense.Id
             join word in database.Words on sense.WordId equals word.Id
-            where card.State == CardState.New && card.Direction == "es_en"
             orderby word.Cefr, word.Id, sense.SenseOrder
             select card;
         return limit is { } take ? query.Take(take) : query;
@@ -143,8 +156,14 @@ internal static class PlanComposer
         var maxReviews = Math.Max(settings.MaxReviewsPerDay, 0);
         var dueCards = await LearnQueries.Due(database, bounds, active, maxReviews).ToListAsync(cancellationToken);
 
+        // Plan §2.3 / O-5 = no (owner decision 2026-10-18, orchestrator): the locked cap is "12 new
+        // WORDS per day", and an en_es unlock is the same word seen in the other direction, so only
+        // es_en introductions spend the budget. The count is derived (no column): `introduced_local_date`
+        // is still stamped on the first applied review of either direction (LearnAttempts.Apply) for
+        // audit/stage purposes, but en_es rows are excluded here by construction.
         var introducedToday = await database.Cards.CountAsync(card =>
-            card.UserId == bounds.UserId && card.IntroducedLocalDate == bounds.LocalToday, cancellationToken);
+            card.UserId == bounds.UserId && card.Direction == "es_en"
+            && card.IntroducedLocalDate == bounds.LocalToday, cancellationToken);
         // Hard ceiling for every path, explicit maxNew included: the request may never raise
         // user_settings.new_per_day (plan §4 maxNew + H11 "add new anyway", locked 12/day).
         var remainingNew = Math.Clamp(settings.NewPerDay - introducedToday, 0, Math.Max(settings.NewPerDay, 0));

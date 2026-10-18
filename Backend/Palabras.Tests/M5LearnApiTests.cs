@@ -454,6 +454,350 @@ public sealed class M5LearnApiTests
         Assert.Equal("Mi ____ vive aquí.", items[0].GetProperty("sense").GetProperty("clozeEs").GetString());
     }
 
+    // T-20261018-0332 S0 / plan §3.4 + §2.3: approval creates BOTH directions in state New, but the
+    // new-card query admitted only direction = 'es_en' while the due path excludes state 0. An en_es
+    // card therefore had no path into a session at all, so typed/cloze could never appear for a real
+    // learner. Day 2 of the contract: the es_en sibling reached Review with a successful review on an
+    // earlier local date, so the en_es card must be introduced as a New card.
+    [Fact]
+    public async Task UnlockedEnEsSiblingIsIntroducedAsNewTheDayAfterEsEnGraduates()
+    {
+        var yesterday = StartOfToday.AddMilliseconds(-1).ToUnixTimeMilliseconds();
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela", article: "la", gender: "feminine",
+                enGloss: "grandmother", exampleEs: "Mi abuela vive aquí.", exampleEn: "My grandmother lives here.");
+            // Day 1: the recognition card graduated (Review, successful review before local midnight).
+            AddCard(database, 1, 1, state: CardState.Review, dueMs: Now.AddDays(3).ToUnixTimeMilliseconds(),
+                reps: 2, stability: 5, introduced: "2026-10-17");
+            AddCard(database, 2, 1, direction: "en_es", state: CardState.New);
+            database.ReviewLogs.Add(Success("sibling-day-1", 1, 1, yesterday));
+        });
+        using var client = await LearnerClientAsync(factory);
+        using var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan", CancellationToken.None));
+        var introduced = Assert.Single(body.RootElement.GetProperty("items").EnumerateArray());
+        Assert.Equal(2, introduced.GetProperty("cardId").GetInt32());
+        Assert.Equal("en_es", introduced.GetProperty("direction").GetString());
+        Assert.True(introduced.GetProperty("isNew").GetBoolean());
+        // §4 mode assignment on the introduction path: reps 0, and the cloze exists, so typed.
+        Assert.Equal("typed", introduced.GetProperty("mode").GetString());
+        Assert.Equal("Mi ____ vive aquí.",
+            introduced.GetProperty("sense").GetProperty("clozeEs").GetString());
+        Assert.Equal(0, body.RootElement.GetProperty("counts").GetProperty("due").GetInt32());
+        Assert.Equal(1, body.RootElement.GetProperty("counts").GetProperty("newOffered").GetInt32());
+    }
+
+    [Fact]
+    public async Task UnlockedEnEsIntroductionUsesClozeWhenRepsSelectIt()
+    {
+        var yesterday = StartOfToday.AddMilliseconds(-1).ToUnixTimeMilliseconds();
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela", exampleEs: "Mi abuela vive aquí.",
+                exampleEn: "My grandmother lives here.");
+            AddCard(database, 1, 1, state: CardState.Review, dueMs: Now.AddDays(3).ToUnixTimeMilliseconds(),
+                reps: 2, stability: 5, introduced: "2026-10-17");
+            AddCard(database, 2, 1, direction: "en_es", state: CardState.New, reps: 1);
+            database.ReviewLogs.Add(Success("sibling-day-1", 1, 1, yesterday));
+        });
+        using var client = await LearnerClientAsync(factory);
+        using var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan", CancellationToken.None));
+        var introduced = Assert.Single(body.RootElement.GetProperty("items").EnumerateArray());
+        Assert.Equal(2, introduced.GetProperty("cardId").GetInt32());
+        Assert.Equal("cloze", introduced.GetProperty("mode").GetString());
+        Assert.Equal("Mi ____ vive aquí.",
+            introduced.GetProperty("sense").GetProperty("clozeEs").GetString());
+    }
+
+    [Fact]
+    public async Task UnlockedEnEsIntroductionFallsBackToTypedWhenTheExampleIsInflected()
+    {
+        var yesterday = StartOfToday.AddMilliseconds(-1).ToUnixTimeMilliseconds();
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            // "Coge" is not the infinitive headword, so no cloze can be derived (plan §4/R7).
+            AddWord(database, 1, "es-coger-01", "coger", pos: "verb", enGloss: "to take",
+                exampleEs: "Coge el autobús.", exampleEn: "Take the bus.");
+            AddCard(database, 1, 1, state: CardState.Review, dueMs: Now.AddDays(3).ToUnixTimeMilliseconds(),
+                reps: 2, stability: 5, introduced: "2026-10-17");
+            AddCard(database, 2, 1, direction: "en_es", state: CardState.New, reps: 1);
+            database.ReviewLogs.Add(Success("sibling-day-1", 1, 1, yesterday));
+        });
+        using var client = await LearnerClientAsync(factory);
+        using var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan", CancellationToken.None));
+        var introduced = Assert.Single(body.RootElement.GetProperty("items").EnumerateArray());
+        Assert.Equal(2, introduced.GetProperty("cardId").GetInt32());
+        Assert.Equal("typed", introduced.GetProperty("mode").GetString());
+        Assert.False(introduced.GetProperty("sense").TryGetProperty("clozeEs", out _));
+    }
+
+    // O-5 = **no** (orchestrator decision 2026-10-18, reviewer recommendation §4): the locked cap is
+    // "12 new WORDS per day", so only es_en introductions spend the budget. An en_es unlock is the
+    // same word in the other direction and must not take a slot. This test is the one that flips if
+    // the counter ever counts both directions again: plan 2 must still find one word to introduce.
+    [Fact]
+    public async Task EnEsUnlockDoesNotSpendTheTwelveWordBudget()
+    {
+        var yesterday = StartOfToday.AddMilliseconds(-1).ToUnixTimeMilliseconds();
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            // Eleven words already introduced today: 12 - 11 = 1 word left.
+            for (var id = 1; id <= 11; id++)
+            {
+                AddWord(database, id, $"es-done-{id:D3}", $"hecha{id}");
+                AddCard(database, id, id, state: CardState.Review, dueMs: Now.AddDays(1).ToUnixTimeMilliseconds(),
+                    stability: 5, introduced: "2026-10-18");
+            }
+            AddWord(database, 12, "es-abuela-01", "abuela", exampleEs: "Mi abuela vive aquí.",
+                exampleEn: "My grandmother lives here.");
+            AddCard(database, 12, 12, state: CardState.Review, dueMs: Now.AddDays(3).ToUnixTimeMilliseconds(),
+                reps: 2, stability: 5, introduced: "2026-10-17");
+            AddCard(database, 13, 12, direction: "en_es", state: CardState.New);
+            database.ReviewLogs.Add(Success("sibling-day-1", 12, 12, yesterday));
+            // A brand-new word waiting behind it. Ordering gives the unlock the single slot of this
+            // round; the *budget* is what this test is about, not the round's LIMIT.
+            AddWord(database, 14, "es-nueva-14", "nueva");
+            AddCard(database, 14, 14, state: CardState.New);
+        });
+        using var client = await LearnerClientAsync(factory);
+        using (var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan", CancellationToken.None)))
+        {
+            var offered = Assert.Single(body.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal(13, offered.GetProperty("cardId").GetInt32());
+            Assert.Equal("en_es", offered.GetProperty("direction").GetString());
+            Assert.True(offered.GetProperty("isNew").GetBoolean());
+        }
+
+        using (var flushed = await PostJsonAsync(client, "/api/learn/attempts",
+                   new { attempts = new[] { TypedAttempt(13, Now.AddMinutes(-1)) } }))
+        {
+            using var body = await JsonAsync(flushed);
+            Assert.Equal("applied",
+                body.RootElement.GetProperty("results").EnumerateArray().Single().GetProperty("status").GetString());
+        }
+        using (var database = factory.OpenDatabase())
+        {
+            // The audit stamp still lands on the en_es card (stage/optimiser history) ...
+            Assert.Equal("2026-10-18", (await database.Cards.SingleAsync(card => card.Id == 13)).IntroducedLocalDate);
+            // ... but the WORD budget still shows 11, not 12: the unlock spent nothing.
+            Assert.Equal(11, await database.Cards.CountAsync(card => card.UserId == 1
+                && card.Direction == "es_en" && card.IntroducedLocalDate == "2026-10-18"));
+        }
+
+        using (var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan?maxNew=12", CancellationToken.None)))
+        {
+            var offered = Assert.Single(body.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal(14, offered.GetProperty("cardId").GetInt32());
+            Assert.Equal("es_en", offered.GetProperty("direction").GetString());
+            Assert.True(offered.GetProperty("isNew").GetBoolean());
+            Assert.Equal(1, body.RootElement.GetProperty("counts").GetProperty("newOffered").GetInt32());
+        }
+
+        using (var flushed = await PostJsonAsync(client, "/api/learn/attempts",
+                   new { attempts = new[] { Attempt(Guid.NewGuid().ToString(), 14, Now.AddMinutes(-1)) } }))
+        {
+            using var body = await JsonAsync(flushed);
+            Assert.Equal("applied",
+                body.RootElement.GetProperty("results").EnumerateArray().Single().GetProperty("status").GetString());
+        }
+        using (var database = factory.OpenDatabase())
+        {
+            // The 12th WORD is what exhausts the budget.
+            Assert.Equal(12, await database.Cards.CountAsync(card => card.UserId == 1
+                && card.Direction == "es_en" && card.IntroducedLocalDate == "2026-10-18"));
+        }
+
+        using (var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan?maxNew=12", CancellationToken.None)))
+        {
+            Assert.Equal(0, body.RootElement.GetProperty("counts").GetProperty("newOffered").GetInt32());
+            Assert.Empty(body.RootElement.GetProperty("items").EnumerateArray());
+        }
+    }
+
+    // What unlocks cost under O-5 = no: they no longer spend the word budget, but they still share the
+    // plan's single new-card LIMIT (<= 12) and rank by (cefr, word id, sense order), so a
+    // graduation-day round can be unlock-only. That is a per-round ordering cost, not a word-budget
+    // cost — the words follow in the next round (TwelveNewWordsAreIntroducedOnADayWithUnlocks).
+    // This test passed under O-5 = yes as well; it pins the LIMIT/ordering, not the counter.
+    [Fact]
+    public async Task UnlockBacklogRanksAheadOfNewWordsWithinThePlanLimit()
+    {
+        var yesterday = StartOfToday.AddMilliseconds(-1).ToUnixTimeMilliseconds();
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            for (var id = 1; id <= 12; id++)
+            {
+                AddWord(database, id, $"es-day1-{id:D3}", $"hecha{id}");
+                AddCard(database, id, id, state: CardState.Review, dueMs: Now.AddDays(3).ToUnixTimeMilliseconds(),
+                    reps: 2, stability: 5, introduced: "2026-10-17");
+                AddCard(database, 100 + id, id, direction: "en_es", state: CardState.New);
+                database.ReviewLogs.Add(Success($"day1-{id}", id, id, yesterday));
+            }
+            for (var id = 13; id <= 24; id++)
+            {
+                AddWord(database, id, $"es-day2-{id:D3}", $"nueva{id}");
+                AddCard(database, id, id, state: CardState.New);
+            }
+        });
+        using var client = await LearnerClientAsync(factory);
+        using var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan", CancellationToken.None));
+        var items = body.RootElement.GetProperty("items").EnumerateArray().ToArray();
+        Assert.Equal(12, items.Length);
+        Assert.All(items, item => Assert.Equal("en_es", item.GetProperty("direction").GetString()));
+        Assert.Equal(12, body.RootElement.GetProperty("counts").GetProperty("newOffered").GetInt32());
+        Assert.DoesNotContain(items, item => item.GetProperty("cardId").GetInt32() is >= 13 and <= 24);
+    }
+
+    // Pins the O-5 = no volume consequence end-to-end: unlocks share the round's LIMIT but not the
+    // word budget, so the same local day still introduces 12 NEW WORDS (3 unlocks + 9 words in round
+    // 1, the remaining 3 words in round 2) and stamps 3 en_es cards that the counter ignores.
+    [Fact]
+    public async Task TwelveNewWordsAreIntroducedOnADayWithUnlocks()
+    {
+        var yesterday = StartOfToday.AddMilliseconds(-1).ToUnixTimeMilliseconds();
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            for (var id = 1; id <= 3; id++)
+            {
+                AddWord(database, id, $"es-day1-{id:D3}", $"hecha{id}");
+                AddCard(database, id, id, state: CardState.Review, dueMs: Now.AddDays(3).ToUnixTimeMilliseconds(),
+                    reps: 2, stability: 5, introduced: "2026-10-17");
+                AddCard(database, 100 + id, id, direction: "en_es", state: CardState.New);
+                database.ReviewLogs.Add(Success($"day1-{id}", id, id, yesterday));
+            }
+            for (var id = 4; id <= 15; id++)
+            {
+                AddWord(database, id, $"es-day2-{id:D3}", $"nueva{id}");
+                AddCard(database, id, id, state: CardState.New);
+            }
+        });
+        using var client = await LearnerClientAsync(factory);
+
+        int[] firstRound;
+        using (var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan", CancellationToken.None)))
+        {
+            var items = body.RootElement.GetProperty("items").EnumerateArray().ToArray();
+            Assert.Equal(12, items.Length);
+            Assert.Equal(new[] { "en_es", "en_es", "en_es" },
+                items.Take(3).Select(item => item.GetProperty("direction").GetString()).ToArray());
+            Assert.All(items.Skip(3), item => Assert.Equal("es_en", item.GetProperty("direction").GetString()));
+            Assert.Equal(12, body.RootElement.GetProperty("counts").GetProperty("newOffered").GetInt32());
+            firstRound = items.Select(item => item.GetProperty("cardId").GetInt32()).ToArray();
+        }
+
+        var attempts = firstRound.Select(cardId => cardId >= 100
+            ? TypedAttempt(cardId, Now.AddMinutes(-1))
+            : Attempt(Guid.NewGuid().ToString(), cardId, Now.AddMinutes(-1))).ToArray();
+        using (var flushed = await PostJsonAsync(client, "/api/learn/attempts", new { attempts }))
+        {
+            using var body = await JsonAsync(flushed);
+            Assert.All(body.RootElement.GetProperty("results").EnumerateArray(),
+                result => Assert.Equal("applied", result.GetProperty("status").GetString()));
+        }
+
+        using (var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan", CancellationToken.None)))
+        {
+            // Only 9 words were spent in round 1 (3 slots went to unlocks): 3 words remain today.
+            var items = body.RootElement.GetProperty("items").EnumerateArray().ToArray();
+            Assert.Equal(new[] { 13, 14, 15 }, items.Select(item => item.GetProperty("cardId").GetInt32()).ToArray());
+            Assert.All(items, item => Assert.Equal("es_en", item.GetProperty("direction").GetString()));
+            Assert.Equal(3, body.RootElement.GetProperty("counts").GetProperty("newOffered").GetInt32());
+        }
+
+        var secondRound = new[] { 13, 14, 15 }
+            .Select(cardId => Attempt(Guid.NewGuid().ToString(), cardId, Now.AddMinutes(-2))).ToArray();
+        using (var flushed = await PostJsonAsync(client, "/api/learn/attempts", new { attempts = secondRound }))
+        {
+            using var body = await JsonAsync(flushed);
+            Assert.All(body.RootElement.GetProperty("results").EnumerateArray(),
+                result => Assert.Equal("applied", result.GetProperty("status").GetString()));
+        }
+
+        using (var database = factory.OpenDatabase())
+        {
+            Assert.Equal(12, await database.Cards.CountAsync(card => card.UserId == 1
+                && card.Direction == "es_en" && card.IntroducedLocalDate == "2026-10-18"));
+            // Stamped for audit, ignored by the word budget.
+            Assert.Equal(3, await database.Cards.CountAsync(card => card.UserId == 1
+                && card.Direction == "en_es" && card.IntroducedLocalDate == "2026-10-18"));
+        }
+    }
+
+    // The outer bounds on a single plan: the new-card list is min(remaining words, budget trim), the
+    // trim is (target - dueEstimate) / 30 s, and the session budget is clamped to session_max_s 900.
+    [Fact]
+    public async Task PlanNewCardTrimStopsAtTheBudgetAndTheSessionMaximum()
+    {
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            database.UserSettings.Add(new UserSettings { UserId = 1, NewPerDay = 100 });
+            for (var id = 1; id <= 40; id++)
+            {
+                AddWord(database, id, $"es-new-{id:D3}", $"nueva{id}");
+                AddCard(database, id, id, state: CardState.New);
+            }
+        });
+        using var client = await LearnerClientAsync(factory);
+
+        async Task<int> NewOfferedAsync(string query)
+        {
+            using var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan" + query,
+                CancellationToken.None));
+            return body.RootElement.GetProperty("counts").GetProperty("newOffered").GetInt32();
+        }
+
+        // Default target 600 s / 30 s per new card = 20, below the 100/day setting.
+        Assert.Equal(20, await NewOfferedAsync(""));
+        // 900 s = 30 new cards, still below the setting.
+        Assert.Equal(30, await NewOfferedAsync("?budgetS=900"));
+        // The requested budget is clamped to session_max_s, so a larger value cannot exceed it.
+        Assert.Equal(30, await NewOfferedAsync("?budgetS=10000"));
+    }
+
+    [Fact]
+    public async Task PlanReviewsAreCappedAtTwoHundredPerDay()
+    {
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            for (var id = 1; id <= 250; id++)
+            {
+                AddWord(database, id, $"es-due-{id:D3}", $"hecha{id}");
+                AddCard(database, id, id, state: CardState.Review,
+                    dueMs: Now.AddSeconds(-1).ToUnixTimeMilliseconds());
+            }
+        });
+        using var client = await LearnerClientAsync(factory);
+        using var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan", CancellationToken.None));
+        Assert.Equal(200, body.RootElement.GetProperty("items").GetArrayLength());
+        Assert.Equal(200, body.RootElement.GetProperty("counts").GetProperty("due").GetInt32());
+        // The backlog count is the total, so H11 still sees 250 and suppresses new cards.
+        Assert.Equal(250, body.RootElement.GetProperty("counts").GetProperty("backlog").GetInt32());
+        Assert.Equal(0, body.RootElement.GetProperty("counts").GetProperty("newOffered").GetInt32());
+        Assert.Equal(new[] { "backlog_no_new" },
+            body.RootElement.GetProperty("warnings").EnumerateArray().Select(value => value.GetString()).ToArray());
+    }
+
+    // Negative control for the NEW path: admitting en_es New cards must not decay into admitting
+    // every en_es New card. Card 2's sibling succeeded only today; card 4's sibling never graduated.
+    [Fact]
+    public async Task LockedEnEsNewCardIsNeverOfferedAsNew()
+    {
+        using var factory = new LearnApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-hoy-01", "hoy");
+            AddCard(database, 1, 1, state: CardState.Review, dueMs: Now.AddDays(3).ToUnixTimeMilliseconds(), reps: 2);
+            AddCard(database, 2, 1, direction: "en_es", state: CardState.New);
+            AddWord(database, 2, "es-aprender-02", "aprender", pos: "verb");
+            AddCard(database, 3, 2, state: CardState.Learning, dueMs: Now.AddDays(1).ToUnixTimeMilliseconds());
+            AddCard(database, 4, 2, direction: "en_es", state: CardState.New);
+            database.ReviewLogs.Add(Success("today-success", 1, 1, StartOfToday.ToUnixTimeMilliseconds()));
+        });
+        using var client = await LearnerClientAsync(factory);
+        using var body = await JsonAsync(await client.GetAsync("/api/learn/session/plan", CancellationToken.None));
+        Assert.Empty(body.RootElement.GetProperty("items").EnumerateArray());
+        Assert.Equal(0, body.RootElement.GetProperty("counts").GetProperty("newOffered").GetInt32());
+    }
+
     [Fact]
     public async Task RetainedRemovedSenseIsInvisibleToEveryLearnerPath()
     {
@@ -1066,6 +1410,10 @@ public sealed class M5LearnApiTests
         Assert.Contains("\"due_ms\"", dueSql);
         Assert.Contains("INNER JOIN \"senses\"", newSql);
         Assert.Contains("\"cefr\"", newSql);
+        // T-20261018-0332 S0: the §3.4 sibling predicate gates the en_es introduction path too, so
+        // the new-card query carries the same translated review-log EXISTS subquery as the due one.
+        Assert.Contains("EXISTS", newSql);
+        Assert.Contains("\"reviewed_at_ms\" <", newSql);
 
         // Negative control: a UTC->local conversion inside a filter cannot translate, so the
         // boundary has to be a plain long comparison from LearnerClock.
@@ -1294,6 +1642,14 @@ public sealed class M5LearnApiTests
         clientAttemptId, cardId, cardEpoch = 0, sessionId = "s", mode, rating,
         isCorrectMeaning = (bool?)null, isCorrectForm = (bool?)null, overridden = false,
         feedbackKind = (string?)null, answerText = (string?)null, durationMs = 800, reviewedAtUtc
+    };
+
+    // en_es cards are graded as production: the server assigns `typed` on introduction (reps 0).
+    private static object TypedAttempt(int cardId, DateTimeOffset reviewedAtUtc) => new
+    {
+        clientAttemptId = Guid.NewGuid().ToString(), cardId, cardEpoch = 0, sessionId = "s", mode = "typed",
+        rating = 3, isCorrectMeaning = (bool?)true, isCorrectForm = (bool?)true, overridden = false,
+        feedbackKind = (string?)null, answerText = "la abuela", durationMs = 4000, reviewedAtUtc
     };
 
     private static ReviewLog Success(string clientAttemptId, int wordId, int cardId, long reviewedAtMs) => new()
