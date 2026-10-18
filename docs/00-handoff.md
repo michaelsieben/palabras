@@ -1,6 +1,7 @@
 # Palabras — handoff (read this first)
 
-Status date: 2026-10-17. Written at the end of run `T-20261017-1516` (M0 scaffold + mock UI).
+Status date: 2026-10-18 (§4 and §7 checked against `main` at `993f0d1`, run `T-20261018-2005`).
+First written 2026-10-17 at the end of run `T-20261017-1516` (M0 scaffold + mock UI).
 Repo docs are the source of truth. Run reports referenced below are copied into the repo under
 `docs/runs/` (see `docs/runs/README.md` for reading order and staleness). They are historical
 evidence for state claims, not living docs. Raw `.log` files were not copied; any citation to a
@@ -62,6 +63,25 @@ gateway `172.18.0.1`, NPM currently `172.18.0.37` — not stable across restarts
 
 ## 4. What exists today
 
+State on `main` at `993f0d1` (2026-10-18). Milestone status is in §7; this table lists the pieces.
+
+| Piece | State | Evidence |
+| --- | --- | --- |
+| CI | One `build` job: `dotnet restore/build/test` (Release), `npm ci`, `npm run lint`, `npm run build`, content lint, container build + smoke (`/healthz` ok, `/api/nope` 404, SPA fallback 200). CI does **not** run `npm test` or `npm run test:browser`; frontend unit and Chromium tests are local-only evidence | `.github/workflows/ci.yml:27-48`, `Frontend/package.json:13,16` |
+| Health | `dotnet build` green, `dotnet test` 790 passed / 0 failed (Debug and Release), `npm ci` / lint / build green, content lint `OK — 58 word file(s), 0 errors`; measured at `6e41d0f` (`993f0d1` changed docs only). `docker build` not run locally | `.opencode/runs/T-20261018-2005/01-ci-equivalent-verification.md` (local run artifact) |
+| Backend | Forwarded headers first, host filtering (`AllowedHosts` = `palabras.siebentower.nl;localhost;127.0.0.1`), `X-Palabras: 1` on non-GET `/api`, cookie auth with persisted data-protection keys, roles `owner` (also `learner`) and `reviewer`. Endpoints: `/healthz` (503 when SQLite is unreachable, `ee2ef77`), `/api/ping`, `/api/auth/*`, `/api/learn/*`, `/api/learn/stats`, `/api/learn/export`; `/api/review/queue` is an empty M4 stub. Nightly `BackupService` | `Program.cs:83,97,121-122,126-127,133-142,210-229`, `appsettings.json:8`, `Auth/AccountAuthentication.cs:45`, `Learn/LearnEndpoints.cs:20-27` |
+| Database | SQLite via EF Core; migrations `InitialAccounts`, `ContentSchema`, `SrsCards`; the app migrates on startup | `Backend/Palabras/Persistence/Migrations/`, `Program.cs:125` |
+| CLI | `user create` / `set-username` / `set-password` / `list`, `import`, `content approve/status/retire`, `restore-progress` | `04-accounts.md`, `06-content-cli.md`, `07-learn-api.md` |
+| Backend tests | 17 files in `Backend/Palabras.Tests/` (M0 API, M1 auth, M2 content, M5 SRS/queue/learn API incl. py-fsrs golden vectors, M6 stats, M10 backup, CLI); 790 tests | `Backend/Palabras.Tests/`, step-01 artifact above |
+| Frontend | Login; learner routes `/` (`/sesion`), `/palabras`, `/progreso`, `/ajustes` on the real API, with IndexedDB offline attempt queue (`21f1d52`). Reviewer routes `/revisar`, `/aprobadas` remain mock data. Dev-only `/debug/viewport` | `Frontend/src/App.tsx:27,54,64`, `Frontend/src/ReviewQueue.tsx` |
+| Frontend tests | 13 `node --test` files (`npm test`) and Chromium scripts (`npm run test:browser`, incl. offline e2e `learnBrowser.mjs`); not run by CI (see CI row) | `Frontend/tests/`, `Frontend/package.json:13,16` |
+| PWA shell | Manifest (es-ES), service worker cache `palabras-shell-<sha>` with prompt-to-refresh update flow, ultrawide tablet layout; `index.html`, `sw.js`, manifest served `no-cache`, manifest as `application/manifest+json` | `runs/13-pwa-ultrawide.md`, `Program.cs:190-203` |
+| Content | `content/` schema v2 with lifecycle `status` enum, `style-guide.md`, `style-guide.lexicon.json`, 58 word files. Lint: `OK — 58 word file(s), 0 errors, 0 warning(s)` | `content/words/`, `tools/content-lint/` |
+| Deploy | `deploy/unraid/docker-compose.yml` (production), root `docker-compose.yml` (local), `deploy/unraid-deploy.sh` main-branch poll with data/account guards (`2e6ac48`) and smoke test `deploy/tests/unraid-deploy-smoke.sh`. A production container has run on Unraid (data-loss incident 2026-10-18); which commit it runs is not recorded in the repo | `08-upgrade-rollback.md:27-40,285-289` |
+
+**Historical — M0 snapshot (2026-10-17, run `T-20261017-1516`).** Kept for the run-report trail; superseded
+by the table above.
+
 | Piece | State | Evidence |
 | --- | --- | --- |
 | Repo + CI | Private GitHub repo, CI green (run 39037127620 on commit 561de60); SDK 10.0.401, Node 24.21.0 | `runs/03-m0-scaffold.md` |
@@ -73,7 +93,7 @@ gateway `172.18.0.1`, NPM currently `172.18.0.37` — not stable across restarts
 | Content | `content/` schema v2 with lifecycle `status` enum, `style-guide.md`, `lexicon.json`, 58 word files (34 A1, 24 A2), all `pending_review`. Lint: `OK — 58 word file(s), 0 errors, 0 warning(s)` | `content/`, `tools/content-lint/` (no run report) |
 | Deploy files | `deploy/unraid/docker-compose.yml` (production) and root `docker-compose.yml` (local, `./data`, no `sieben`) | repo |
 
-At handoff time `Frontend/**`, `content/**`, `tools/**` and some backend changes were
+At M0 handoff time (2026-10-17) `Frontend/**`, `content/**`, `tools/**` and some backend changes were
 **uncommitted** in the working tree while another agent was committing. Check `git status` and
 `git log` before assuming anything is on `main`.
 
