@@ -198,22 +198,17 @@ intervals. Failure exits non-zero and retains the last healthy SHA; there is no 
 - Resume: `rm /mnt/user/docker/palabras/paused`, then run the wrapper manually.
 - Disable: User Scripts → Palabras auto deploy → schedule Disabled → Apply. This persists over reboot.
 
-Rollback first pauses polling. Replace `<previous-sha>` with a trusted commit from the deployment
-log; future DB migrations may also require a backup restore. Nothing deletes `/data`:
+Rollback restarts the image retained before the upgrade; it does not rebuild from source. Follow
+`docs/08-upgrade-rollback.md` ("Rollback"): start the retained image ID with `docker compose up -d
+--no-build`, and restore the pre-upgrade database set unless the old image passed the drill against
+the migrated copy. Do not check out an older SHA and run `docker compose up -d --build`: floating base
+tags make that a different image, and the old code then runs against the already migrated database.
+Never run a down-migration. A deploy that adds a migration starts with that runbook's section A
+(pre-migration backup, manual upgrade with polling paused), not with the poll.
 
-```bash
-touch /mnt/user/docker/palabras/paused
-cd /mnt/user/repos/palabras
-git checkout --detach <previous-sha>
-# Use the retained deployed compose if this SHA predates the template.
-cp deploy/unraid/docker-compose.yml /mnt/user/docker/palabras/docker-compose.yml
-cd /mnt/user/docker/palabras
-docker compose up -d --build
-curl --fail http://127.0.0.1:18480/healthz
-```
-
-Keep polling paused during rollback. Return to `main`, then remove `paused` and run the wrapper to
-resume updates to the newest `origin/main`. To stop without the scheduler restarting the app:
+Keep polling paused after a rollback: with `deployed.sha` unchanged a resumed poll does nothing, but
+the next commit on `main` rebuilds and re-migrates. Resume as in that runbook's Rollback step 6.
+To stop without the scheduler restarting the app:
 
 ```bash
 touch /mnt/user/docker/palabras/paused

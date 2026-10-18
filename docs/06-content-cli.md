@@ -41,7 +41,7 @@ Migrations in order: `InitialAccounts` (M1), `ContentSchema` (M2, `2026101723482
 | `import <dir> [--dry-run]` | `words`, `senses`, `word_alternatives`, `word_topics`, `word_revisions`, card epochs/suspension | yes: re-run with the same files → all `unchanged` | `created=N updated=N unchanged=N rejected=N` |
 | `content approve <key…>` | `words.status`, `word_revisions`, `cards` | yes: already approved → `unchanged` | `approved=N unchanged=N` |
 | `content approve --all-pending` | same | yes | `approved=N unchanged=N` |
-| `content status` | read only | yes | one `<status>=<count>` line per status, then `total=N` |
+| `content status` | no content rows; still applies pending migrations first, like every `content` verb, so stop it with the app during an upgrade (`08-upgrade-rollback.md`) | yes | one `<status>=<count>` line per status, then `total=N` |
 | `content retire <key…>` | `words.status`, `word_revisions`, `cards` | yes: already retired is skipped | `retired=N` |
 | `restore-progress <file.json>` | `cards`, `review_log` of one user | yes: identical rows are skipped | `Restored N cards and M reviews for user U.` |
 
@@ -106,7 +106,7 @@ reached Review and been answered correctly on an earlier local day.
 ### `content status`
 
 Prints the word count for each of `draft`, `pending_review`, `approved`, `needs_change`, `rejected`, `retired`
-(zero included), then `total=`. Changes no content.
+(zero included), then `total=`. Changes no content rows, but migrates the database first (rule above).
 
 ### `content retire <key…>`
 
