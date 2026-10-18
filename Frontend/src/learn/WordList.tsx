@@ -3,7 +3,7 @@ import { getLearnerWords } from '../api/learn'
 import type { LearnerWord } from '../api/learn'
 
 export function WordList({ side = false }: { side?: boolean }) {
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(() => side ? '' : new URLSearchParams(window.location.search).get('q') ?? '')
   const [topic, setTopic] = useState('')
   const [topics, setTopics] = useState<string[]>([])
   const [words, setWords] = useState<LearnerWord[]>([])

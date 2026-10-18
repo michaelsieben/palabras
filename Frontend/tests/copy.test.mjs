@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as copy from '../src/copy/feedback.ts'
+import { statsCopy, stageCopy } from '../src/copy/stats.ts'
 import { gradeAnswer } from '../src/learn/grade.ts'
 
 const keys = ['correct', 'correct-but-slow', 'near-miss-accent', 'accent-required', 'near-miss-case',
@@ -57,10 +58,12 @@ test('renderer emits only text-node descriptors, supports strong/em, never trust
 test('banned phrases absent across every exported string, including nested tables and function source', () => {
   function inspect(value) {
     if (typeof value === 'string' || typeof value === 'function')
-      assert.doesNotMatch(String(value), /Wrong!|\bGreat\b|Well done/iu)
+      assert.doesNotMatch(String(value), /Wrong!|\bGreat\b|Well done|palabras sabidas|\bdominas\b|\bsabes\b/iu)
     else if (value && typeof value === 'object') Object.values(value).forEach(inspect)
   }
   Object.values(copy).forEach(inspect)
+  inspect(statsCopy)
+  inspect(stageCopy)
 })
 
 test('summary adds leech suffix only above zero and replacement explanation table keeps call shape', () => {
