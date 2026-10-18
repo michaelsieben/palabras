@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getAttemptQueue } from './learn/attemptQueue'
+import { getCompletionQueue } from './learn/completionQueue'
 import { LearnSession } from './learn/LearnSession'
 import { WordList } from './learn/WordList'
 import { StatsPage } from './learn/StatsPage'
@@ -25,12 +26,19 @@ export default function App() {
   const [loggingOut, setLoggingOut] = useState(false)
   const session = useSession()
   const attemptQueue = useMemo(() => session.user?.role === 'owner' ? getAttemptQueue(session.user.username) : null, [session.user])
+  const completionQueue = useMemo(() => attemptQueue && session.user ? getCompletionQueue(session.user.username, attemptQueue) : null, [attemptQueue, session.user])
   useEffect(() => {
     if (!attemptQueue) return
     attemptQueue.start()
     window.addEventListener('online', attemptQueue.trigger)
     return () => { window.removeEventListener('online', attemptQueue.trigger); attemptQueue.stop() }
   }, [attemptQueue])
+  useEffect(() => {
+    if (!completionQueue) return
+    completionQueue.start()
+    window.addEventListener('online', completionQueue.trigger)
+    return () => { window.removeEventListener('online', completionQueue.trigger); completionQueue.stop() }
+  }, [completionQueue])
   const pwa = usePwa()
   const mainHeading = useRef<HTMLHeadingElement>(null)
   useEffect(() => { const pop = () => setPath(window.location.pathname); window.addEventListener('popstate', pop); return () => window.removeEventListener('popstate', pop) }, [])

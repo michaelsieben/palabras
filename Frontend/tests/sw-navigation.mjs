@@ -54,6 +54,7 @@ const server = await preview({ preview: { host: '127.0.0.1', port: 4174, strictP
         res.setHeader('Content-Type', 'application/json')
         res.setHeader('Cache-Control', 'no-store')
         if (url.pathname.endsWith('/session/plan')) res.end(JSON.stringify(browserPlan()))
+        else if (url.pathname.endsWith('/day/status')) res.end(JSON.stringify({ localDate: '2026-10-18', status: null, streak: 0, skipAvailable: true, skipNextAvailable: null }))
         else if (url.pathname.endsWith('/words')) res.end(JSON.stringify({ items: [] }))
         else if (url.pathname.endsWith('/forecast')) res.end(JSON.stringify({ tomorrow: 2, next7Days: Array.from({ length: 7 }, (_, i) => ({ date: `2026-10-${19 + i}`, due: i === 0 ? 2 : i === 1 ? 7 : 0 })) }))
         else if (url.pathname.endsWith('/attempts')) {

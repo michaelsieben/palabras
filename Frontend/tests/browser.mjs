@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { chromium } from '@playwright/test'
 import { createServer, preview } from 'vite'
 import { readFile } from 'node:fs/promises'
-import { fulfillLearn, runLearnerBrowser } from './learnBrowser.mjs'
+import { fulfillLearn, runDayBrowser, runLearnerBrowser } from './learnBrowser.mjs'
 
 let swOverride
 const server = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: true }, plugins: [{
@@ -27,6 +27,7 @@ async function mockSession(context) {
 try {
   browser = await chromium.launch({ headless: true })
   await runLearnerBrowser(browser)
+  await runDayBrowser(browser)
   const authContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
   const authPage = await authContext.newPage()
   let user = null

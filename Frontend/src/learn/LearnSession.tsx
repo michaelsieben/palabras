@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from 'react'
 import { loadCachedPlan } from './cachedPlan'
 import type { Attempt, Rating } from '../api/learn'
 import { isSlowAnswer } from '../copy/feedback'
@@ -12,12 +12,20 @@ import { FeedbackPanel } from './FeedbackPanel'
 import { SessionSummary } from './SessionSummary'
 import { EmptyQueue } from './EmptyQueue'
 import { CopyText } from './CopyText'
+import { completionLocalDate, countsAsCompletedDay, getCompletionQueue } from './completionQueue'
+import type { DayCompletion } from '../api/learn'
+import { DayStatusPanel } from './DayStatusPanel'
 
 export function LearnSession({ username, attemptQueue, onComplete, enqueue: injectedEnqueue }: {
   username: string; attemptQueue: ReturnType<typeof getAttemptQueue>; onComplete(): void; enqueue?: EnqueueAttempt
 }) {
   const [state, dispatch] = useReducer(sessionReducer, initialSessionState)
   const enqueue = injectedEnqueue ?? attemptQueue.enqueue
+  const completionQueue = useMemo(() => getCompletionQueue(username, attemptQueue), [username, attemptQueue])
+  const completionStatus = useSyncExternalStore(completionQueue.subscribe, completionQueue.getSnapshot)
+  const completionBody = useRef<DayCompletion | null>(null)
+  const [completionSaveError, setCompletionSaveError] = useState(false)
+  const [completionDate, setCompletionDate] = useState<string | null>(null)
   const queueStatus = useSyncExternalStore(attemptQueue.subscribe, attemptQueue.getSnapshot)
   const [online, setOnline] = useState(navigator.onLine)
   useEffect(() => {
@@ -40,6 +48,7 @@ export function LearnSession({ username, attemptQueue, onComplete, enqueue: inje
   useEffect(() => {
     const controller = new AbortController()
     dispatch({ type: 'load' })
+    completionBody.current = null
     void loadCachedPlan(username, controller.signal).then(({ plan, offline }) => {
       if (!controller.signal.aborted) dispatch(offline ? { type: 'failed', message: 'offline', cachedPlan: plan } : { type: 'loaded', plan })
     }).catch(error => {
@@ -69,6 +78,27 @@ export function LearnSession({ username, attemptQueue, onComplete, enqueue: inje
   }, [state.attempts, enqueue])
   // Runs after enqueue effect: flush waits for durable writes, not UI progression.
   useEffect(() => { if (state.phase === 'summary') attemptQueue.trigger() }, [state.phase, attemptQueue])
+  useEffect(() => {
+    if (state.phase !== 'summary' || !state.plan || !state.attempts.length || !countsAsCompletedDay(state.stopping, state.attempts)) return
+    // Capture before waiting for storage/network: a late flush must never choose its receipt day.
+    const practiced = new Set(state.attempts.map(attempt => attempt.cardId))
+    const cards = state.plan.items.filter(card => practiced.has(card.cardId))
+    completionBody.current ??= {
+      localDate: completionLocalDate(), durationS: Math.round(state.attempts.reduce((sum, attempt) => sum + attempt.durationMs, 0) / 1000),
+      newCount: cards.filter(card => card.isNew).length, reviewCount: cards.filter(card => !card.isNew).length,
+    }
+    const body = completionBody.current
+    void attemptQueue.persisted().then(() => completionQueue.enqueue(body))
+      .then(() => { setCompletionSaveError(false); setCompletionDate(body.localDate) }).catch(() => setCompletionSaveError(true))
+  }, [state.phase, state.plan, state.attempts, state.stopping, attemptQueue, completionQueue, sendErrors])
+  async function retryCompletion() {
+    try {
+      await attemptQueue.persisted()
+      if (completionBody.current) await completionQueue.enqueue(completionBody.current)
+      setCompletionDate(completionBody.current?.localDate ?? null)
+      setCompletionSaveError(false)
+    } catch { setCompletionSaveError(true) }
+  }
   async function retryAnswers() {
     const attempts = sendErrors
     setSendErrors([])
@@ -85,6 +115,7 @@ export function LearnSession({ username, attemptQueue, onComplete, enqueue: inje
       durationMs: item?.mode === 'recognition' ? revealDuration.current : answerDuration.current })
   }
   return <section className="session-pane learn-session" aria-label="Sesión de práctica" ref={pane} tabIndex={-1}>
+    <DayStatusPanel completionQueue={completionQueue} />
     {state.plan && <div className="summary" aria-label="Cola de hoy"><div><strong>{state.plan.counts.due} repasos</strong><span>{state.plan.counts.newOffered} nuevas ofrecidas</span></div><div><strong>{state.attempts.length} respuestas</strong><span>{state.queue.length} tarjetas por practicar</span></div></div>}
     {state.plan?.warnings.includes('backlog_no_new') && <aside className="panel session-notice"><CopyText kind="backlog-warning" values={{ n: state.plan.counts.backlog }} /></aside>}
     {state.offline && <p className="note">Repaso sin conexión: última cola guardada. Las tarjetas pueden haber cambiado; se comprobarán al enviar.</p>}
@@ -93,13 +124,14 @@ export function LearnSession({ username, attemptQueue, onComplete, enqueue: inje
         : state.attempts.length && state.attempts.every(attempt => delivered.has(attempt.clientAttemptId)) && !sendErrors.length ? 'Respuestas enviadas.' : ''}</p>}
     {queueStatus.error && <aside className="panel session-notice" role="status"><p>No se ha podido enviar. Las respuestas guardadas se reintentarán al reconectar o terminar otra sesión.</p><button onClick={attemptQueue.trigger}>Reintentar envío</button></aside>}
     {sendErrors.length > 0 && <aside className="panel session-notice" role="alert"><p>{sendErrors.length} respuestas no se pudieron guardar en este dispositivo. No cierres ni actualices esta vista hasta reintentar.</p><button onClick={() => void retryAnswers()}>Reintentar guardado</button></aside>}
+    {completionSaveError && <aside className="panel session-notice" role="alert"><p>No se pudo guardar el día completado. No cierres ni actualices esta vista. Reintenta primero las respuestas que no se guardaron.</p><button onClick={() => void retryCompletion()}>Guardar día completado</button></aside>}
     {notice && <p className="note" role="status">{notice}</p>}
     {state.stopSuggested && !state.stopping && <aside className="panel session-notice"><CopyText kind="stop-suggestion" values={{ k: Math.min(8, state.attempts.length) }} /><button onClick={() => dispatch({ type: 'stop' })}>Parar tras recuperar las pendientes</button></aside>}
     {state.stopping && state.phase !== 'summary' && <p className="note">Recupera estas tarjetas antes de terminar. Sin prisa; también puedes consultar la respuesta.</p>}
     {['idle', 'loading'].includes(state.phase) && <p role="status">Preparando tu repaso…</p>}
     {state.phase === 'error' && <section className="panel"><h2>No se ha podido preparar el repaso</h2><p role="alert">Comprueba la conexión o vuelve a iniciar sesión e inténtalo de nuevo.</p><button onClick={() => setRound(value => value + 1)}>Reintentar</button></section>}
     {state.phase === 'empty' && <EmptyQueue nextDueUtc={state.plan?.nextDueUtc} retry={() => setRound(value => value + 1)} />}
-    {state.phase === 'summary' && <SessionSummary attempts={state.attempts} pending={queueStatus.pending} onAnotherRound={() => setRound(value => value + 1)} />}
+    {state.phase === 'summary' && <><p className="note" role="status">{!countsAsCompletedDay(state.stopping, state.attempts) ? 'Sesión terminada antes de completar el día. Tus respuestas se guardan; puedes continuar con otra vuelta.' : completionStatus.last && completionStatus.last.localDate === completionDate ? `Día completado · Racha: ${completionStatus.last.streak}` : 'Sesión terminada. El día se confirmará después de enviar las respuestas.'}</p><SessionSummary attempts={state.attempts} pending={queueStatus.pending} savingFailed={completionSaveError || sendErrors.length > 0 || (countsAsCompletedDay(state.stopping, state.attempts) && completionDate === null)} onAnotherRound={() => { setCompletionDate(null); setRound(value => value + 1) }} /></>}
     {item && ['prompting', 'answering', 'grading', 'feedback'].includes(state.phase) && <>
       <PromptCard item={item} revealed={state.phase === 'grading'} />
       {item.mode === 'recognition' ? state.phase === 'grading'

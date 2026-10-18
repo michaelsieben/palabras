@@ -170,6 +170,12 @@ fieldset { border: 0; margin: 0; padding: 0; }
 .answer-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .answer-buttons button { flex: 1 1 140px; }
 .session-notice { margin-bottom: 16px; background: var(--soft); }
+.day-status { margin-bottom: 16px; }
+.day-status-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.day-status-heading > div { min-width: 0; }
+.day-status-heading strong, .day-status-heading span { display: block; }
+.day-status-heading span { color: var(--muted); font-size: .85rem; margin-top: 4px; }
+.day-status .note { margin-bottom: 0; }
 .learn-session .grading-row button:nth-child(n) { order: initial; }
 /* Aggregate progress: one readable column, fluid SVGs, full text data alternatives. */
 .stats-page { display: grid; gap: 20px; max-width: 52rem; margin-inline: auto; }

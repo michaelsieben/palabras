@@ -25,6 +25,44 @@ export type AttemptResult = {
   card?: { id: number; state: number; dueUtc: string; intervalDays: number; leech: boolean }
 }
 export type LearnerWord = { key: string; article: string | null; headword: string; gloss: string; topics: string[]; stage: string }
+export type DayStatus = {
+  localDate: string; status: 'done' | 'skipped' | 'missed' | null; streak: number
+  skipAvailable: boolean; skipNextAvailable: string | null
+}
+export type DayCompletion = { localDate: string; durationS?: number; plannedS?: number; newCount?: number; reviewCount?: number }
+export type SkipResult = { kind: 'skipped'; day: DayStatus } | { kind: 'already_done' } | { kind: 'skip_unavailable'; nextAvailable: string }
+export function isLocalDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const date = new Date(`${value}T12:00:00Z`)
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
+export function parseDayStatus(body: unknown): DayStatus {
+  if (!object(body) || !isLocalDate(body.localDate) || ![null, 'done', 'skipped', 'missed'].includes(body.status as null | string)
+    || !Number.isSafeInteger(body.streak) || Number(body.streak) < 0 || typeof body.skipAvailable !== 'boolean'
+    || !(body.skipNextAvailable === null || isLocalDate(body.skipNextAvailable))) throw new ApiError('invalid-response')
+  return body as DayStatus
+}
+export async function getDayStatus(signal?: AbortSignal): Promise<DayStatus> {
+  return parseDayStatus(await apiRequest('/api/learn/day/status', { signal }))
+}
+export async function completeDay(completion: DayCompletion): Promise<DayStatus> {
+  return parseDayStatus(await apiRequest('/api/learn/day/done', { method: 'POST', body: JSON.stringify(completion) }))
+}
+export async function skipDay(localDate: string): Promise<SkipResult> {
+  try {
+    return { kind: 'skipped', day: parseDayStatus(await apiRequest('/api/learn/day/skip', {
+      method: 'POST', body: JSON.stringify({ localDate, source: 'app' }),
+    })) }
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409 && object(error.body)) {
+      if (error.body.reason === 'already_done') return { kind: 'already_done' }
+      if (error.body.reason === 'skip_unavailable' && isLocalDate(error.body.nextAvailable)) {
+        return { kind: 'skip_unavailable', nextAvailable: error.body.nextAvailable }
+      }
+    }
+    throw error
+  }
+}
 
 const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 const strings = (value: unknown): value is string[] => Array.isArray(value) && value.every(item => typeof item === 'string')

@@ -16,6 +16,11 @@ export async function fulfillLearn(route, typed = false) {
   if (path.endsWith('/words')) return route.fulfill({ json: { items: [] } })
   if (path.endsWith('/forecast')) return route.fulfill({ json: { tomorrow: 2,
     next7Days: Array.from({ length: 7 }, (_, i) => ({ date: `2026-10-${19 + i}`, due: i === 0 ? 2 : i === 1 ? 7 : 0 })) } })
+  if (path.includes('/day/')) return route.fulfill({ json: {
+    localDate: path.endsWith('/done') ? route.request().postDataJSON().localDate : '2026-10-18',
+    status: path.endsWith('/done') ? 'done' : path.endsWith('/skip') ? 'skipped' : null,
+    streak: path.endsWith('/done') ? 1 : 0, skipAvailable: !path.endsWith('/skip'), skipNextAvailable: path.endsWith('/skip') ? '2026-10-25' : null,
+  } })
   const { attempts } = route.request().postDataJSON()
   return route.fulfill({ json: { results: attempts.map(a => ({ clientAttemptId: a.clientAttemptId, status: 'applied' })) } })
 }
@@ -126,5 +131,76 @@ export async function runLearnerBrowser(browser) {
     assert.equal(await answer.count(), 0); assert.equal(planRequests, before)
     assert.deepEqual(errors, [])
     console.log('M6 browser: login → typed accent near-miss → summary/forecast; setOffline airplane-mode cached-plan session → durable IndexedDB row → reconnect applied once; racing online events/reload no resend; close offline/reopen online drains persisted row once; reviewer /sesion denied. API contract mocked, no live backend.')
+  } finally { await context.close() }
+}
+
+export async function runDayBrowser(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
+  try {
+    let offline = false; let skipConflict = true
+    let day = { localDate: '2026-10-18', status: null, streak: 3, skipAvailable: true, skipNextAvailable: null }
+    const events = []; const completions = []; const errors = []
+    await context.route('**/api/**', async route => {
+      const request = route.request(); const path = new URL(request.url()).pathname
+      if (offline) return route.abort('internetdisconnected')
+      if (path.endsWith('/me')) return route.fulfill({ json: { username: 'm7-learner', role: 'owner' } })
+      if (request.method() !== 'GET') assert.equal(request.headers()['x-palabras'], '1')
+      if (path.endsWith('/day/status')) return route.fulfill({ json: day })
+      if (path.endsWith('/day/skip')) {
+        assert.deepEqual(request.postDataJSON(), { localDate: day.localDate, source: 'app' })
+        if (skipConflict) {
+          day = { ...day, skipAvailable: false, skipNextAvailable: '2026-10-25' }
+          return route.fulfill({ status: 409, json: { reason: 'skip_unavailable', nextAvailable: '2026-10-25' } })
+        }
+        day = { ...day, status: 'skipped', skipAvailable: false, skipNextAvailable: '2026-10-25' }
+        return route.fulfill({ json: day })
+      }
+      if (path.endsWith('/day/done')) {
+        events.push('done'); completions.push(request.postDataJSON())
+        day = { ...day, status: 'done', streak: 4, skipAvailable: true, skipNextAvailable: null }
+        return route.fulfill({ json: { ...day, localDate: request.postDataJSON().localDate } })
+      }
+      if (path.endsWith('/attempts')) events.push('answers')
+      return fulfillLearn(route, true)
+    })
+    let page = await context.newPage()
+    await page.clock.install({ time: new Date('2026-10-18T21:58:00Z') })
+    page.on('pageerror', error => errors.push(error.message))
+    await page.goto('http://127.0.0.1:4173/')
+    await page.getByText('18 de octubre de 2026 · Racha: 3 días', { exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Saltar hoy', exact: true }).click()
+    await page.getByText(/Ya has usado el salto. Puedes volver a saltar el 25 de octubre de 2026/).waitFor()
+    assert.equal(await page.getByRole('button', { name: 'Saltar hoy', exact: true }).isDisabled(), true)
+    assert.equal(await page.getByLabel('Tu respuesta', { exact: true }).isVisible(), true)
+    // Restore availability then exercise successful skip without preventing practice.
+    skipConflict = false; day = { ...day, skipAvailable: true, skipNextAvailable: null }
+    await page.reload()
+    await page.getByRole('button', { name: 'Saltar hoy', exact: true }).click()
+    await page.getByText('Hoy saltado', { exact: true }).waitFor()
+    offline = true; await context.setOffline(true)
+    await page.getByLabel('Tu respuesta', { exact: true }).fill('cafe')
+    await page.getByRole('button', { name: 'Comprobar', exact: true }).click()
+    await page.getByRole('button', { name: 'Continuar · Good', exact: true }).click()
+    await page.getByText(/1 día completado guardado en este dispositivo, pendiente de envío/).waitFor()
+    assert.equal(completions.length, 0)
+    const rows = await page.evaluate(async () => {
+      const db = await new Promise((resolve, reject) => { const req = indexedDB.open('palabras-completions:m7-learner', 1); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error) })
+      try { return await new Promise((resolve, reject) => { const req = db.transaction('completions').objectStore('completions').getAll(); req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error) }) }
+      finally { db.close() }
+    })
+    assert.equal(rows[0].body.localDate, '2026-10-18'); assert.equal(rows[0].state, 'pending')
+    await page.close(); offline = false; await context.setOffline(false)
+    page = await context.newPage(); page.on('pageerror', error => errors.push(error.message))
+    await page.clock.install({ time: new Date('2026-10-18T22:02:00Z') })
+    day = { ...day, localDate: '2026-10-19', status: null }
+    await page.goto('http://127.0.0.1:4173/')
+    await page.getByText('19 de octubre de 2026 · Racha: 4 días', { exact: true }).waitFor()
+    assert.deepEqual(events, ['answers', 'done']); assert.equal(completions.length, 1)
+    assert.equal(completions[0].localDate, '2026-10-18')
+    await page.reload(); await page.getByLabel('Tu respuesta', { exact: true }).waitFor()
+    assert.equal(completions.length, 1)
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+    assert.deepEqual(errors, [])
+    console.log('M7 browser: mobile status/streak; camelCase 409 explains next skip date without blocking practice; successful skip; offline completion durably stored; close/reopen after Madrid midnight drains answers then original-day completion once; today refetched, reload dedupe; no horizontal overflow/page errors. Mock API, user visual confirmation still needed.')
   } finally { await context.close() }
 }

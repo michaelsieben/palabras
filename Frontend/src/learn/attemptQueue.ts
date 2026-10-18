@@ -53,6 +53,7 @@ export function createAttemptQueue(store: AttemptStore, options: {
   const listeners = new Set<() => void>()
   const waiters = new Map<string, { resolve(result: AttemptResult): void; reject(error: unknown): void; promise: Promise<AttemptResult> }>()
   const acknowledged = new Map<string, AttemptResult>()
+  const failedWrites = new Set<string>()
   let snapshot: QueueSnapshot = { pending: 0, error: false }
   let writes: Promise<unknown> = Promise.resolve()
   let flushing: Promise<void> | undefined
@@ -103,13 +104,18 @@ export function createAttemptQueue(store: AttemptStore, options: {
     waiters.set(id, { resolve, reject, promise })
     writes = writes.catch(() => undefined).then(async () => {
       await store.put(attempt)
+      failedWrites.delete(id)
       await refresh()
       if (snapshot.pending >= 10) trigger()
-    }).catch(error => { waiters.delete(id); reject(error) })
+    }).catch(error => { failedWrites.add(id); waiters.delete(id); reject(error) })
     return promise
   }
   return {
     enqueue, flush, trigger,
+    async persisted() {
+      await writes
+      if (failedWrites.size) throw new Error('Answers not stored')
+    },
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener) } },
     getSnapshot: () => snapshot,
     start() { active = true; trigger() },
