@@ -24,19 +24,24 @@ progress from a JSON export in `restore-drill.md`; CLI behaviour in `06-content-
   `palabras:local` from an older commit is **not** a rollback: base images use floating tags (`Dockerfile:1,8,17`),
   so the result can differ from what ran. The only exact rollback target is the image ID the container was
   actually running. The rebuild-based rollback in `README.md` is a source rollback, not an image rollback.
-- The poll (`deploy/unraid-deploy.sh`) rebuilds and recreates the container whenever the container is not healthy
-  or `origin/main` moved (`:306-330`). A stopped container therefore gets rebuilt within five minutes unless polling is
-  paused. The pause file is checked only after the run takes its lock (`:21-22`, `:235-238`), so a run already in
-  progress finishes.
+  Since T-20261018-2105 the poll itself tags the image the container is running as
+  `palabras:rollback-<image-id12>` before every rebuild (`:291-313`), idempotently, keeping the newest two tags
+  (`ROLLBACK_KEEP=2`, manifest `$DEPLOY/rollback-images`, `:315-360`) — so a poll rebuild no longer leaves its
+  outgoing image untagged. That does not retroactively cover an image that was already untagged before the poll
+  ran, and `docker image prune -a` still removes an unused tagged image.
+- The poll (`deploy/unraid-deploy.sh`) rebuilds and recreates the container whenever the container is not healthy,
+  the running container's image id is not the one the recorded sha deployed, or `origin/main` moved (`:431-492`).
+  A stopped container therefore gets rebuilt within five minutes unless polling is paused. The pause file is
+  checked only after the run takes its lock (`:32-33`, `:363-366`), so a run already in progress finishes.
 - Poll data guards, all enforced only once `deployed.sha` exists. The data directory is `APPDATA_PATH` parsed from
-  `$DEPLOY/.env` (`:65-83`, `:241-247`). (1) Before any fetch, a missing, symlinked, non-regular or 0-byte
-  `palabras.db` there aborts the run without writing `deployed.sha` (`:90-118`, `:248`); nothing is recreated.
+  `$DEPLOY/.env` (`:76-94`, `:370-376`). (1) Before any fetch, a missing, symlinked, non-regular or 0-byte
+  `palabras.db` there aborts the run without writing `deployed.sha` (`:101-129`, `:376`); nothing is recreated.
   (2) Before every rebuild, `palabras.db`, its `-wal`/`-shm` and `keys/` are copied with `cp -a` to
-  `$DEPLOY/backups/<UTC stamp>-<sha7>/`, newest 5 kept; any copy failure aborts (`:124-185`, `:326`). The copy is
+  `$DEPLOY/backups/<UTC stamp>-<sha7>/`, newest 5 kept; any copy failure aborts (`:135-196`, `:488`). The copy is
   taken without stopping the app, so it may need WAL recovery; prefer A step 6 for an upgrade. (3) After a rebuild
   and on every unchanged healthy poll, `docker exec palabras dotnet /app/Palabras.dll user list` must print a `ROLE`
   header and at least one account, and no fewer than the pre-rebuild count; otherwise the poll exits non-zero and
-  keeps the previous `deployed.sha`, even with the container healthy (`:187-232`, `:311`, `:337`). Without
+  keeps the previous `deployed.sha`, even with the container healthy (`:198-243`, `:460`, `:499`). Without
   `deployed.sha`, guard 1 is skipped and zero accounts is only a warning, so deleting it disables both for that run.
 - Recreating the container sends SIGTERM, then SIGKILL after the stop timeout. A SIGKILL during a migration can leave
   the EF migration lock behind (branch B below).
@@ -165,7 +170,7 @@ read; free space checked in step 4.
    docker logs -f palabras                        # watch migrations finish; Ctrl-C stops only the log view
    ```
 
-   If `/healthz` is not reached within about three minutes (the poll's own limit, `deploy/unraid-deploy.sh:331-347`)
+   If `/healthz` is not reached within about three minutes (the poll's own limit, `deploy/unraid-deploy.sh:493-518`)
    and the log stops at the migration lock, go to branch B. Any other failure: go to rollback.
 
 ### Verification (acceptance)
@@ -181,6 +186,11 @@ All must pass; health alone is not acceptance.
   `SELECT count(*) FROM review_log;` on `$SAFE/scratch/palabras.db`.
 - One successful backup: after the next 03:30 learner-local run, `docker logs palabras 2>&1 | grep 'SQLite backup
   published'` shows a line and the file exists in `$DATA/backups/`. There is no on-demand backup trigger.
+- For a release that adds migrations (M7 `DayStatusAndSkips` onwards): a published backup line alone does not prove
+  the new tables were copied, because the backup's own schema check only requires the six older tables
+  (`BackupService.cs:99-101`). Open the newest file in `$DATA/backups/` read-only (it is a standalone copy, not the
+  live database) and compare its table list and `__EFMigrationsHistory` with `$SAFE/scratch/palabras.db` after the
+  migration. Copy-pasteable check and its prerequisites: D.7.
 
 After acceptance: write the deployed SHA so resuming does not rebuild an unchanged commit
 (`git -C "$REPO" rev-parse HEAD > "$DEPLOY/deployed.sha"`), then `rm "$DEPLOY/paused"`. Keep `$SAFE` and the rollback
@@ -364,3 +374,401 @@ step 1). Never read or write SQLite through `/mnt/user/appdata/...` (shfs union 
 
 Mover window from syslog, `$SRC` path and file times, account list from step 3 (roles and usernames only), `$SAFE`
 path, which fix from step 7 was applied and when, and the step 6 and 8 results.
+
+## D. M7 (`DayStatusAndSkips`) image rollback
+
+Owner-run addendum for the release that adds the M7 migration `20261018183151_DayStatusAndSkips` (tables `day_status`,
+`day_skips`, `practice_sessions`, partial index `ix_day_skips_window`) together with a day-rollover background job
+shipped **disabled**. The kill-switch is the setting `M7:DayRolloverEnabled`, in the container the environment
+variable `M7__DayRolloverEnabled`, default **false** (`Backend/Palabras/Learn/DayRolloverSettings.cs`). Only a
+case-insensitive `true` enables it; absent, empty, `false`, `1` or anything else stays off. On Unraid it would be set
+in `$DEPLOY/.env`, which the compose loads via `env_file: .env`; leave it unset for this release. Changing it takes a
+restart/recreate (`docker compose up -d --no-build --force-recreate`), no rebuild and no database downgrade.
+
+The schema migrates regardless of the switch: startup applies `DayStatusAndSkips` whether it is on or off. `missed`
+history is written only while the switch is enabled. Enabling it is a separate, deliberate decision, not part of this
+release; it is gated on the rollout-risk conditions for enablement and on the backup and drill evidence in D.2 and
+D.7. Turning it off later stops future ticks but does not remove rows already written. The rollout-risk verdict
+and its ship conditions live in `.opencode/runs/T-20261018-2105/01-m7-rollout-risk.md`. Everything below extends
+section A and the rollback section; of the commands, only the old-image drill items have CI-level analogues — none of
+this section has been executed against production.
+
+What is special about this release:
+
+- `DayStatusAndSkips.Up()` only creates tables, indexes and check constraints; it alters no existing table and copies
+  no data (`20261018183151_DayStatusAndSkips.cs:10-110`). `Down()` is destructive to M7 data: it drops the three
+  tables (`:112-123`). Same rule as `SrsCards`: **never** roll back via a down-migration.
+- The old image is expected to tolerate the migrated database. The old binary maps no M7 entity and queries no M7
+  table; EF validates nothing between model and schema at runtime, and `DatabaseLifecycle.InitializeAsync` still calls
+  `MigrateAsync`, which sees every migration the old binary knows already in `__EFMigrationsHistory` and does nothing,
+  leaving the extra history row and three tables alone (`DatabaseLifecycle.cs:7-13`). That is the intent; the proof
+  must come from the drill in D.2, not from reasoning.
+- Because the rollover only writes rows if it is enabled, a rollback of the *image* never needs to remove M7 history:
+  with the kill-switch off the three tables are created empty and stay empty, so image rollback (option R-A) and
+  database restore (option R-B) both remain data-preserving for M6 progress.
+
+### D.1 Before push/deploy: pause, retain, prove disabled
+
+Work through section A steps 1–6 first with one additional check. In step 3 (retain the running image), also record
+the container's actual image ID even if it equals `deployed.sha`'s build; that ID is the only rollback target
+(`docker build` from an old commit is not, base images float).
+
+After the upgraded container is healthy and accepted (A acceptance), **before** any rollover enablement, verify the
+kill-switch is really off by observation, not by config-reading alone:
+
+```bash
+CFG=$(docker exec palabras sh -c 'printenv' | grep '^M7__DayRolloverEnabled=')
+echo "$CFG"                                                        # expect empty (unset, default false) or M7__DayRolloverEnabled=false
+for i in 1 2 3; do
+  sleep 70
+  docker exec palabras ls /data >/dev/null 2>&1                    # container alive
+done
+docker exec palabras dotnet /app/Palabras.dll user list            # normal account listing, not a migration crash
+```
+
+Then, on a scratch copy taken the way A step 6 takes one (copy live files out, check the copy, never open the live
+WAL database with sqlite3):
+
+```bash
+sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM day_status;'           # expect 0
+sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM day_skips;'            # expect 0
+sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM practice_sessions;'    # expect 0
+```
+
+If these counts grow while the switch reads false — or after any restart — stop and treat the job as enabled; do not
+ship until the gate is proven.
+
+### D.2 Old-image compatibility drill (mandatory for R-A on this release)
+
+Section A step 7 is optional per-release; for M7 make it mandatory and add these assertions on the already-migrated
+copy before the acceptance runs:
+
+```bash
+sqlite3 "$SAFE/drill/palabras.db" "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
+#   expect the list to include day_status, day_skips, practice_sessions alongside the pre-M7 set
+sqlite3 "$SAFE/drill/palabras.db" 'SELECT MigrationId FROM "__EFMigrationsHistory" ORDER BY 1;'
+#   expect exactly four: InitialAccounts, ContentSchema, SrsCards, DayStatusAndSkips … and NOT a fifth row
+docker exec palabras-drill-old dotnet /app/Palabras.dll user list
+#   expect the ROLE header plus the same owner/reviewer rows the new image printed
+```
+
+If the old image logs a `SqliteException` on start, `/healthz` stays non-200, or `__EFMigrationsHistory` gained/lost
+rows after the old image ran, the old binary does not tolerate the migrated schema: only R-B is allowed, and R-B
+loses all progress written after the A-step-6 snapshot. Keep the drill evidence (log tail + the two query outputs)
+with the upgrade record.
+
+**PENDING EVIDENCE — old-image drill not run.** No result for this drill exists yet, locally or on production; the
+local backup round trip in D.7 does not substitute for it. Until a result is recorded here (date, retained image ID,
+candidate image, outcome of each assertion above), treat R-A as not allowed for this release.
+
+### D.3 Rolling the container back to the previous image while the database is migrated (option R-A)
+
+This is the plain rollback section, option R-A, applied to M7; repeat the essential commands here so the M7 runbook
+is self-contained. Preconditions: drill D.2 passed; `$DEPLOY`, `$DATA`, `$SAFE`, `$ROLLBACK_TAG`, `$IMAGE_ID` set from
+the upgrade record.
+
+```bash
+touch "$DEPLOY/paused"                                  # keep the poll out of the way for the whole window
+cd "$DEPLOY" && docker compose down --timeout 60
+pgrep -af 'Palabras'                                    # expect no output
+# Failed-state evidence first (same as rollback step 2):
+mkdir -m 700 "$SAFE/failed-$(date -u +%Y%m%dT%H%M%SZ)"
+cp -a "$DATA/palabras.db" "$SAFE/failed-$(date -u +%Y%m%dT%H%M%SZ)/"
+for f in "$DATA/palabras.db-wal" "$DATA/palabras.db-shm" "$DATA/keys"; do [ -e "$f" ] && cp -a "$f" "$SAFE/failed-$(date -u +%Y%m%dT%H%M%SZ)/"; done
+# Database files stay in place, migrated, untouched:
+docker tag "$ROLLBACK_TAG" palabras:local
+cd "$DEPLOY" && docker compose up -d --no-build --force-recreate
+docker inspect palabras --format '{{.Image}}'           # must print the recorded pre-upgrade $IMAGE_ID
+docker logs -f palabras                                 # watch startup finish; no migration output expected
+```
+
+Then the checks that prove healthy (see D.4). If they fail, proceed to R-B (restore the pre-upgrade database from
+`$SAFE/set/`, per the rollback section) — all M6 progress after the snapshot is lost, so with the rollover disabled
+the only data at risk is whatever progress accrued between snapshot and rollback. If `day_status`/`day_skips` ever
+held rows (gate misbehaved), those rows are lost with R-B too: preserve the failed state first (step 2 above), and
+record their counts before any restore.
+
+### D.4 The exact check that proves the app is healthy after an M7 rollback
+
+All must pass, in this order; failure of any one means not-yet-accepted:
+
+```bash
+docker inspect palabras --format '{{.State.Health.Status}}'        # healthy
+curl --fail http://127.0.0.1:18480/healthz                         # HTTP 200
+docker exec palabras dotnet /app/Palabras.dll user list            # ROLE header + exactly the recorded accounts
+# On a fresh scratch copy of the (restored or kept) database:
+sqlite3 "$SAFE/scratch-rollback/palabras.db" 'PRAGMA integrity_check;'                  # exactly: ok
+sqlite3 "$SAFE/scratch-rollback/palabras.db" "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
+#   same table set as the drill/base, NOT missing the M7 tables (D.2 list)
+sqlite3 "$SAFE/scratch-rollback/palabras.db" 'SELECT MigrationId FROM "__EFMigrationsHistory" ORDER BY 1;'
+#   entries expected by the running image; if the DB was restored (R-B), the M7 row is ABSENT again
+sqlite3 "$SAFE/scratch-rollback/palabras.db" 'SELECT count(*) FROM cards;'              # equals the recorded pre-upgrade count
+sqlite3 "$SAFE/scratch-rollback/palabras.db" 'SELECT count(*) FROM review_log;'         # idem
+docker logs palabras 2>&1 | grep -c 'SqliteException'              # expect 0
+curl --fail https://palabras.siebentower.nl/healthz                # HTTP 200 through the standing proxy
+# Owner logs in via HTTPS in Android Chrome and opens the session plan.
+```
+
+For M7 both success paths are legitimate, record which one you got: (a) database never rolled back — history still
+contains `DayStatusAndSkips` and the three tables exist, (b) database restored from `$SAFE/set/` — that history row
+and the tables are gone again. Do not "fix" (b) by manually re-applying the migration or re-adding the history row;
+let the next real upgrade do it.
+
+### D.5 What must NOT be rolled back or deleted
+
+- The `/data` volume contents and their own bound host directory (A step 4's `$DATA`): `palabras.db` **plus its own
+  `-wal`/`-shm`** (only ever together, never mixed across sets, never copied while any process holds the file), and
+  `keys/` (data-protection keys; a fresh `keys/` silently invalidates every existing login cookie — the incident C
+  class below started exactly as "files vanished under the running app").
+- `$SAFE` content: `set/`, `set.sha256`, `palabras-preupgrade-<stamp>.db`, drill/failed copies, and `stuck-startup.log`
+  from branch B.
+- `$ROLLBACK_TAG` (the image tag created in A step 3) and any other image tagged from the running container: the
+  exact running image ID is the only faithful rollback target; anything rebuilt from source is *not* a rollback.
+- `deployed.sha`: deleting it disables both poll data guards (`docs/08-upgrade-rollback.md:40`) and must never be used
+  to force a deployment through.
+- `$DEPLOY/backups/` (the poll's `cp -a` snapshots) — newest 5 kept automatically; do not prune them to free space for
+  anything short of a proven-successful next upgrade.
+- The EF tables `day_status`, `day_skips`, `practice_sessions` and their `__EFMigrationsHistory` row: never drop them
+  "to match the old binary", never clear the history row manually. A future upgraded image resumes cleanly from a
+  history that already contains `DayStatusAndSkips` (normal EF semantics, per the M7 rollout-risk review
+  `.opencode/runs/T-20261018-2105/01-m7-rollout-risk.md` §1) — that is the reason (a) above is a success path, not a defect.
+
+### D.6 Failure classes this deployment already recorded (do not replicate)
+
+- Mover emptied the data directory while the app ran, the app recreated a **fresh, account-less** database, and the
+  poll kept reporting success because `/healthz` only shows reached-or-not (`2026-10-18` incident, section C). Health
+  200 therefore proves nothing about which database is mounted — section C's account checks, not the health check,
+  are the real acceptance.
+- The poll's guards only protect once `deployed.sha` exists (section C again): keep that file, never delete it.
+- The nightly `BackupService` starts only after the app is serving, so it never protects the *first* migration
+  (`docs/08-upgrade-rollback.md:14-16`); the pre-migration preserve in A step 6 exists for exactly that.
+- The backup's published-file check does not verify the M7 tables (A acceptance bullet above): always do the table
+  comparison on the backup file at least once after this upgrade (D.7).
+- `docker compose` recreates the container with SIGTERM→SIGKILL; a SIGKILL during a migration strands the EF
+  `__EFMigrationsLock` row (branch B). With the rollover disabled first-tick background writes are off, nothing
+  additionally competes with the startup transaction, but branch B rules (never clear a live lock, never script
+  clearing) stay in force.
+
+### D.7 Backup evidence and the production backup check
+
+**Verified locally on 2026-10-18 (throwaway directories, synthetic data, commit `a0e4912`; not production).** The
+app's own backup (`BackupService.CreateBackupAsync`, a `VACUUM INTO`) was run against a migrated database with two
+accounts, 58 imported words, one card, one review and one row in each M7 table:
+
+- the backup file's `PRAGMA integrity_check;` printed `ok`;
+- it contained `day_status`, `day_skips`, `practice_sessions`, the partial index `ix_day_skips_window` and all four
+  `__EFMigrationsHistory` rows including `20261018183151_DayStatusAndSkips`;
+- the backup restored into a fresh data directory had the same counts and rows as the source for users, words,
+  senses, cards, review_log and the three M7 tables; `user list` printed both accounts (owner and reviewer) with
+  their original creation times; restarting the CLI on it applied no migration again;
+- retention: nine backups in a row left seven files;
+- three negative controls on `restore-progress` were refused with exit 1 and no writes: a tampered export
+  fingerprint, a different account lineage with identical content, and a missing target database.
+
+**Not proven by that run:**
+
+- the HTTP/auth export surface (`/api/learn/export`, cookie auth): no server was started;
+- keys preservation: only the absence of keys from the backup was checked (see below);
+- the real production database, its data volume and the real 03:30 nightly run;
+- the poll's own `cp -a` snapshot (guard 2) and the `cp -a` preserve in A step 6: neither path was exercised, only
+  the app's `VACUUM INTO` backup;
+- the old-image rollback drill (D.2, still pending evidence).
+
+**Two hazards the round trip exposed:**
+
+- **The backup does not contain keys.** `$DATA/backups/*.db` holds the database only; `keys/` lives beside the
+  database and is never copied into a backup. Restoring a database from `$DATA/backups/` restores accounts, progress
+  and M7 rows, but not `keys/`: keep the existing `$DATA/keys` in place, or restore it from `$SAFE/set/keys`. A
+  restored database paired with a different or freshly created `keys/` is expected to invalidate every existing login
+  cookie (code-derived; not measured). For R-B and rollback, the `$SAFE/set` copy (A step 6) is the one that carries
+  `keys/`.
+- **A copy of a live WAL database must include the WAL content.** In the local run, a row committed only to the WAL
+  was missing from a copy of `palabras.db` alone; the `VACUUM INTO` backup taken while the writer was open did
+  contain it. A main-file-only copy therefore silently loses the newest committed rows. Copy `palabras.db` together
+  with its own `-wal`/`-shm` (A step 6, with the app stopped), or use a `VACUUM INTO` copy; never copy only
+  `palabras.db` while `palabras.db-wal` exists.
+
+**Production check (deploy operator, on the Unraid host).** Run after the first published backup following the
+upgrade (A acceptance). Prerequisite: the host needs a `sqlite3` CLI, which has not been checked (see "Tools needed on
+the host" above); `command -v sqlite3` must print a path before you start. `$DATA` and `$SAFE` come from the upgrade
+record; `$SAFE/scratch/palabras.db` is the scratch copy from A step 6.
+
+```bash
+command -v sqlite3                                                  # must print a path; otherwise stop
+docker logs palabras 2>&1 | grep 'SQLite backup published'          # at least one line
+BK=$(ls -1 "$DATA"/backups/palabras-*.db | tail -n 1); echo "$BK"   # newest backup (names start with the UTC stamp)
+mkdir -m 700 "$SAFE/scratch-backup"
+cp -a "$BK" "$SAFE/scratch-backup/palabras.db"                      # standalone file, no -wal/-shm; never open the original
+B="$SAFE/scratch-backup/palabras.db"
+sqlite3 "$B" 'PRAGMA integrity_check;'                              # exactly: ok
+sqlite3 "$B" "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
+#   must include day_skips, day_status, practice_sessions next to cards, review_log, senses, users, words
+sqlite3 "$B" "SELECT name FROM sqlite_master WHERE type='index' AND name='ix_day_skips_window';"   # prints the name
+sqlite3 "$B" 'SELECT MigrationId FROM "__EFMigrationsHistory" ORDER BY 1;'
+#   must include 20261018183151_DayStatusAndSkips
+for t in cards review_log; do
+  echo "$t backup=$(sqlite3 "$B" "SELECT count(*) FROM $t;") snapshot=$(sqlite3 "$SAFE/scratch/palabras.db" "SELECT count(*) FROM $t;")"
+done
+#   backup must not be lower than snapshot; higher only by progress made since the snapshot
+```
+
+If any check fails, keep `$SAFE` and `$ROLLBACK_TAG`, do not resume the poll, and do not prune `$DEPLOY/backups/`.
+Record the backup filename and all outputs with the upgrade record.
+
+## E. Production drift snapshot (measured 2026-10-18) — read before the next upgrade
+
+Owner-run readback of measured state. Nothing here was executed against production as written; every claim cites a
+read-only measurement artifact under `.opencode/runs/T-20261018-2105/` or a repo file:line. Primary evidence:
+`12-prod-drift.md` (+ `12-prod-drift.log`), supplemented by `08-rollback-drill.md` and `06-backup-roundtrip-evidence.md`.
+
+The version string cannot be used for drift: `/healthz` returns `{"status":"ok","version":"0.0.1.0"}` and
+`<Version>0.0.1</Version>` has been constant since M0, so the app exposes no build identity and no
+build-identifying header. Drift is determinable from the image, not the app (`12-prod-drift.md` §0, §1).
+
+### E.1 The drift
+
+- The running container (`docker inspect palabras`) executes image `sha256:93d874b09d4f…`, **untagged**
+  (`RepoTags=[]`), **built 2026-10-17T22:55:07+02:00** (compose-labelled). That bounds its source to M1-era commits
+  `0cb23fa`/`a4fe119` (last of three 5-minute-spaced poll builds: 22:35, 22:50, 22:55): accounts + cookie auth +
+  login UI only — no M2 content schema, no M5 SRS, no M6 learner API/UI, no M7, and a `/healthz` without the
+  database check (`12-prod-drift.md` §1; binary forensics: no `FsrsSharp.dll`, no `content/`, 0 learn assets —
+  `08-rollback-drill.md` §5).
+- **Distance:** 31–32 commits behind `origin/main` (`42e285d = #55` of 55) and 37–38 behind local `main`
+  (`3a6b4c9 = #61`, the 6 unpushed M7 commits) (`12-prod-drift.md` §1, §3).
+- **The poll has not rebuilt since 2026-10-17 22:55.** Exactly three compose-built (poll) images exist on the host,
+  all from that evening; **zero from 2026-10-18**, across ~31 commits and >24 h. This means the poll is
+  **paused, unscheduled, or failing before its rebuild step** — not merely "lagging" (`12-prod-drift.md` §0).
+- **Host-only facts that tell those three apart** (inside `/mnt/user/docker/palabras`, not readable from the repo
+  container; `12-prod-drift.md` §5):
+  1. `ls -la /mnt/user/docker/palabras/` — a `paused` file explains zero rebuilds (`deploy/unraid-deploy.sh:363-366`).
+  2. `cat /mnt/user/docker/palabras/deployed.sha` — which sha the poll believes is deployed, and whether it is
+     consistent with the running image (see E.3, limitation A).
+  3. `tail -n 100 /mnt/user/docker/palabras/deploy.log` — poll cadence, `paused; no fetch or rebuild`,
+     `tracked local edits; refusing to deploy`, `origin/main is not a fast-forward`, `data guard FAILED`, or
+     `DEPLOY OK`.
+  4. User Scripts schedule still enabled, and whether the script is a copy or a symlink to
+     `/mnt/user/repos/palabras/deploy/unraid-deploy.sh` (a stale copy runs the pre-guard script).
+
+### E.2 What the next successful deploy is
+
+If the operator pushes local `main` (the 6 M7 commits), the poll's full deploy path runs (guard-2 snapshot →
+compose mirror → rebuild → recreate → 180 s health → accounts guard): a **~37-commit jump carrying four
+migrations** (`InitialAccounts`, `ContentSchema`, `SrsCards`, `DayStatusAndSkips`), the M6 frontend and service
+worker, and the M7 service. Even a small fix pushed without M7 is a ~32-commit jump with three migrations
+(`12-prod-drift.md` §3). This changes the risk relative to a small increment:
+
+- Migrations apply at startup on the live database, with no backup taken first and no automatic rollback; if the
+  new container never turns healthy, the old container is **already replaced** — the script only logs and
+  instructs manual rollback (`deploy/unraid-deploy.sh:517-518`; "Facts" section). Recreating the container sends
+  SIGTERM→SIGKILL, which can strand the EF migration lock (section B).
+- The frontend jump replaces the M1 shell with the M6 learner UI, its IndexedDB attempt queue and the hardened
+  service worker; clients holding the old bundle interact with a new backend during rollout (`12-prod-drift.md` §4).
+- The M7 rollover gate ships **default-OFF** — `M7__DayRolloverEnabled` absent/`false` keeps the job from writing;
+  leave it unset in `$DEPLOY/.env` for this release (section D intro). Enabling it later is a separate, gated
+  action (first honest `missed` row cannot exist before 00:05 local on 2026-10-20 for local day 2026-10-19;
+  `08-rollback-drill.md` §3).
+
+### E.3 Why the poll currently does nothing — documented limitations (observed, not speculative)
+
+Each of these is stated as measured behaviour of `deploy/unraid-deploy.sh` or recorded evidence; none is a
+prediction about cause.
+
+1. **`check_clean` fails first.** The script refuses on any tracked local edit (`deploy/unraid-deploy.sh:59-70`,
+   invoked at `:382-383`); the working tree currently has 13 modified tracked files, so the poll fails
+   `tracked local edits; refusing to deploy` and keeps the last healthy `deployed.sha` (`12-prod-drift.md` §3).
+2. **The fast-forward guard.** With a clean tree, the poll still refuses because local `main` (`3a6b4c9`) is not an
+   ancestor of the target `origin/main` (`42e285d`) — `origin/main is not a fast-forward; refusing reset/force`
+   (`deploy/unraid-deploy.sh:422-430`). Neither guard path runs a build.
+3. **Limitation — the no-op path never checked the running image id (fixed by T-20261018-2105).** At measurement
+   time the unchanged-branch condition compared the poll's recorded `deployed.sha` with the target and the
+   container's *health*; it never compared the container's running image id (then `deploy/unraid-deploy.sh:306-314`).
+   If `deployed.sha` came to name a sha newer than the
+   image production actually runs, every subsequent poll logs `no change …; healthy; no rebuild` and the drift
+   never self-corrects. The mechanism is repo-verified; **whether it is the actual cause of this drift cannot be
+   decided from here** — `deploy.log` and `deployed.sha` are host-only (E.1 item lists; `12-prod-drift.md` §2).
+   The poll now records the image id of every accepted deploy in `$DEPLOY/deployed.image` and treats a running
+   container whose image id differs from that record as "needs deploy" (`:434-466`), so this class of silent drift
+   self-corrects instead of persisting. Two residual gaps are deliberate and logged, not silent: with no image
+   record for the target sha (a hand-written `deployed.sha`, or a deployment recorded before this change) the
+   match falls back to the tag `palabras:local` and is logged as unverified, and the poll still consults no CI
+   (item 4 below).
+4. **Limitation — the poll does not consult CI at all.** The only pre-build checks are branch, tree cleanliness,
+   data, fast-forward and now the running-image comparison; there is no CI-status check, no build/test preflight,
+   and the poll goes straight to `docker compose up -d --build` (`deploy/unraid-deploy.sh:431-492`). At
+   measurement time `origin/main` CI was red (run `39154226392` on `42e285d`, per `12-prod-drift.md` §2) and the
+   poll would have built it anyway.
+5. **Limitation — the pre-upgrade image was untagged (fixed for future rebuilds by T-20261018-2105).**
+   `docker compose up -d --build` re-points the single floating tag `palabras:local`; the previously running image
+   loses its tag and survives only as a dangling image — exactly today's state of `93d874b09d4f`
+   (`12-prod-drift.md` §2, "Image tagging: none"). The poll now
+   tags the running image `palabras:rollback-<image-id12>` before it rebuilds (`:291-360`) and keeps the newest two
+   (manifest `$DEPLOY/rollback-images`). **Today's image stays untagged until a rebuild happens**, so E.4 step 1
+   is still required for it.
+
+### E.4 Ordered safe-deploy procedure (closes the risks; run with the poll paused)
+
+Do steps **in this order**; earlier steps exist to keep later steps recoverable. The underlying runbook sections
+are cited, not duplicated. `$DEPLOY`, `$DATA`, `$SAFE`, `$STAMP` as in section A steps 1–4.
+
+1. **Record and retain the RUNNING image id before any rebuild.** The rollback artifact
+   `93d874b09d4f` is untagged — **one `docker image prune` from being lost**, and after the next rebuild
+   `palabras:local` points at the new build, so re-tagging the floating tag after the fact would silently restore
+   a *newer* image than production runs (`12-prod-drift.md` §2; `08-rollback-drill.md` §5). Preserve it now:
+
+   ```bash
+   IMAGE_ID=$(docker inspect palabras --format '{{.Image}}')     # expect sha256:93d874b09d4f… today
+   docker tag "$IMAGE_ID" palabras:rollback-93d874b0-$STAMP      # name must encode "currently running"
+   docker image inspect palabras:rollback-93d874b0-$STAMP --format '{{.Id}}'   # must equal $IMAGE_ID
+   docker image inspect palabras:local --format '{{.Id}}'        # today: d3c6b5e0a29f (a newer build!) — container's ID wins
+   ```
+
+   Use section A step 3's exact commands; the tag name must encode that this is the currently running image
+   (`palabras:local` will change meaning at the rebuild). Never prune until the upgrade is accepted.
+   Since T-20261018-2105 the poll does this by itself for rebuilds it performs: it tags the running image
+   `palabras:rollback-<image-id12>` and keeps the newest two (`:291-360`). This manual step is still required for
+   today's already-untagged artifact and whenever polling is paused; a hand tag whose name does not start with
+   `palabras:rollback-` is never touched by the poll's own pruning.
+2. **Pause the poll and diagnose first.** `touch "$DEPLOY/paused"`, wait for the lock, then read the host-only
+   facts in E.1 (paused marker, `deployed.sha`, `deploy.log`, User Scripts schedule) before touching anything.
+3. **Take and verify the `/data` backup, including WAL content, with the app stopped** — section A steps 5–6
+   (`docker compose down`, then copy `palabras.db` **with its own `-wal`/`-shm`** and `keys/` into `$SAFE/set/`).
+   A main-file-only copy of a live WAL database silently loses the newest committed rows; the app's own
+   `VACUUM INTO` copy does read through the WAL, but keys are never in any backup (D.7 hazards, both observed in
+   `06-backup-roundtrip-evidence.md` §2, §4).
+4. **Confirm the newest backup contains the expected migration history and counts** on the scratch copy: section
+   A step 6's `integrity_check` and `__EFMigrationsHistory` queries, plus D.7's production check (M7 tables,
+   `ix_day_skips_window`, cards/review_log counts vs the snapshot). If the live DB's history is not a clean
+   prefix, stop before upgrading (`01-m7-rollout-risk.md` §1).
+5. **Old-image drill (mandatory for R-A on M7):** D.2. A drill on a scratch DB passed locally on 2026-10-18
+   (`08-rollback-drill.md` §2), including for the very image `93d874b09d4f` runs today (`:133-135`); that proves
+   the code path, not the operator's production artifact — the production-side result is operator evidence.
+6. **Deploy** per section A step 8 (merge, mirror compose, `docker compose up -d --build`, watch logs). Verify per
+   section A's acceptance: healthy, HTTPS `/healthz`, HTTPS login, learner progress, and the backup/table check
+   (A acceptance bullet + D.7).
+7. **Only after acceptance:** write `deployed.sha` (A, "After acceptance"), resume the poll (`rm "$DEPLOY/paused"`),
+   and only then consider anything else (rollover enablement, pruning). A hand-written `deployed.sha` leaves
+   `deployed.image` naming the previous deployment, so the next poll verifies the running container against
+   `palabras:local` and logs that match as unverified; to record it exactly, write `deployed.image` as
+   `<docker inspect palabras --format '{{.Image}}'> <sha>` in the same step.
+
+**Rollback** stays exactly as written in "Rollback" and D.3/D.4 (R-A/R-B, retained image, `--no-build
+--force-recreate`, image-id equality check); do not re-run the failed build to "fix" anything.
+
+### E.5 What only the deploy operator can prove
+
+Everything factual about production that this file cannot check from the repo container (`08-rollback-drill.md`
+§8 restated for this drift):
+
+1. The **host-only poll facts** of E.1: the `paused` marker, `deployed.sha`, `deploy.log`, and the User Scripts
+   schedule/copy-vs-symlink state.
+2. The **real `/data` and `keys/` state**: actual DB contents, migration history, account/card/review counts, and
+   the pre-upgrade `$SAFE` set; the running image predates the poll guards' guard commits, and whether the
+   2026-10-18 mover incident left a clean migration prefix is unknown from the repo side.
+3. The **real nightly rollover tick**: the enabled-gate positive `missed` write has not been observed in any
+   container; the only observation window is the real 00:05 local tick on 2026-10-20 (D.1, `08-rollback-drill.md` §4).
+4. The **production-side §A acceptance checks**: health through HTTPS, login in Android Chrome, learner progress,
+   the first published backup line, and the D.7 backup verification with the host's own `sqlite3`.
+
+Proven only locally and to be labelled as such in any record: the backup round trip on synthetic data
+(`06-backup-roundtrip-evidence.md` §0) and the rollback drill on a scratch DB (`08-rollback-drill.md` §2). Neither
+has been executed against production.

@@ -5,6 +5,11 @@
 # Data guards (T-20261018-1547): the pre-rebuild database check, the pre-rebuild backup and
 # the post-deploy account check all run before deployed.sha is written, so a deployment that
 # lost its accounts or its database fails loudly instead of being recorded as healthy.
+# Image identity (T-20261018-2105): the unchanged-deployment decision also compares the RUNNING
+# container's image id with the image the recorded deployment produced (deployed.image), so a
+# container left on an older build cannot be reported as current forever. Before a rebuild the
+# running image is tagged deterministically (palabras:rollback-<image-id>), so a rollback target
+# survives the rebuild instead of becoming an untagged dangling image.
 set -Eeuo pipefail
 umask 077
 
@@ -14,6 +19,12 @@ export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$R
 readonly DEPLOY=/mnt/user/docker/palabras
 readonly LOG="$DEPLOY/deploy.log"
 readonly STATE="$DEPLOY/deployed.sha"
+# Image id the recorded deployment of that sha ran: "<image id> <sha>". Written only after a
+# deploy is accepted, so the next poll can compare it with the container that is actually running.
+readonly STATE_IMAGE="$DEPLOY/deployed.image"
+# Manifest of preserved rollback tags, oldest first. Retention: newest ROLLBACK_KEEP tags kept.
+readonly ROLLBACK_TAGS="$DEPLOY/rollback-images"
+readonly ROLLBACK_KEEP=2
 # Data backups live outside the data directory, in the deployment directory only.
 readonly BACKUP_DIR="$DEPLOY/backups"
 readonly BACKUP_KEEP=5
@@ -231,6 +242,123 @@ require_accounts() {
     return 0
 }
 
+# --- Image identity and rollback-artifact preservation (T-20261018-2105) -----
+# The unchanged-deployment decision must not rest on deployed.sha alone. A container can keep
+# running an older image while the recorded sha already names the target, and then every poll
+# logs "no change; healthy; no rebuild" while production drifts. So the running container's image
+# id is compared with the image the recorded deployment of that sha produced (deployed.image);
+# the tag the poll itself builds (palabras:local) is accepted only when no record exists for the
+# target sha, and that weaker match is logged as such. A mismatch is "needs deploy", never a no-op.
+
+# Running container image id. Sets CONTAINER_STATE=absent|image|error and CONTAINER_IMAGE.
+# An absent container is a normal first-deploy state; a docker failure is not, and is an error.
+container_image() {
+    local names rc
+    CONTAINER_STATE=error CONTAINER_IMAGE=
+    if names=$(docker ps -a --format '{{.Names}}' 2>/dev/null); then
+        :
+    else
+        rc=$?
+        log "WARN image probe: docker ps failed exit=$rc"
+        return 1
+    fi
+    if ! grep -qx 'palabras' <<< "$names"; then
+        CONTAINER_STATE=absent
+        return 0
+    fi
+    if CONTAINER_IMAGE=$(docker inspect --format '{{.Image}}' palabras 2>/dev/null) && [[ "$CONTAINER_IMAGE" == sha256:* ]]; then
+        CONTAINER_STATE=image
+        return 0
+    fi
+    CONTAINER_IMAGE=
+    log 'WARN image probe: docker inspect did not return an image id for container palabras'
+    return 1
+}
+
+# Sets RECORDED_IMAGE and RECORDED_IMAGE_SHA from $STATE_IMAGE; both stay empty when it is absent
+# or unreadable, which is treated as "no record for this sha" rather than as a match.
+read_state_image() {
+    RECORDED_IMAGE= RECORDED_IMAGE_SHA=
+    [[ -f "$STATE_IMAGE" ]] || return 0
+    read -r RECORDED_IMAGE RECORDED_IMAGE_SHA < "$STATE_IMAGE" || true
+}
+
+# Tag the image the container is currently running before a rebuild re-points palabras:local and
+# leaves it untagged (one `docker image prune` from loss). The tag name is derived from the image
+# id, so repeated polls re-tag the same name instead of piling up: preservation is idempotent.
+# A docker failure here aborts the deploy, exactly like a failed data backup: the rebuild must not
+# replace a container whose rollback target could not be preserved.
+preserve_running_image() {
+    local image id12 tag resolved
+    if ! container_image; then
+        fail "preserve FAILED: cannot determine the running container (docker error listing containers); refusing to rebuild without a preserved rollback image"
+    fi
+    if [[ "$CONTAINER_STATE" == absent ]]; then
+        log 'preserve skipped: container palabras absent; nothing running to preserve'
+        return 0
+    fi
+    image=$CONTAINER_IMAGE
+    id12=${image#sha256:}
+    id12=${id12:0:12}
+    tag="palabras:rollback-$id12"
+    if ! docker image tag "$image" "$tag"; then
+        fail "preserve FAILED: cannot tag running image $image as $tag; refusing to rebuild (the rebuild would leave the running image untagged and one docker image prune from loss)"
+    fi
+    if ! resolved=$(docker image inspect --format '{{.Id}}' "$tag" 2>/dev/null) || [[ "$resolved" != "$image" ]]; then
+        fail "preserve FAILED: $tag does not resolve to running image $image; refusing to rebuild"
+    fi
+    log "preserve ok: running image $image tagged $tag"
+    record_rollback_tag "$tag"
+    prune_rollback_tags
+}
+
+record_rollback_tag() {
+    local tag=$1 line tmp="$ROLLBACK_TAGS.next"
+    : > "$tmp" || fail "preserve FAILED: cannot write $tmp"
+    if [[ -f "$ROLLBACK_TAGS" ]]; then
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ -n "$line" && "$line" != "$tag" ]] || continue
+            printf '%s\n' "$line" >> "$tmp" || fail "preserve FAILED: cannot write $tmp"
+        done < "$ROLLBACK_TAGS"
+    fi
+    printf '%s\n' "$tag" >> "$tmp" || fail "preserve FAILED: cannot write $tmp"
+    mv -f "$tmp" "$ROLLBACK_TAGS" || fail "preserve FAILED: cannot update $ROLLBACK_TAGS"
+}
+
+# Retention rule: keep the newest ROLLBACK_KEEP preserved images — the outgoing image of the
+# current rebuild plus the previous one — and untag the rest. Only tag names this script created
+# are ever touched; a tag that cannot be removed (still referenced) is kept and logged.
+prune_rollback_tags() {
+    local tag tmp="$ROLLBACK_TAGS.next" total seen=0
+    local -a tags=()
+    [[ -f "$ROLLBACK_TAGS" ]] || return 0
+    while IFS= read -r tag || [[ -n "$tag" ]]; do
+        [[ -n "$tag" ]] || continue
+        tags+=("$tag")
+    done < "$ROLLBACK_TAGS"
+    total=${#tags[@]}
+    (( total > ROLLBACK_KEEP )) || return 0
+    : > "$tmp" || { log "WARN preserve prune: cannot write $tmp; keeping $ROLLBACK_TAGS unchanged"; return 0; }
+    for tag in "${tags[@]}"; do
+        seen=$((seen + 1))
+        if (( seen > total - ROLLBACK_KEEP )); then
+            printf '%s\n' "$tag" >> "$tmp"
+            continue
+        fi
+        case "$tag" in
+            palabras:rollback-*) ;;
+            *) log "WARN preserve prune: not a rollback tag, keeping $tag"; printf '%s\n' "$tag" >> "$tmp"; continue ;;
+        esac
+        if docker image rm "$tag"; then
+            log "preserve prune: untagged $tag (retention: newest $ROLLBACK_KEEP rollback tags kept)"
+        else
+            log "WARN preserve prune: could not untag $tag; keeping it in $ROLLBACK_TAGS"
+            printf '%s\n' "$tag" >> "$tmp"
+        fi
+    done
+    mv -f "$tmp" "$ROLLBACK_TAGS" || log "WARN preserve prune: cannot update $ROLLBACK_TAGS"
+}
+
 log 'poll started'
 if [[ -e "$DEPLOY/paused" ]]; then
     log 'paused; no fetch or rebuild'
@@ -304,15 +432,48 @@ if [[ "$current" != "$target" ]]; then
     git merge --ff-only origin/main
 fi
 health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' palabras 2>/dev/null || true)
-if [[ "$previous" == "$target" && "$health" == healthy ]]; then
+read_state_image
+running=
+if container_image; then
+    running=$CONTAINER_IMAGE
+fi
+tag_image=$(docker image inspect --format '{{.Id}}' palabras:local 2>/dev/null || true)
+log "images: running=${running:-none} recorded=${RECORDED_IMAGE:-none} recorded-sha=${RECORDED_IMAGE_SHA:-none} tag=${tag_image:-none} container=$CONTAINER_STATE"
+# The running container must be the image this sha deployed; health alone proves nothing about
+# which build is live. With a record for the target sha, only that record decides. Without one
+# (older state file, or a deployed.sha written by hand after an acceptance) the tag the poll
+# builds is the only available identity and is accepted, but logged as unverified.
+image_verdict=none
+if [[ -n "$running" ]]; then
+    if [[ "$RECORDED_IMAGE" == sha256:* && "$RECORDED_IMAGE_SHA" == "$target" ]]; then
+        if [[ "$running" == "$RECORDED_IMAGE" ]]; then
+            image_verdict=recorded
+        fi
+    elif [[ -n "$tag_image" && "$running" == "$tag_image" ]]; then
+        image_verdict=tag
+    fi
+fi
+if [[ "$previous" == "$target" && "$health" == healthy && "$image_verdict" != none ]]; then
     cmp -s deploy/unraid/docker-compose.yml "$DEPLOY/docker-compose.yml" || fail 'compose mirror drift; restore versioned template or remove deployed.sha to rebuild; never edit mirror'
     # A healthy container with no accounts is exactly how data loss went unnoticed: /healthz
     # never touched the database. Refuse the green poll instead of reporting success.
     require_accounts 'no-change poll'
-    log "no change sha=$target; healthy; no rebuild"
+    if [[ "$image_verdict" == tag ]]; then
+        log "no change sha=$target; healthy; running image $running matches palabras:local but no recorded image id for this sha; no rebuild (unverified against $STATE_IMAGE)"
+    else
+        log "no change sha=$target; healthy; running image $running matches recorded image; no rebuild"
+    fi
     exit 0
 fi
-log "deploying sha=$target (previous=$previous health=$health)"
+reason=sha-changed
+if [[ "$previous" == "$target" ]]; then
+    if [[ "$health" != healthy ]]; then
+        reason=container-unhealthy
+    else
+        reason=image-mismatch
+    fi
+fi
+log "deploying sha=$target reason=$reason (previous=$previous health=$health running=${running:-none} recorded=${RECORDED_IMAGE:-none} recorded-sha=${RECORDED_IMAGE_SHA:-none} container=$CONTAINER_STATE)"
 [[ -f deploy/unraid/docker-compose.yml ]] || fail 'canonical compose missing'
 # Best-effort account count before the rebuild, so a partial loss is visible too. The container
 # may be absent or down here, which is not a failure.
@@ -323,6 +484,7 @@ else
     pre_accounts=
     log "pre-rebuild accounts count unavailable (state=$ACCOUNTS_STATE)"
 fi
+preserve_running_image
 backup_data
 cp deploy/unraid/docker-compose.yml "$DEPLOY/docker-compose.yml.next"
 mv -f "$DEPLOY/docker-compose.yml.next" "$DEPLOY/docker-compose.yml"
@@ -335,9 +497,18 @@ for attempt in {1..36}; do
         # Accounts are checked before the deploy is recorded as good; a failure here leaves the
         # previous deployed.sha in place so the bad state is visible and is never marked healthy.
         require_accounts "post-deploy sha=$target"
+        deployed_image=$(docker inspect --format '{{.Image}}' palabras 2>/dev/null || true)
+        if [[ "$deployed_image" != sha256:* ]]; then
+            # Never write a wrong id: an unknown one makes the next poll compare against
+            # palabras:local instead (logged as unverified), which cannot loop.
+            deployed_image=unknown
+            log "WARN cannot read the deployed container's image id; recording it as unknown"
+        fi
+        printf '%s %s\n' "$deployed_image" "$target" > "$STATE_IMAGE.next"
+        mv -f "$STATE_IMAGE.next" "$STATE_IMAGE"
         printf '%s\n' "$target" > "$STATE.next"
         mv -f "$STATE.next" "$STATE"
-        log "DEPLOY OK sha=$target healthy (previous=$previous)"
+        log "DEPLOY OK sha=$target healthy image=$deployed_image (previous=$previous)"
         exit 0
     fi
     log "health retry=$attempt/36 status=$health"

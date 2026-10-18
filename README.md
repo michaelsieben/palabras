@@ -188,9 +188,22 @@ It executes the versioned `deploy/unraid-deploy.sh`; until clone exists, a boots
 Docker share logs the missing-checkout blocker. No inbound webhook or GitHub runner is used.
 
 The script locks concurrent runs, fetches `origin/main`, accepts fast-forwards only, refuses
-tracked local edits/detached HEAD, and skips rebuilding an unchanged healthy deployment.
+tracked local edits/detached HEAD, and skips rebuilding an unchanged healthy deployment. That skip
+is not decided by `deployed.sha` alone: the script records the image id of each accepted deploy in
+`deployed.image` and compares it with the image the container is actually running, so a container
+left on an older build is rebuilt instead of being reported as current. With no image record for
+the target SHA (a hand-written `deployed.sha`, or a deployment recorded before this check existed)
+it falls back to comparing the container with `palabras:local` and logs that match as unverified.
+The remaining known limitation is that the poll does not consult CI, so a commit whose CI is red is
+built and deployed all the same (see `docs/08-upgrade-rollback.md` §E.3).
+Before a rebuild the script tags the image the container is running as
+`palabras:rollback-<image-id>` (idempotent, newest two kept, listed in `rollback-images`), so the
+outgoing image no longer survives only as an untagged dangling image. An image that was already
+untagged before the script ran, and `docker image prune -a`, are still not covered: record and tag
+the running image by hand before any upgrade (`docs/08-upgrade-rollback.md` §E.4 step 1).
 An unchanged run rejects a divergent Docker-share compose instead of silently accepting it;
-restore the canonical file, or remove `deployed.sha` and run the wrapper to force a rebuild.
+restore the canonical file to resolve it. Never delete `deployed.sha` to force a rebuild: that
+disables both data guards (docs/08-upgrade-rollback.md D.5).
 After build/up it retries Docker health plus host `/healthz` for up to 36 attempts at five-second
 intervals. Failure exits non-zero and retains the last healthy SHA; there is no automatic rollback.
 
@@ -208,6 +221,9 @@ it) the missing-database refusal is skipped and zero accounts is only a warning.
 
 - Log: `/mnt/user/docker/palabras/deploy.log`, rotated at 1 MiB, three historical files.
 - Last healthy deployed commit: `/mnt/user/docker/palabras/deployed.sha`.
+- Image id of that deploy: `/mnt/user/docker/palabras/deployed.image` (`<image id> <sha>`); the next
+  poll compares it with the running container.
+- Preserved rollback tags: `/mnt/user/docker/palabras/rollback-images`, oldest first, newest two kept.
 - Immediate manual poll: `bash /boot/config/plugins/user.scripts/scripts/palabras-auto-deploy/script`.
 - Pause: `touch /mnt/user/docker/palabras/paused`; scheduled runs exit without fetching/building.
 - Resume: `rm /mnt/user/docker/palabras/paused`, then run the wrapper manually.
@@ -216,8 +232,11 @@ it) the missing-database refusal is skipped and zero accounts is only a warning.
 Rollback restarts the image retained before the upgrade; it does not rebuild from source. Follow
 `docs/08-upgrade-rollback.md` ("Rollback"): start the retained image ID with `docker compose up -d
 --no-build`, and restore the pre-upgrade database set unless the old image passed the drill against
-the migrated copy. Do not check out an older SHA and run `docker compose up -d --build`: floating base
-tags make that a different image, and the old code then runs against the already migrated database.
+the migrated copy. A poll rebuild tags its own outgoing image (`palabras:rollback-<image-id>`)
+before replacing it, but a hand-tagged `$ROLLBACK_TAG` is still needed whenever polling is paused
+or the running image was already untagged. Do not check out an older SHA and run `docker compose up
+-d --build`: floating base tags make that a different image, and the old code then runs against the
+already migrated database.
 Never run a down-migration. A deploy that adds a migration starts with that runbook's section A
 (pre-migration backup, manual upgrade with polling paused), not with the poll.
 
