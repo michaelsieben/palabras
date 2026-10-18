@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { chromium } from '@playwright/test'
 import { createServer, preview } from 'vite'
 import { readFile } from 'node:fs/promises'
+import { fulfillLearn, runLearnerBrowser } from './learnBrowser.mjs'
 
 let swOverride
 const server = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: true }, plugins: [{
@@ -20,10 +21,12 @@ let browser
 async function mockSession(context) {
   const identity = { username: 'demo', role: 'owner' }
   await context.route('**/api/auth/me', route => route.fulfill({ json: identity }))
+  await context.route('**/api/learn/**', route => fulfillLearn(route))
   return identity
 }
 try {
   browser = await chromium.launch({ headless: true })
+  await runLearnerBrowser(browser)
   const authContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
   const authPage = await authContext.newPage()
   let user = null
@@ -37,6 +40,7 @@ try {
   await authContext.route('**/api/**', async route => {
     const request = route.request()
     const path = new URL(request.url()).pathname
+    if (path.startsWith('/api/learn/')) return fulfillLearn(route)
     if (request.method() !== 'GET') assert.equal(request.headers()['x-palabras'], '1')
     if (path.endsWith('/me')) { await meGate; return route.fulfill({ status: user ? 200 : 401, json: user ?? { error: 'unauthorized' } }) }
     if (path.endsWith('/login')) {
@@ -171,7 +175,7 @@ try {
     if (viewport.width >= 1280) assert.equal(await page.locator('.side-list').isVisible(), true)
     await page.getByRole('button', { name: 'Mostrar respuesta' }).click()
     await assert.doesNotReject(() => page.locator('.answer h3').waitFor())
-    assert.equal(await page.locator('.answer h3').evaluate(el => el === document.activeElement), true)
+    assert.equal(await page.locator('.learn-session').evaluate(el => el === document.activeElement), true)
     const grading = await measure(); assert.equal(grading.smallTargets, 0)
     if (viewport.width < 768) {
       const action = await page.locator('.session-actions').boundingBox()
@@ -180,7 +184,9 @@ try {
       assert.ok(action.y + action.height > viewport.height * .5, 'grading thumb reachable')
     }
     await page.getByRole('button', { name: 'Good La sabía' }).click()
-    assert.equal(await page.getByRole('button', { name: 'Mostrar respuesta' }).evaluate(el => el === document.activeElement), true)
+    await page.getByRole('button', { name: 'Mostrar respuesta' }).waitFor()
+    await page.waitForFunction(() => document.activeElement === document.querySelector('.learn-session'))
+    assert.equal(await page.locator('.learn-session').evaluate(el => el === document.activeElement), true)
     demoIdentity.role = 'reviewer'
     await page.goto('http://127.0.0.1:4173/')
     await page.getByRole('button', { name: 'No ✗', exact: true }).first().waitFor()
@@ -209,8 +215,8 @@ try {
     await page.getByRole('heading', { name: 'Sin conexión' }).waitFor()
     assert.deepEqual(errors, [])
     // Two online app loads; both offline navigations serve signed-out-neutral fallback.
-    assert.equal(apiRequests.length, 2)
-    assert.ok(apiRequests.every(request => request.method === 'GET' && request.pathname === '/api/auth/me'))
+    assert.equal(apiRequests.filter(request => request.pathname === '/api/auth/me').length, 2)
+    assert.ok(apiRequests.every(request => request.pathname.startsWith('/api/learn/') || (request.method === 'GET' && request.pathname === '/api/auth/me')))
     console.log(JSON.stringify({ viewport, learner, grading, reviewer, drawer, textScale200: scaled, offlineNavigation: 'neutral fallback', revealFocus: 'ok', editAlternative: 'ok', pageErrors: errors, apiRequests }))
     await context.close()
   }

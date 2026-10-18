@@ -45,6 +45,9 @@ export async function getSessionPlan(options: { maxNew?: number; budgetS?: numbe
   if (options.maxNew !== undefined) query.set('maxNew', String(options.maxNew))
   if (options.budgetS !== undefined) query.set('budgetS', String(options.budgetS))
   const body = await apiRequest(`/api/learn/session/plan${query.size ? `?${query}` : ''}`, { signal })
+  return parseSessionPlan(body)
+}
+export function parseSessionPlan(body: unknown): SessionPlan {
   if (!object(body) || !['sessionId', 'generatedAtUtc', 'localDate'].every(key => typeof body[key] === 'string')
     || !Array.isArray(body.items) || !body.items.every(planItem) || !object(body.counts)
     || !['due', 'newOffered', 'backlog'].every(key => typeof (body.counts as Record<string, unknown>)[key] === 'number')
@@ -67,4 +70,13 @@ export async function getLearnerWords(q: string, topic: string, signal?: AbortSi
     && ['key', 'headword', 'gloss', 'stage'].every(key => typeof item[key] === 'string')
     && (item.article === null || typeof item.article === 'string') && strings(item.topics))) throw new ApiError('invalid-response')
   return body.items as LearnerWord[]
+}
+export type Forecast = { tomorrow: number; next7Days: { date: string; due: number }[] }
+export async function getForecast(signal?: AbortSignal): Promise<Forecast> {
+  const body = await apiRequest('/api/learn/forecast', { signal })
+  if (!object(body) || !Number.isSafeInteger(body.tomorrow) || Number(body.tomorrow) < 0
+    || !Array.isArray(body.next7Days) || body.next7Days.length !== 7
+    || !body.next7Days.every(day => object(day) && typeof day.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day.date)
+      && Number.isSafeInteger(day.due) && Number(day.due) >= 0)) throw new ApiError('invalid-response')
+  return body as Forecast
 }

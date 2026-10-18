@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { getAttemptQueue } from './learn/attemptQueue'
 import { LearnSession } from './learn/LearnSession'
 import { WordList } from './learn/WordList'
 import { ReviewQueue } from './ReviewQueue'
@@ -21,6 +22,13 @@ export default function App() {
   const [logoutError, setLogoutError] = useState('')
   const [loggingOut, setLoggingOut] = useState(false)
   const session = useSession()
+  const attemptQueue = useMemo(() => session.user?.role === 'owner' ? getAttemptQueue(session.user.username) : null, [session.user])
+  useEffect(() => {
+    if (!attemptQueue) return
+    attemptQueue.start()
+    window.addEventListener('online', attemptQueue.trigger)
+    return () => { window.removeEventListener('online', attemptQueue.trigger); attemptQueue.stop() }
+  }, [attemptQueue])
   const pwa = usePwa()
   const mainHeading = useRef<HTMLHeadingElement>(null)
   useEffect(() => { const pop = () => setPath(window.location.pathname); window.addEventListener('popstate', pop); return () => window.removeEventListener('popstate', pop) }, [])
@@ -52,7 +60,7 @@ export default function App() {
       <main id="main">
         <div className="page-heading"><div><p className="eyebrow">Español de España · A2</p><h1 tabIndex={-1} ref={mainHeading}>{path === '/debug/viewport' ? 'Viewport · desarrollo' : !authenticated ? 'Palabras, a tu ritmo' : reviewing ? (path === '/aprobadas' ? 'Aprobadas' : 'Un toque de tu español') : path === '/palabras' ? 'Palabras para el día a día' : path === '/ajustes' ? 'A tu ritmo' : 'Tu repaso de hoy'}</h1></div><span className="chip">España · Pamplona</span></div>
         {path === '/debug/viewport' ? (ViewportDebug ? <Suspense fallback={<p>Cargando diagnóstico…</p>}><ViewportDebug /></Suspense> : <section className="panel"><h2>Página no disponible</h2><p>El diagnóstico solo existe en desarrollo.</p></section>) : session.checking ? <SessionSkeleton /> : session.error ? <section className="panel"><h2>No se ha podido comprobar la sesión</h2><p role="alert">No se puede confirmar si has iniciado sesión. Comprueba la conexión e inténtalo de nuevo.</p><button onClick={() => void session.retry()}>Reintentar</button></section> : path === '/login' ? (!session.user && <Login signIn={session.signIn} />) : access === 'login' ? <SessionSkeleton /> : access === 'forbidden' ? <section className="panel"><h2>Sin permiso</h2><p role="alert">Esta página solo está disponible para la cuenta revisora.</p><button onClick={() => navigate('/')}>Volver a Hoy</button></section> : reviewing ? <ReviewQueue approved={path === '/aprobadas'} onComplete={() => setCompleted(true)} /> : path === '/palabras' ? <WordList /> : path === '/ajustes' ? <section className="panel settings"><h2>Tu app, en este dispositivo</h2><p>{pwa.standalone ? 'Abierta como app instalada' : 'Abierta en el navegador'}</p><p>{pwa.state}</p>{pwa.canInstall && completed ? <button className="primary" onClick={() => void pwa.install()}>Instalar app</button> : !pwa.standalone && <p>Tras terminar una sesión, Chrome ofrecerá la instalación si el sitio cumple los requisitos. También puedes usar el menú de Chrome → Instalar app.</p>}<p>El tema sigue el dispositivo. Sin recordatorios ni ajustes de cuenta todavía.</p>{import.meta.env.DEV && <a href="/debug/viewport" onClick={e => { e.preventDefault(); navigate('/debug/viewport') }}>Diagnóstico de viewport</a>}</section> : ['/', '/sesion'].includes(path) ? <>
-          <div className="learner-layout"><LearnSession key={session.user?.username} onComplete={() => setCompleted(true)} /><aside className="today-pane"><section className="panel today-details"><p className="eyebrow">Un ratito cada día</p><h2>Hoy, paso a paso</h2><p>Repasa primero. Después, descubre palabras nuevas.</p><p>5–15 minutos, sin prisa.</p></section><WordList side /></aside></div>
+          <div className="learner-layout">{attemptQueue && session.user && <LearnSession key={session.user.username} username={session.user.username} attemptQueue={attemptQueue} onComplete={() => setCompleted(true)} />}<aside className="today-pane"><section className="panel today-details"><p className="eyebrow">Un ratito cada día</p><h2>Hoy, paso a paso</h2><p>Repasa primero. Después, descubre palabras nuevas.</p><p>5–15 minutos, sin prisa.</p></section><WordList side /></aside></div>
           {completed && pwa.canInstall && <div className="install-banner"><p>Lleva tus palabras contigo.</p><button className="primary" onClick={() => void pwa.install()}>Instalar app</button></div>}
         </> : <section className="panel"><h2>Página no encontrada</h2><a href="/">Volver a Hoy</a></section>}
       </main>

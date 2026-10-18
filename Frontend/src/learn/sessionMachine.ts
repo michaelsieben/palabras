@@ -7,16 +7,16 @@ export type SessionPhase = 'idle' | 'loading' | 'prompting' | 'answering' | 'gra
 export type SessionState = {
   phase: SessionPhase; plan: SessionPlan | null; queue: PlanItem[]; answer: string
   feedback: GradeResult | null; attempts: Attempt[]; extraReps: Record<number, number>
-  failed: PlanItem[]; stopSuggested: boolean; stopping: boolean; error: string | null
+  failed: PlanItem[]; stopSuggested: boolean; stopping: boolean; error: string | null; offline: boolean
 }
 export const initialSessionState: SessionState = {
   phase: 'idle', plan: null, queue: [], answer: '', feedback: null, attempts: [],
-  extraReps: {}, failed: [], stopSuggested: false, stopping: false, error: null,
+  extraReps: {}, failed: [], stopSuggested: false, stopping: false, error: null, offline: false,
 }
 export type SessionAction =
   | { type: 'load' }
   | { type: 'loaded'; plan: SessionPlan }
-  | { type: 'failed'; message: string }
+  | { type: 'failed'; message: string; cachedPlan?: SessionPlan }
   | { type: 'answer'; value: string }
   | { type: 'reveal' }
   | { type: 'submit'; durationMs: number }
@@ -43,7 +43,10 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
   if (action.type === 'loaded' && state.phase === 'loading') return {
     ...state, plan: action.plan, queue: [...action.plan.items], phase: action.plan.items.length ? 'prompting' : 'empty',
   }
-  if (action.type === 'failed' && state.phase === 'loading') return { ...state, phase: 'error', error: action.message }
+  if (action.type === 'failed' && state.phase === 'loading') return action.cachedPlan
+    ? { ...state, plan: action.cachedPlan, queue: [...action.cachedPlan.items], offline: true,
+      phase: action.cachedPlan.items.length ? 'prompting' : 'empty' }
+    : { ...state, phase: 'error', error: action.message }
   const card = state.queue[0]
   switch (action.type) {
     case 'answer':

@@ -45,6 +45,21 @@ test('recognition requires reveal, emits one real attempt, rejects double rate',
   })
 })
 
+test('failed fetch with cached plan enters offline prompting and preserves pure requeue; empty cache enters empty', () => {
+  const cached = plan([item(1, { mode: 'typed', direction: 'en_es' })])
+  const before = structuredClone(cached)
+  const loading = sessionReducer(initialSessionState, { type: 'load' })
+  let state = sessionReducer(loading, { type: 'failed', message: 'network', cachedPlan: cached })
+  assert.equal(state.phase, 'prompting'); assert.equal(state.offline, true)
+  state = sessionReducer(state, { type: 'answer', value: 'cafe' })
+  state = sessionReducer(state, { type: 'submit', durationMs: 1000 })
+  state = sessionReducer(rate(state, 3), { type: 'next' })
+  assert.equal(state.phase, 'summary'); assert.equal(state.attempts[0].sessionId, cached.sessionId)
+  assert.deepEqual(cached, before)
+  assert.equal(sessionReducer(loading, { type: 'failed', message: 'network', cachedPlan: plan([]) }).phase, 'empty')
+  assert.equal(sessionReducer(state, { type: 'load' }).offline, false)
+})
+
 test('Again requeues three other items later; every repeat emits unique real attempt', () => {
   let state = recognize(start(Array.from({ length: 6 }, (_, i) => item(i + 1))), 1)
   assert.deepEqual(state.queue.map(card => card.cardId), [2, 3, 4, 1, 5, 6])
