@@ -207,6 +207,7 @@ app.MapGet("/healthz", () => Results.Ok(new { status = "ok", version }));
 app.MapGet("/api/ping", () => Results.Ok(new { status = "ok", version }));
 app.MapAuthEndpoints();
 app.MapLearnEndpoints();
+app.MapStatsEndpoints();
 app.MapExportEndpoints();
 // simplification: M4 will replace this reviewer queue placeholder with real content.
 app.MapGet("/api/review/queue", () => Results.Ok(new { items = Array.Empty<object>(), note = "M4" })).RequireAuthorization("reviewer");
