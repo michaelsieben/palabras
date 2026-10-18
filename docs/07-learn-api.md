@@ -313,10 +313,13 @@ by design: it only triggers a footnote and changes no other figure.
 
 ## Day status, streak and skip (M7)
 
-Backend shipped in T-20261018-2005 (`83d29a5`); no frontend caller yet. Spec: `design-amendment.md` ΔD (skip, refund,
+Backend shipped in T-20261018-2005 (`83d29a5`); rollover gate, backfill guard and `localDate` on `done` added in
+T-20261018-2105 (`3a6b4c9`); durable cutover (`c7262f8`) and owner-only history (`c3ce543`) in the same run. No
+frontend caller yet. Spec: `design-amendment.md` ΔD (skip, refund,
 rollover) and ΔF (schema). Code: `Backend/Palabras/Learn/DayEndpoints.cs`, `DayContracts.cs`, `LearnDayStatus.cs`,
-`DayRollover.cs`, `DayRolloverService.cs`; migration `DayStatusAndSkips` (tables `day_status`, `day_skips`,
-`practice_sessions`). Open items O-M7-n: `.opencode/runs/T-20261018-2005/10-m7-backend.md` §5. Placed at the end so
+`DayRollover.cs`, `DayRolloverService.cs`, `DayRolloverSettings.cs`; migrations `20261018183151_DayStatusAndSkips`
+(tables `day_status`, `day_skips`, `practice_sessions`) and `20261018201418_RolloverCutoverMarker` (table
+`app_meta`). Open items O-M7-n: `.opencode/runs/T-20261018-2005/10-m7-backend.md` §5. Placed at the end so
 existing line references into this file stay valid.
 
 | Method + route | Success | Errors |
@@ -326,7 +329,8 @@ existing line references into this file stay valid.
 | `POST /api/learn/day/done` | 200 day status (`done`) | 400 `bad_request` |
 
 All rows also return the 401/403 of Common rules; the two POSTs need `X-Palabras: 1`. "Today" is the learner's local
-date under Common rules, read from the server clock; the client never chooses the day it writes.
+date under Common rules, read from the server clock. The client chooses the day it writes only through the bounded
+`localDate` on `done` (today or yesterday, see below); skip is today-only.
 
 ΔD fixes only the skip route. The status route and its shape (O-M7-1) and the `done` completion signal (O-M7-2) are
 not in the design docs: they are the step-10 implementation choices, recorded here as shipped, not as reviewed design.
@@ -337,8 +341,8 @@ All three routes answer with this shape. Nulls are sent, not omitted.
 
 ```ts
 type DayStatusResponse = {
-  localDate: string;                               // learner's local today
-  status: 'done' | 'skipped' | 'missed' | null;    // today's day_status row; null when there is none yet
+  localDate: string;                               // learner's local today; for `done`, the target day
+  status: 'done' | 'skipped' | 'missed' | null;    // that day's day_status row; null when there is none yet
   streak: number;
   skipAvailable: boolean;
   skipNextAvailable: string | null;                // first local date a new skip is allowed; null while available
@@ -370,37 +374,93 @@ The window check and the insert run in one immediate SQLite transaction (`BEGIN 
 consume two skips; the unique `(user_id, local_date)` index is the backstop. A skip writes no `review_log` row and
 changes no card (ΔD:299).
 
-Not settled: ΔD:288 writes the 409 body as snake_case `{reason, next_available}`; the shipped body is camelCase
-`nextAvailable` like the rest of the API (O-M7-5). The 400 for a non-today date has no code in ΔD (O-M7-6). An M8
-service worker should branch on the status code only.
+Decided (O-M7-5, T-20261018-2105): ΔD:288 sketches the 409 body as snake_case `{reason, next_available}`; the
+shipped body stays camelCase `nextAvailable`. The API-wide rule is camelCase (Common rules) and ΔD:288 is the outlier,
+so this is deliberate, not a bug to fix; no snake_case alias ships without a consumer that needs one. Changing it
+would be a wire change for the owner to decide. Not settled: the 400 for a non-today date has no code in ΔD (O-M7-6).
+An M8 service worker should branch on the status code only.
 
 ### `POST /api/learn/day/done`
 
 ```ts
-type DayDoneRequest = { durationS?: number; plannedS?: number; newCount?: number; reviewCount?: number };  // all ≥ 0
+type DayDoneRequest = {
+  durationS?: number; plannedS?: number; newCount?: number; reviewCount?: number;   // all ≥ 0
+  localDate?: string;   // target day, yyyy-MM-dd; omitted or null = the receipt day (learner's local today)
+};
 ```
 
-- 200: today becomes `done`, one `practice_sessions` row (`status='completed'`, `started_at` = `completed_at` = now,
-  because the endpoint does not know the start) is written and linked from `day_status.session_id`. A non-refunded
-  skip on **today** is refunded (`refunded_at` set), so the token is available again (ΔD:293). A skip on an earlier
-  day stays consumed. A `missed` row for today (reachable only after a zone change) is overwritten with `done` (O-M7-7).
-- 200, idempotent: today is already `done`; no second session row.
-- 400 `{"error":"bad_request"}`: no body or a negative value. `{}` is accepted.
+The **target day** is `localDate` when sent, else the learner's local today at receipt. Accepted: learner-local
+today or yesterday, and not before the account's local creation date (O-M7-9, `3a6b4c9`).
+
+- 200: the target day becomes `done`, one `practice_sessions` row (`status='completed'`, `local_date` = target,
+  `started_at` = `completed_at` = now, because the endpoint does not know the start) is written and linked from
+  `day_status.session_id`. A non-refunded skip on the **target day** is refunded (`refunded_at` set), so the token is
+  available again (ΔD:293). A skip on another day stays consumed. A `missed` row on the target day (from the rollover,
+  or after a zone change) is overwritten with `done` (O-M7-7). The payload describes the **target day**: `localDate`
+  is the target, the streak is the chain through it, skip fields are evaluated at it. A caller showing today should
+  refetch `GET /day/status`.
+- 200, idempotent: the target day is already `done`; no second session row.
+- 400 `{"error":"bad_request"}`, nothing written: no body; a negative value; `localDate` present but not exactly
+  `yyyy-MM-dd` (after trimming; an empty string is not "absent"); `localDate` in the future, before yesterday, or
+  before the account's creation day. `{}` is accepted and completes the receipt day.
+
+What this means for a caller:
+
+- An offline completion flushed after local midnight with `localDate` set to the session's day is attributed to that
+  day, not the new one, as long as it arrives by the end of the next local day.
+- A `done` that arrives after midnight marks the **target** day. Without `localDate` the target is the receipt day, so
+  an old-style call after midnight still marks the new day done and leaves the session day without `done`.
+- A retry later than the window (two or more local days after the session day) gets 400 and completes nothing; it
+  never falls back to today. That session day stays without `done`.
 
 Not settled:
 
 - **Client-trusted** (O-M7-10): the server does not check that the composed session was finished or that ≥ 300 s
-  were logged (`design.md:171`). The authenticated client decides when to call it.
-- **Late completion** (O-M7-9, main M7 residual risk): the body has no `localDate`, so a call that reaches the server
-  after local midnight (offline flush, retry) marks the **new** day done, and the session day stays without `done`.
-  The step-10 recommendation is an optional `localDate` limited to today or yesterday before the summary screen is
-  wired; not implemented.
+  were logged (`design.md:171`). The authenticated client decides when to call it, and which of the two days it names.
 
 ### Rollover and missed days
 
-`DayRolloverService` (hosted in the web app) ticks every minute; the first tick is one minute after start. For each
-account (the loop does not filter by role), once local time is 00:05 or later, it writes `missed` for **yesterday**
-when yesterday has no `day_status` row (ΔD:297). It never overwrites `done` or `skipped`, never consumes a skip, and
+**Gate, default OFF** (`3a6b4c9`). The rollover runs only when the setting `M7:DayRolloverEnabled` (container
+environment variable `M7__DayRolloverEnabled`) is the literal `true` (case-insensitive, trimmed). Absent, empty,
+`false`, `1`, `yes` or anything else keeps it off. With it off the service logs one line at startup and schedules no
+tick: no `missed` history is written and the database is not touched by the job (it neither reads nor writes the
+cutover marker below). The schema migrates regardless: `DayStatusAndSkips` and `RolloverCutoverMarker` are applied at
+startup whether the gate is on or off, and the three day routes stay callable.
+
+This setting is the kill switch for the one M7 behaviour that writes history nobody asked for. Turning it off (set
+`false` or remove it, then restart/recreate the container; no rebuild, no database change) stops future ticks; rows
+already written stay. Enabling it is a separate, deliberate decision, not part of shipping the schema, and it remains
+gated on the outstanding rollout-risk conditions (truthful job evidence, completion-capable client; see "Not
+covered yet") in `.opencode/runs/T-20261018-2105/01-m7-rollout-risk.md` C4–C6. Owner procedure and the observation that
+proves it is off: `08-upgrade-rollback.md` §D. As of `c3ce543` the rollover is **not enabled** anywhere this repo
+records.
+
+**Durable cutover (backfill guard).** The first time a host observes the gate enabled, it fixes the cutover to that
+instant and persists it in the `app_meta(key, value)` table under key `m7_rollover_cutover_ms` (UTC unix ms as a
+decimal string; `DayRollover.CutoverKey`). Every later tick, restart, container recreate, poll redeploy or re-enable
+reads that same instant back, so the cutover never moves (`c7262f8`; this supersedes the earlier host-start
+`TrackingStart`, which was not persisted). A candidate day whose learner-local start is before the cutover is refused
+and never written later. So the enable day is never marked `missed`, and the first day that can become `missed` is the
+first full local day after the cutover, written on a tick after 00:05 of the following day. Operationally:
+
+- Enabling the gate on a long-running deployment does not retro-fill: no day before the cutover gets a row.
+- A restart or redeploy after enablement keeps the cutover, so the restart day is still judged the next day.
+- Kill switch off and on again: the original cutover is kept, not re-anchored. Only yesterday is ever inspected, so
+  days inside the off window other than the re-enable tick's yesterday are never backfilled.
+- A marker that is unreadable (hand-edited, truncated, negative or outside the `DateTimeOffset` range) is logged as a
+  warning and re-anchored to now through a conditional write; re-anchoring only narrows the tracked span and never
+  invents history. Two instances racing on the first or a corrupt marker converge on one stored instant.
+- A failed cutover resolution is not cached; the next minute tick retries without a restart (`c3ce543`).
+- Restoring an older whole-file backup restores that backup's own marker with it.
+
+**Eligibility: owner account only** (C4, `c3ce543`). Only the account with `users.role == "owner"` (code constant
+`DayRollover.LearnerRole`) receives `missed` history: it is the only role admitted to the `learner` policy
+(`Auth/AccountAuthentication.cs:45`), and `ck_users_role` plus the unique role index allow at most one owner. The
+reviewer account never gets rows: it has no day-completion signal. One row per missed day, not one per account.
+
+When enabled, `DayRolloverService` (hosted in the web app) ticks every minute; the first tick is one minute after
+start. For the owner account, once local time is 00:05 or later, it writes `missed` for
+**yesterday** when yesterday has no `day_status` row and began at or after the cutover (ΔD:297). It never overwrites `done` or `skipped`, never consumes a skip, and
 touches no card or `review_log` row (ΔD:298-300). A day before the account's creation date is never marked (O-M7-8).
 It is idempotent (existence check plus primary key); a failed tick is logged and retried on the next tick.
 
@@ -413,3 +473,10 @@ It is idempotent (existence check plus primary key); a failed tick is logged and
 - ΔD test "timezone change applies from the next day": no endpoint sets `users.timezone`, so it is untested.
 - M7 frontend (status strip, "Saltar hoy" button, `done` call from the session summary) and the M8 notification
   action are not built.
+- The rollover is not enabled (gate above). Of its enablement preconditions: C4's backend part is implemented
+  (owner-only eligibility and a durable cutover, `c7262f8`/`c3ce543`), but enablement still waits for an
+  M7-capable client deployed to the owner; C6 is partial (success is logged only after the commit, `c3ce543`, but no
+  committed-tick or failure signal is exposed and `/healthz` stays green on job errors); C5's backend part
+  (`localDate` on `done`) is implemented, its client is not built.
+- A cutover marker deleted while the gate is on is not re-read by the running process until a restart (review 17
+  F4, informational; `.opencode/runs/T-20261018-2105/18-rollover-fixes.md` §6).

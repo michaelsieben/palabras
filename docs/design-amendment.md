@@ -285,7 +285,7 @@ Muting **never** touches the skip, the streak or FSRS. A muted day without a ses
 - Responses:
   - 200 = skipped;
   - 200 idempotent if today is already skipped;
-  - **409** with `{reason:'skip_unavailable', next_available}`;
+  - **409** with `{reason:'skip_unavailable', next_available}`; *(shipped camelCase `nextAvailable`, as are all wire keys incl. `localDate`: O-M7-5, decided T-20261018-2105, `07-learn-api.md` M7 section)*
   - **409** with `{reason:'already_done'}` if today is already done.
 - **Skipping preserves the streak** for that day but does not increment it. A **plain missed day breaks the streak**, and the rollover job never consumes the skip automatically.
   - The `frozen` status is removed.
@@ -294,7 +294,7 @@ Muting **never** touches the skip, the streak or FSRS. A muted day without a ses
 - **Notification coupling:** `skip_available` is computed at send time (C.2).
   - If the skip is unavailable, the `skip` action is absent and the body says when it returns (C.3).
   - If availability changed between send and click, the API's 409 drives the SW confirmation text.
-- **Rollover job** (00:05 local): write `missed` for yesterday if it has no `done` or `skipped` row. It only writes history and never touches cards.
+- **Rollover job** (00:05 local): write `missed` for yesterday if it has no `done` or `skipped` row. It only writes history and never touches cards. *(Shipped default OFF behind `M7:DayRolloverEnabled`, owner account only, never writing days before its durable first-enable cutover; not enabled: `07-learn-api.md` M7 section, T-20261018-2105.)*
 - **FSRS consistency, confirmed:**
   - A skipped day writes **no** `review_log` rows and doesn't modify any `cards` row. Due dates are unchanged; cards simply become overdue.
   - On the next review, FSRS uses the real `elapsed_days`, so lower retrievability is reflected in the S/D update (the forgetting curve `01:146`). There is **no extra penalty term**: a skipped day and a missed day are identical to the scheduler and differ only in the streak.

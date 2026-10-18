@@ -56,7 +56,7 @@ unauthenticated request to a non-public route returns 401/redirect instead of re
   everywhere; see `02-open-questions.md` Q9.
 
 **Done when:** `dotnet ef database update` creates the schema from zero; re-running the importer
-on the 58 words changes nothing; CI fails on a deliberately broken word file; migration applies
+on the committed corpus (58 words when written; it grows per batch) changes nothing; CI fails on a deliberately broken word file; migration applies
 on startup in the container without manual steps.
 
 ## 3. M5 — SRS (FSRS-6) (MVP) — implemented
@@ -133,7 +133,7 @@ copy passes the M1 login test. Shipped contract: `07-learn-api.md`, `restore-dri
 
 - Refresh `README.md`: mock UI exists, manifest/service worker exist, ΔG milestone numbers,
   compose folder spelling.
-- ~~Confirm the 8th backend test passes and record it in a report.~~ Done: `M0ApiTests.cs` has 9 tests; suite 825/0 at `83d29a5`.
+- ~~Confirm the 8th backend test passes and record it in a report.~~ Done: `M0ApiTests.cs` has 9 tests; suite 854/0 at `3a6b4c9`.
 - Measure real CSS viewports on both devices (`runs/13-pwa-ultrawide.md`).
 
 ## Status, 2026-10-18 (T-20261018-0124)
@@ -156,8 +156,12 @@ Appended below the queue so the line numbers above stay stable. Backend state as
   criterion is dropped). Learner callers for `bury` / `suspend` / `unsuspend` are optional, not M6 deliverables;
   progress export is M10 scope (`07-learn-api.md`), not M6.
 - **M7 backend implemented** (`83d29a5`): `GET /api/learn/day/status`, `POST /api/learn/day/skip`,
-  `POST /api/learn/day/done`, minute rollover, migration `DayStatusAndSkips` (`07-learn-api.md`, M7 section). Not
-  done: frontend wiring and the late-completion fix (O-M7-9).
+  `POST /api/learn/day/done`, minute rollover, migration `DayStatusAndSkips` (`07-learn-api.md`, M7 section).
+  `3a6b4c9`: rollover behind `M7:DayRolloverEnabled`, default OFF, with a backfill guard; optional
+  `localDate` (today|yesterday) on `day/done` (O-M7-9); O-M7-5 decided camelCase. Suite 854/0 at that commit.
+  `c7262f8`: the cutover is durable in `app_meta` (migration `RolloverCutoverMarker`); `c3ce543`: `missed` history for
+  the owner account only. Not done: frontend wiring; enabling the rollover (separate decision; remaining
+  preconditions in `07-learn-api.md` "Not covered yet").
 - **Health of `main` at `6e41d0f` (T-20261018-2005).** `dotnet build` green; `dotnet test` 790 passed, 0 failed;
   `npm ci`, `npm run lint`, `npm run build` green; content lint `OK — 58 word file(s), 0 errors`. `docker build`
   was not run in that pass.

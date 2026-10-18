@@ -49,7 +49,7 @@ curl --fail http://127.0.0.1:18480/healthz
 docker compose down
 ```
 
-Expected health JSON: `{"status":"ok","version":"0.0.1.0"}`. `/healthz` also opens the configured SQLite file and runs `SELECT 1`; when the database is unreachable it answers HTTP 503 with `{"status":"unhealthy","component":"database","version":"0.0.1.0"}`, so the compose healthcheck and the deploy poll cannot report a database-less container as healthy. It does not inspect data: a freshly created database with zero accounts still answers 200 (the deploy poll's account check covers that). `/api/ping` returns the same shape as a successful `/healthz` but does not check the database. Unknown API paths return 404; other extensionless paths use SPA fallback.
+Expected health JSON: `{"status":"ok","version":"0.7.0","commit":"<40-hex sha>","commitShort":"<7-hex>","milestone":"M7"}`. `/healthz` also opens the configured SQLite file and runs `SELECT 1`; when the database is unreachable it answers HTTP 503 with `{"status":"unhealthy","component":"database",…}` carrying the same identity fields, so the compose healthcheck and the deploy poll cannot report a database-less container as healthy. It does not inspect data: a freshly created database with zero accounts still answers 200 (the deploy poll's account check covers that). `/api/ping` returns only `{"status":"ok","version":…}` and does not check the database. Unknown API paths return 404; other extensionless paths use SPA fallback. Build identity: `version` and `milestone` come from `<Version>` and `<Milestone>` in `Backend/Palabras/Palabras.csproj`, the only place they are set. `commit` is supplied at build time with `-p:CommitSha=<sha>`; the `Dockerfile` forwards `--build-arg COMMIT_SHA=<sha>` to it and also writes the image label `org.opencontainers.image.revision`, and CI passes `$GITHUB_SHA`. Only 7–40 hex characters are accepted; anything else, or no value at all (plain `dotnet run`/`dotnet test`, `docker build .` without the arg), reports `commit` and `commitShort` as `unknown` rather than a guessed sha. Startup logs `Palabras build <version> milestone <milestone> commit <commitShort>.`, and Ajustes shows the same three values read from the live `/healthz`.
 
 ## Content authoring
 
@@ -160,6 +160,12 @@ APP_BASE_URL=https://palabras.siebentower.nl
 `APP_BASE_URL` and password/VAPID placeholders are reserved for later milestones; M0 consumes no
 credentials. Unraid compose rejects a blank data path. Protect `.env` when secrets are added.
 
+M7 rollover gate: `M7__DayRolloverEnabled` (config key `M7:DayRolloverEnabled`) defaults to false. Only the
+literal `true` (case-insensitive, trimmed) enables it; absent, empty, `false`, `1` or anything else keeps it off.
+The schema migrates regardless, and while it is off the job writes no `missed` history. Leave it unset: enabling it
+is a deliberate decision still gated on the outstanding pre-enablement items in `docs/07-learn-api.md` ("Rollover
+and missed days") and `docs/08-upgrade-rollback.md` section D, which also holds the kill-switch procedure.
+
 ```bash
 # First setup only: preserve an existing server .env.
 test -f /mnt/user/docker/palabras/.env || cp /mnt/user/repos/palabras/.env /mnt/user/docker/palabras/.env
@@ -207,6 +213,14 @@ disables both data guards (docs/08-upgrade-rollback.md D.5).
 After build/up it retries Docker health plus host `/healthz` for up to 36 attempts at five-second
 intervals. Failure exits non-zero and retains the last healthy SHA; there is no automatic rollback.
 
+Build identity on Unraid is not wired yet. Neither `deploy/unraid/docker-compose.yml` nor
+`deploy/unraid-deploy.sh` passes `COMMIT_SHA` today, so a poll-built image reports `"commit":"unknown"` in
+`/healthz` and Ajustes. The intended wiring (deploy-side change, not in the repo at the time of writing) is a
+`build.args` entry `COMMIT_SHA: "${COMMIT_SHA:-unknown}"` under the compose `build:` block, with the poll
+exporting `COMMIT_SHA=$(git -C /mnt/user/repos/palabras rev-parse HEAD)` before `docker compose up -d --build`
+(or `--build-arg COMMIT_SHA=…` for a direct `docker build`). Until then use the image id, `deployed.sha` and
+`deployed.image` to identify the running build.
+
 Data guards (T-20261018-1547). The data directory is `APPDATA_PATH` read from the deployed `.env`.
 Once `deployed.sha` exists, every unpaused poll first refuses to run (before fetching) when
 `palabras.db` there is missing, a symlink, not a regular file or 0 bytes; it never writes
@@ -238,7 +252,8 @@ or the running image was already untagged. Do not check out an older SHA and run
 -d --build`: floating base tags make that a different image, and the old code then runs against the
 already migrated database.
 Never run a down-migration. A deploy that adds a migration starts with that runbook's section A
-(pre-migration backup, manual upgrade with polling paused), not with the poll.
+(pre-migration backup, manual upgrade with polling paused), not with the poll. The next production deploy is a
+large jump that carries five migrations; follow the ordered procedure in that runbook's section E.4.
 
 Keep polling paused after a rollback: with `deployed.sha` unchanged a resumed poll does nothing, but
 the next commit on `main` rebuilds and re-migrates. Resume as in that runbook's Rollback step 6.

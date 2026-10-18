@@ -15,7 +15,7 @@ progress from a JSON export in `restore-drill.md`; CLI behaviour in `06-content-
   `MigrateAsync` (`DatabaseLifecycle.cs:7-13`). No backup is taken first. The nightly backup service starts only
   after startup, so it never protects the first migration.
 - `/healthz` opens the configured SQLite file and runs `SELECT 1`; when that fails it answers HTTP 503 with a JSON
-  body naming the `database` component. The compose healthcheck and the deploy poll therefore cannot report a
+  body naming the `database` component. Both bodies carry the build identity (`version`, `commit`, `milestone`; E). The compose healthcheck and the deploy poll therefore cannot report a
   database-less container as healthy. Startup itself is unchanged: a missing database file is still created and
   migrated before the app serves, and that fresh, account-less database answers 200.
 - Every CLI verb except `import --dry-run` and `restore-progress` also migrates, **including `content status`**
@@ -266,7 +266,7 @@ A row is abandoned only when no app, `docker exec` CLI or host CLI process exist
 4. Preserve the database, sidecars and keys exactly as in A step 6 (`set/`, `set.sha256`, `scratch/`).
 5. On `scratch/`: run `PRAGMA integrity_check;` (must be `ok`), list `__EFMigrationsHistory`, and run
    `SELECT * FROM "__EFMigrationsLock";`. Compare the history with the migration files of the image being started
-   (`Backend/Palabras/Persistence/Migrations/`, currently `InitialAccounts`, `ContentSchema`, `SrsCards`). A
+   (`Backend/Palabras/Persistence/Migrations/`; on `main` at `c3ce543`: `InitialAccounts`, `ContentSchema`, `SrsCards`, `DayStatusAndSkips`, `RolloverCutoverMarker`). A
    committed prefix is expected: each migration runs in a transaction, so an interrupted one is rolled back and
    re-applied on the next start. If the integrity check fails or the history contains IDs the image does not know,
    do not clear the lock; use rollback R-B.
@@ -377,16 +377,19 @@ path, which fix from step 7 was applied and when, and the step 6 and 8 results.
 
 ## D. M7 (`DayStatusAndSkips`) image rollback
 
-Owner-run addendum for the release that adds the M7 migration `20261018183151_DayStatusAndSkips` (tables `day_status`,
-`day_skips`, `practice_sessions`, partial index `ix_day_skips_window`) together with a day-rollover background job
+Owner-run addendum for the release that adds the M7 migrations `20261018183151_DayStatusAndSkips` (tables `day_status`,
+`day_skips`, `practice_sessions`, partial index `ix_day_skips_window`) and `20261018201418_RolloverCutoverMarker`
+(table `app_meta(key, value)`, which holds the durable rollover cutover under key `m7_rollover_cutover_ms` once the
+job has been enabled; `07-learn-api.md` "Rollover and missed days") together with a day-rollover background job
 shipped **disabled**. The kill-switch is the setting `M7:DayRolloverEnabled`, in the container the environment
 variable `M7__DayRolloverEnabled`, default **false** (`Backend/Palabras/Learn/DayRolloverSettings.cs`). Only a
 case-insensitive `true` enables it; absent, empty, `false`, `1` or anything else stays off. On Unraid it would be set
 in `$DEPLOY/.env`, which the compose loads via `env_file: .env`; leave it unset for this release. Changing it takes a
 restart/recreate (`docker compose up -d --no-build --force-recreate`), no rebuild and no database downgrade.
 
-The schema migrates regardless of the switch: startup applies `DayStatusAndSkips` whether it is on or off. `missed`
-history is written only while the switch is enabled. Enabling it is a separate, deliberate decision, not part of this
+The schema migrates regardless of the switch: startup applies `DayStatusAndSkips` and `RolloverCutoverMarker` whether
+it is on or off. `missed` history is written only while the switch is enabled, and only for the owner account. While
+it is off the job never writes the cutover marker either; re-enabling later keeps the original cutover. Enabling it is a separate, deliberate decision, not part of this
 release; it is gated on the rollout-risk conditions for enablement and on the backup and drill evidence in D.2 and
 D.7. Turning it off later stops future ticks but does not remove rows already written. The rollout-risk verdict
 and its ship conditions live in `.opencode/runs/T-20261018-2105/01-m7-rollout-risk.md`. Everything below extends
@@ -397,7 +400,8 @@ What is special about this release:
 
 - `DayStatusAndSkips.Up()` only creates tables, indexes and check constraints; it alters no existing table and copies
   no data (`20261018183151_DayStatusAndSkips.cs:10-110`). `Down()` is destructive to M7 data: it drops the three
-  tables (`:112-123`). Same rule as `SrsCards`: **never** roll back via a down-migration.
+  tables (`:112-123`). `RolloverCutoverMarker` likewise only creates `app_meta`, and its `Down()` drops it. Same rule
+  as `SrsCards`: **never** roll back via a down-migration.
 - The old image is expected to tolerate the migrated database. The old binary maps no M7 entity and queries no M7
   table; EF validates nothing between model and schema at runtime, and `DatabaseLifecycle.InitializeAsync` still calls
   `MigrateAsync`, which sees every migration the old binary knows already in `__EFMigrationsHistory` and does nothing,
@@ -433,6 +437,7 @@ WAL database with sqlite3):
 sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM day_status;'           # expect 0
 sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM day_skips;'            # expect 0
 sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM practice_sessions;'    # expect 0
+sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM app_meta;'             # expect 0: no cutover while off
 ```
 
 If these counts grow while the switch reads false — or after any restart — stop and treat the job as enabled; do not
@@ -445,9 +450,9 @@ copy before the acceptance runs:
 
 ```bash
 sqlite3 "$SAFE/drill/palabras.db" "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
-#   expect the list to include day_status, day_skips, practice_sessions alongside the pre-M7 set
+#   expect the list to include day_status, day_skips, practice_sessions, app_meta alongside the pre-M7 set
 sqlite3 "$SAFE/drill/palabras.db" 'SELECT MigrationId FROM "__EFMigrationsHistory" ORDER BY 1;'
-#   expect exactly four: InitialAccounts, ContentSchema, SrsCards, DayStatusAndSkips … and NOT a fifth row
+#   expect exactly five: InitialAccounts, ContentSchema, SrsCards, DayStatusAndSkips, RolloverCutoverMarker … and NOT a sixth row
 docker exec palabras-drill-old dotnet /app/Palabras.dll user list
 #   expect the ROLE header plus the same owner/reviewer rows the new image printed
 ```
@@ -501,7 +506,7 @@ sqlite3 "$SAFE/scratch-rollback/palabras.db" 'PRAGMA integrity_check;'          
 sqlite3 "$SAFE/scratch-rollback/palabras.db" "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
 #   same table set as the drill/base, NOT missing the M7 tables (D.2 list)
 sqlite3 "$SAFE/scratch-rollback/palabras.db" 'SELECT MigrationId FROM "__EFMigrationsHistory" ORDER BY 1;'
-#   entries expected by the running image; if the DB was restored (R-B), the M7 row is ABSENT again
+#   entries expected by the running image; if the DB was restored (R-B), the two M7 rows are ABSENT again
 sqlite3 "$SAFE/scratch-rollback/palabras.db" 'SELECT count(*) FROM cards;'              # equals the recorded pre-upgrade count
 sqlite3 "$SAFE/scratch-rollback/palabras.db" 'SELECT count(*) FROM review_log;'         # idem
 docker logs palabras 2>&1 | grep -c 'SqliteException'              # expect 0
@@ -510,8 +515,8 @@ curl --fail https://palabras.siebentower.nl/healthz                # HTTP 200 th
 ```
 
 For M7 both success paths are legitimate, record which one you got: (a) database never rolled back — history still
-contains `DayStatusAndSkips` and the three tables exist, (b) database restored from `$SAFE/set/` — that history row
-and the tables are gone again. Do not "fix" (b) by manually re-applying the migration or re-adding the history row;
+contains `DayStatusAndSkips` and `RolloverCutoverMarker` and the four tables exist, (b) database restored from
+`$SAFE/set/` — those history rows and the tables are gone again. Do not "fix" (b) by manually re-applying the migration or re-adding the history row;
 let the next real upgrade do it.
 
 ### D.5 What must NOT be rolled back or deleted
@@ -528,7 +533,7 @@ let the next real upgrade do it.
   to force a deployment through.
 - `$DEPLOY/backups/` (the poll's `cp -a` snapshots) — newest 5 kept automatically; do not prune them to free space for
   anything short of a proven-successful next upgrade.
-- The EF tables `day_status`, `day_skips`, `practice_sessions` and their `__EFMigrationsHistory` row: never drop them
+- The EF tables `day_status`, `day_skips`, `practice_sessions`, `app_meta` and their `__EFMigrationsHistory` rows: never drop them
   "to match the old binary", never clear the history row manually. A future upgraded image resumes cleanly from a
   history that already contains `DayStatusAndSkips` (normal EF semantics, per the M7 rollout-risk review
   `.opencode/runs/T-20261018-2105/01-m7-rollout-risk.md` §1) — that is the reason (a) above is a success path, not a defect.
@@ -557,7 +562,8 @@ accounts, 58 imported words, one card, one review and one row in each M7 table:
 
 - the backup file's `PRAGMA integrity_check;` printed `ok`;
 - it contained `day_status`, `day_skips`, `practice_sessions`, the partial index `ix_day_skips_window` and all four
-  `__EFMigrationsHistory` rows including `20261018183151_DayStatusAndSkips`;
+  `__EFMigrationsHistory` rows including `20261018183151_DayStatusAndSkips` (four at `a0e4912`; the fifth,
+  `RolloverCutoverMarker`, came later in `c7262f8` and was not part of this run);
 - the backup restored into a fresh data directory had the same counts and rows as the source for users, words,
   senses, cards, review_log and the three M7 tables; `user list` printed both accounts (owner and reviewer) with
   their original creation times; restarting the CLI on it applied no migration again;
@@ -602,10 +608,10 @@ cp -a "$BK" "$SAFE/scratch-backup/palabras.db"                      # standalone
 B="$SAFE/scratch-backup/palabras.db"
 sqlite3 "$B" 'PRAGMA integrity_check;'                              # exactly: ok
 sqlite3 "$B" "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
-#   must include day_skips, day_status, practice_sessions next to cards, review_log, senses, users, words
+#   must include app_meta, day_skips, day_status, practice_sessions next to cards, review_log, senses, users, words
 sqlite3 "$B" "SELECT name FROM sqlite_master WHERE type='index' AND name='ix_day_skips_window';"   # prints the name
 sqlite3 "$B" 'SELECT MigrationId FROM "__EFMigrationsHistory" ORDER BY 1;'
-#   must include 20261018183151_DayStatusAndSkips
+#   must include 20261018183151_DayStatusAndSkips and 20261018201418_RolloverCutoverMarker
 for t in cards review_log; do
   echo "$t backup=$(sqlite3 "$B" "SELECT count(*) FROM $t;") snapshot=$(sqlite3 "$SAFE/scratch/palabras.db" "SELECT count(*) FROM $t;")"
 done
@@ -621,9 +627,14 @@ Owner-run readback of measured state. Nothing here was executed against producti
 read-only measurement artifact under `.opencode/runs/T-20261018-2105/` or a repo file:line. Primary evidence:
 `12-prod-drift.md` (+ `12-prod-drift.log`), supplemented by `08-rollback-drill.md` and `06-backup-roundtrip-evidence.md`.
 
-The version string cannot be used for drift: `/healthz` returns `{"status":"ok","version":"0.0.1.0"}` and
-`<Version>0.0.1</Version>` has been constant since M0, so the app exposes no build identity and no
-build-identifying header. Drift is determinable from the image, not the app (`12-prod-drift.md` §0, §1).
+At measurement time the version string could not be used for drift: `/healthz` returned
+`{"status":"ok","version":"0.0.1.0"}` and `<Version>0.0.1</Version>` had been constant since M0, so the running
+image exposes no build identity. Drift is determinable from that image, not the app (`12-prod-drift.md` §0, §1).
+Since `7d37bba` builds report `version` (`0.7.0`), `milestone` (`M7`) and `commit`/`commitShort` in `/healthz`, in
+the startup log line and in Ajustes, and carry the image label `org.opencontainers.image.revision`; the sha is
+supplied as `-p:CommitSha=<sha>` (Dockerfile `--build-arg COMMIT_SHA`) and is `unknown` when absent. The Unraid
+compose and poll do not pass it yet (`README.md`, "Automatic updates, pause and rollback"), so until that deploy-side
+wiring lands a poll build reports `commit: "unknown"` and the image id stays the drift anchor.
 
 ### E.1 The drift
 
@@ -651,11 +662,15 @@ build-identifying header. Drift is determinable from the image, not the app (`12
 
 ### E.2 What the next successful deploy is
 
-If the operator pushes local `main` (the 6 M7 commits), the poll's full deploy path runs (guard-2 snapshot →
-compose mirror → rebuild → recreate → 180 s health → accounts guard): a **~37-commit jump carrying four
-migrations** (`InitialAccounts`, `ContentSchema`, `SrsCards`, `DayStatusAndSkips`), the M6 frontend and service
-worker, and the M7 service. Even a small fix pushed without M7 is a ~32-commit jump with three migrations
-(`12-prod-drift.md` §3). This changes the risk relative to a small increment:
+If the operator pushes local `main`, the poll's full deploy path runs (guard-2 snapshot → compose mirror →
+preserve the running image as `palabras:rollback-<image-id12>`, newest two kept (E.3 item 5) → rebuild → recreate →
+180 s health → accounts guard): a **jump of at least ~37 commits** (37–38 measured at `3a6b4c9`; local `main` has
+moved on since, so count again from the running image's source commit in E.1, e.g.
+`git rev-list --count a4fe119..main`) **carrying five migrations** (`InitialAccounts`, `ContentSchema`, `SrsCards`,
+`DayStatusAndSkips`, `RolloverCutoverMarker`), the M6 frontend and service worker, and the M7 service. The poll now
+also rebuilds when the running image id differs from the recorded one (E.3 item 3), so it does not stay on the old
+image silently. A small fix pushed on top of `origin/main` without the M7 commits was measured as a ~32-commit jump
+with three migrations (`12-prod-drift.md` §3). This changes the risk relative to a small increment:
 
 - Migrations apply at startup on the live database, with no backup taken first and no automatic rollback; if the
   new container never turns healthy, the old container is **already replaced** — the script only logs and

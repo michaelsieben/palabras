@@ -1,6 +1,6 @@
 # Palabras — handoff (read this first)
 
-Status date: 2026-10-18 (§4 and §7 checked against `main` at `993f0d1`, run `T-20261018-2005`; §4–§7 M7, deploy and scope items updated at `83d29a5`, run `T-20261018-2105`).
+Status date: 2026-10-18 (§4 and §7 checked against `main` at `993f0d1`, run `T-20261018-2005`; §4–§7 M7, deploy and scope items updated at `83d29a5`, run `T-20261018-2105`; M7 rollover gate and test count at `3a6b4c9`; durable cutover, owner-only rollover, build identity, poll image check and deploy-script citation at `c3ce543`).
 First written 2026-10-17 at the end of run `T-20261017-1516` (M0 scaffold + mock UI).
 Repo docs are the source of truth. Run reports referenced below are copied into the repo under
 `docs/runs/` (see `docs/runs/README.md` for reading order and staleness). They are historical
@@ -69,15 +69,15 @@ State on `main` at `993f0d1` (2026-10-18). Milestone status is in §7; this tabl
 | --- | --- | --- |
 | CI | One `build` job: `dotnet restore/build/test` (Release), `npm ci`, `npm run lint`, `npm run build`, content lint, container build + smoke (`/healthz` ok, `/api/nope` 404, SPA fallback 200). CI does **not** run `npm test` or `npm run test:browser`; frontend unit and Chromium tests are local-only evidence | `.github/workflows/ci.yml:27-48`, `Frontend/package.json:13,16` |
 | Health | `dotnet build` green, `dotnet test` 790 passed / 0 failed (Debug and Release), `npm ci` / lint / build green, content lint `OK — 58 word file(s), 0 errors`; measured at `6e41d0f` (`993f0d1` changed docs only). `docker build` not run locally | `.opencode/runs/T-20261018-2005/01-ci-equivalent-verification.md` (local run artifact) |
-| Backend | Forwarded headers first, host filtering (`AllowedHosts` = `palabras.siebentower.nl;localhost;127.0.0.1`), `X-Palabras: 1` on non-GET `/api`, cookie auth with persisted data-protection keys, roles `owner` (also `learner`) and `reviewer`. Endpoints: `/healthz` (503 when SQLite is unreachable, `ee2ef77`), `/api/ping`, `/api/auth/*`, `/api/learn/*`, `/api/learn/stats`, `/api/learn/export`, `/api/learn/day/*` (M7, `83d29a5`); `/api/review/queue` is an empty M4 stub. Nightly `BackupService`; minute `DayRolloverService` | `Program.cs:83,97,121-122,126-127,133-142,210-229`, `Learn/DayEndpoints.cs:22-25`, `appsettings.json:8`, `Auth/AccountAuthentication.cs:45`, `Learn/LearnEndpoints.cs:20-27` |
-| Database | SQLite via EF Core; migrations `InitialAccounts`, `ContentSchema`, `SrsCards`, `DayStatusAndSkips` (`83d29a5`); the app migrates on startup | `Backend/Palabras/Persistence/Migrations/`, `Program.cs:125` |
+| Backend | Forwarded headers first, host filtering (`AllowedHosts` = `palabras.siebentower.nl;localhost;127.0.0.1`), `X-Palabras: 1` on non-GET `/api`, cookie auth with persisted data-protection keys, roles `owner` (also `learner`) and `reviewer`. Endpoints: `/healthz` (503 when SQLite is unreachable, `ee2ef77`; build identity `version`/`commit`/`commitShort`/`milestone`, `commit` = `unknown` unless the build passes `-p:CommitSha`, `7d37bba`), `/api/ping`, `/api/auth/*`, `/api/learn/*`, `/api/learn/stats`, `/api/learn/export`, `/api/learn/day/*` (M7, `83d29a5`); `/api/review/queue` is an empty M4 stub. Nightly `BackupService`; minute `DayRolloverService`, default OFF behind `M7:DayRolloverEnabled` (`3a6b4c9`), owner account only, durable cutover in `app_meta` (`c7262f8`, `c3ce543`) | `Program.cs:83,97,121-122,126-127,133-142,210-229`, `Learn/DayEndpoints.cs:22-25`, `appsettings.json:8`, `Auth/AccountAuthentication.cs:45`, `Learn/LearnEndpoints.cs:20-27` |
+| Database | SQLite via EF Core; migrations `InitialAccounts`, `ContentSchema`, `SrsCards`, `DayStatusAndSkips` (`83d29a5`), `RolloverCutoverMarker` (`app_meta`, `c7262f8`); the app migrates on startup | `Backend/Palabras/Persistence/Migrations/`, `Program.cs:125` |
 | CLI | `user create` / `set-username` / `set-password` / `list`, `import`, `content approve/status/retire`, `restore-progress` | `04-accounts.md`, `06-content-cli.md`, `07-learn-api.md` |
-| Backend tests | 17 files in `Backend/Palabras.Tests/` (M0 API, M1 auth, M2 content, M5 SRS/queue/learn API incl. py-fsrs golden vectors, M6 stats, M7 day status, M10 backup, CLI); 790 tests, 825 after M7 (`83d29a5`, `10-m7-backend.md` §4) | `Backend/Palabras.Tests/`, step-01 artifact above |
+| Backend tests | 17 files in `Backend/Palabras.Tests/` (M0 API, M1 auth, M2 content, M5 SRS/queue/learn API incl. py-fsrs golden vectors, M6 stats, M7 day status, M10 backup, CLI); test totals change with almost every commit, so each is tied to its commit: 790 at `6e41d0f`, 825 at `83d29a5` (`10-m7-backend.md` §4), 854 at `3a6b4c9` (`03-rollover-gate.md` §5), 858 at `c7262f8`, 874 at `7d37bba`, 882 with the rollover fixes on top of `7d37bba` before the content batch `664e038` landed; with that batch, 872 pass / 10 fail, all fixed corpus-size assertions (`18-rollover-fixes.md` §8). Run `dotnet test` for the current figure | `Backend/Palabras.Tests/`, step-01 artifact above |
 | Frontend | Login; learner routes `/` (`/sesion`), `/palabras`, `/progreso`, `/ajustes` on the real API, with IndexedDB offline attempt queue (`21f1d52`). Reviewer routes `/revisar`, `/aprobadas` remain mock data. Dev-only `/debug/viewport` | `Frontend/src/App.tsx:27,54,64`, `Frontend/src/ReviewQueue.tsx` |
 | Frontend tests | 13 `node --test` files (`npm test`) and Chromium scripts (`npm run test:browser`, incl. offline e2e `learnBrowser.mjs`); not run by CI (see CI row) | `Frontend/tests/`, `Frontend/package.json:13,16` |
 | PWA shell | Manifest (es-ES), service worker cache `palabras-shell-<sha>` with atomic-install auto-reload update flow (navigation authority = `GET /api/auth/me`, no app document precached), ultrawide tablet layout; `index.html`, `sw.js`, manifest served `no-cache`, manifest as `application/manifest+json` | `runs/13-pwa-ultrawide.md`, `Frontend/HOSTING.md`, `Frontend/tests/sw-navigation.mjs`, `Program.cs:190-203` |
-| Content | `content/` schema v2 with lifecycle `status` enum, `style-guide.md`, `style-guide.lexicon.json`, 58 word files. Lint: `OK — 58 word file(s), 0 errors, 0 warning(s)` | `content/words/`, `tools/content-lint/` |
-| Deploy | `deploy/unraid/docker-compose.yml` (production), root `docker-compose.yml` (local), `deploy/unraid-deploy.sh` main-branch poll with data/account guards (`2e6ac48`) and smoke test `deploy/tests/unraid-deploy-smoke.sh`. A production container has run on Unraid (data-loss incident 2026-10-18); which commit it runs is not recorded in the repo | `08-upgrade-rollback.md:27-40,285-289` |
+| Content | `content/` schema v2 with lifecycle `status` enum, `style-guide.md`, `style-guide.lexicon.json`, word files under `content/words/`. The corpus grows per content batch (58 files at `993f0d1`; `664e038` added a 171-word batch), so no count here is current: `node tools/content-lint/index.js` prints it. Tests that hard-coded the corpus size are being de-hardcoded for the same reason (T-20261018-2105 step 20, uncommitted at the time of writing) | `content/words/`, `tools/content-lint/` |
+| Deploy | `deploy/unraid/docker-compose.yml` (production), root `docker-compose.yml` (local), `deploy/unraid-deploy.sh` main-branch poll with data/account guards (`2e6ac48`), running-image comparison and outgoing-image preservation as `palabras:rollback-<id12>`, newest 2 kept (`1a90d4c`), and smoke test `deploy/tests/unraid-deploy-smoke.sh`. A production container has run on Unraid (data-loss incident 2026-10-18); which commit it runs is not recorded in the repo | `08-upgrade-rollback.md:27-40,285-289` |
 
 **Historical — M0 snapshot (2026-10-17, run `T-20261017-1516`).** Kept for the run-report trail; superseded
 by the table above.
@@ -123,14 +123,14 @@ Resolved here so the next session does not trip over them.
    (as `README.md` says). `KnownProxies` accepts single IPs only; `KnownNetworks` is obsolete
    in .NET 10 (ASPDEPR005).
 3. **Test count.** Reports say 7; the M0 snapshot had 8 (see §4). Resolved: `M0ApiTests.cs` now has 9 `[Fact]`s and
-   the whole suite runs 825 tests, 0 failed, at `83d29a5` (step-10 artifact `10-m7-backend.md` §4).
+   the whole suite ran 854 tests, 0 failed, at `3a6b4c9` (825 at `83d29a5`; `T-20261018-2105/03-rollover-gate.md` §5); later totals per commit in §4.
 4. **Cache headers.** `runs/13-ui.md` says no-cache headers for `sw.js`/manifest are missing. Resolved:
    `Program.cs:199-201` sends `no-cache` for `index.html`, `sw.js` and the manifest, the SPA fallback uses the same
    options (`:231`), and the manifest is served as `application/manifest+json` (`:192`).
 5. **Bare `/api`.** `runs/07-m0-fixes.md` saw 404; `runs/09-m0-final-review.md` says bare `/api`
    falls through to the SPA. Verify with a test in M1; desired behaviour is 404.
 6. **Compose folder spelling.** Resolved: `palabras`. `README.md:71,74`, `AGENTS.md` and
-   `deploy/unraid-deploy.sh:14` all use `/mnt/user/docker/palabras/`, created during setup
+   `deploy/unraid-deploy.sh:19` all use `/mnt/user/docker/palabras/`, created during setup
    (`02-open-questions.md` Q1).
 7. **README is stale.** It still describes a placeholder screen, deferred manifest and the old
    milestone numbering (M7 = service worker, M8 = backups). Use ΔG numbering (§7). README is
@@ -149,7 +149,7 @@ MVP = M0–M10. Later = L1–L6. Full text in `design-amendment.md` ΔG.
 | M4 | Reviewer gate `/revisar` | Mock UI only (`/api/review/queue` is an empty stub) |
 | M5 | FSRS-6 + cards created on approval (parallel after M2) | Implemented |
 | M6 | Session composer + exercises 1–4 + offline | In progress (composer API, session UI and IndexedDB offline attempt queue + Chromium e2e shipped, `21f1d52`; Android Chrome device check not done, checklist in `Frontend/HOSTING.md`). Exercises 1–2 and the timer/estimate are replaced by owner decision (`07-learn-api.md` deviations) |
-| M7 | Day status, streak, rolling skip | Backend implemented (`83d29a5`, `07-learn-api.md` M7 section); frontend not wired; late-completion risk open |
+| M7 | Day status, streak, rolling skip | Backend implemented (`83d29a5`, `07-learn-api.md` M7 section); rollover gate default OFF, backfill guard and bounded `localDate` on `day/done` added (`3a6b4c9`). Cutover made durable in `app_meta` (`c7262f8`); `missed` history restricted to the owner account (`c3ce543`). Rollover **not enabled**: a separate decision, gated on the remaining C4/C6 items (M7-capable client, job evidence; `07-learn-api.md` "Not covered yet") and the `08-upgrade-rollback.md` §D evidence. Frontend not wired |
 | M8 | Web Push at 22:00 | Not started |
 | M9 | Wide-tablet learner layout | Mock layout done; device check pending |
 | M10 | Backups + restore | Implemented |
