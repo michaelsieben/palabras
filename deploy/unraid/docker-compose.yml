@@ -7,6 +7,13 @@ services:
     build:
       context: /mnt/user/repos/palabras
       dockerfile: Dockerfile
+      args:
+        # Build identity (T-20261018-2105): the image must carry the sha it was built from.
+        # deploy/unraid-deploy.sh exports COMMIT_SHA (the sha of the checkout it builds) before
+        # `up -d --build`, and compose interpolates it here. The default keeps a hand-run
+        # `docker compose up --build` without the export working: the build still succeeds and
+        # the app reports commit/commitShort as "unknown" rather than a guessed sha.
+        COMMIT_SHA: "${COMMIT_SHA:-unknown}"
     container_name: palabras
     ports:
       # Debug/host-health only; NPM reaches palabras:18480 over sieben.

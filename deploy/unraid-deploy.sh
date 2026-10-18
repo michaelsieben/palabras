@@ -10,6 +10,12 @@
 # container left on an older build cannot be reported as current forever. Before a rebuild the
 # running image is tagged deterministically (palabras:rollback-<image-id>), so a rollback target
 # survives the rebuild instead of becoming an untagged dangling image.
+# Build identity (T-20261018-2105): before a rebuild the sha of the checkout being built is
+# exported as COMMIT_SHA, and deploy/unraid/docker-compose.yml interpolates it into the build
+# args, so /healthz, Ajustes and the image label report which commit the image is. It is read
+# from the checkout (git rev-parse HEAD), never from deployed.sha, which can name another
+# commit. If it cannot be read the build still proceeds with "unknown": a build that lies about
+# its identity is worse than one that admits it does not know it.
 set -Eeuo pipefail
 umask 077
 
@@ -486,6 +492,19 @@ else
 fi
 preserve_running_image
 backup_data
+# Build identity: compose interpolates COMMIT_SHA into the build args, and it must be the sha
+# this build actually uses. HEAD is read here, after the fast-forward and immediately before the
+# build, so a checkout that moved (or a recorded deployed.sha that names another commit) cannot
+# stamp the wrong sha into the image. `git -C "$REPO"` names the same checkout the compose
+# context builds, so there is no second repo path to keep in sync. A failure to read it is not
+# fatal: the build proceeds and the image reports "unknown", which is visible in /healthz.
+if commit_sha=$(git -C "$REPO" rev-parse HEAD 2>/dev/null) && [[ -n "$commit_sha" ]]; then
+    export COMMIT_SHA="$commit_sha"
+else
+    export COMMIT_SHA=unknown
+    log "WARN cannot read the commit sha being built from $REPO; building with COMMIT_SHA=unknown"
+fi
+log "building sha=$COMMIT_SHA (target=$target previous=$previous)"
 cp deploy/unraid/docker-compose.yml "$DEPLOY/docker-compose.yml.next"
 mv -f "$DEPLOY/docker-compose.yml.next" "$DEPLOY/docker-compose.yml"
 docker compose --project-directory "$DEPLOY" -f "$DEPLOY/docker-compose.yml" config --quiet

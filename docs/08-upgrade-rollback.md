@@ -633,8 +633,12 @@ image exposes no build identity. Drift is determinable from that image, not the 
 Since `7d37bba` builds report `version` (`0.7.0`), `milestone` (`M7`) and `commit`/`commitShort` in `/healthz`, in
 the startup log line and in Ajustes, and carry the image label `org.opencontainers.image.revision`; the sha is
 supplied as `-p:CommitSha=<sha>` (Dockerfile `--build-arg COMMIT_SHA`) and is `unknown` when absent. The Unraid
-compose and poll do not pass it yet (`README.md`, "Automatic updates, pause and rollback"), so until that deploy-side
-wiring lands a poll build reports `commit: "unknown"` and the image id stays the drift anchor.
+compose and poll now supply it: `deploy/unraid/docker-compose.yml` passes `build.args` `COMMIT_SHA` and
+`deploy/unraid-deploy.sh` exports it from the sha the poll actually builds (`README.md`, "Automatic updates, pause
+and rollback"), so a poll build reports its `commit` and the image label `org.opencontainers.image.revision`. The
+container running at measurement time predates that wiring, so for the drift below the image id (`93d874b09d4f…`)
+is still the anchor until the next poll rebuild; the wiring itself is verified by a local script harness and a local
+`docker build`, not yet on the host.
 
 ### E.1 The drift
 

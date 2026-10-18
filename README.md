@@ -213,13 +213,17 @@ disables both data guards (docs/08-upgrade-rollback.md D.5).
 After build/up it retries Docker health plus host `/healthz` for up to 36 attempts at five-second
 intervals. Failure exits non-zero and retains the last healthy SHA; there is no automatic rollback.
 
-Build identity on Unraid is not wired yet. Neither `deploy/unraid/docker-compose.yml` nor
-`deploy/unraid-deploy.sh` passes `COMMIT_SHA` today, so a poll-built image reports `"commit":"unknown"` in
-`/healthz` and Ajustes. The intended wiring (deploy-side change, not in the repo at the time of writing) is a
-`build.args` entry `COMMIT_SHA: "${COMMIT_SHA:-unknown}"` under the compose `build:` block, with the poll
-exporting `COMMIT_SHA=$(git -C /mnt/user/repos/palabras rev-parse HEAD)` before `docker compose up -d --build`
-(or `--build-arg COMMIT_SHA=…` for a direct `docker build`). Until then use the image id, `deployed.sha` and
-`deployed.image` to identify the running build.
+Build identity on Unraid is wired in the repo. `deploy/unraid/docker-compose.yml` carries the `build.args`
+entry `COMMIT_SHA: "${COMMIT_SHA:-unknown}"`, and `deploy/unraid-deploy.sh` exports `COMMIT_SHA` before
+`docker compose up -d --build` from the checkout it builds (`git -C "$REPO" rev-parse HEAD`, read after the
+fast-forward and immediately before the build, so it is the sha actually built and never the recorded
+`deployed.sha`), logging `building sha=…` so a later deploy can be reconstructed. If the sha cannot be read the
+build still runs and reports `unknown` instead of a guessed one. A poll-built image therefore reports its commit
+in `/healthz` and Ajustes and carries it as the `org.opencontainers.image.revision` label. Not yet exercised end
+to end: nothing here can run `docker compose`, so the interpolation was only simulated locally (script harness,
+plus a real `docker build --build-arg COMMIT_SHA=<sha>` whose `/healthz` reported it), and the next poll rebuild on
+the host is what proves it there. A container that predates this change still reports `commit: "unknown"`: use the
+image id, `deployed.sha` and `deployed.image` to identify it.
 
 Data guards (T-20261018-1547). The data directory is `APPDATA_PATH` read from the deployed `.env`.
 Once `deployed.sha` exists, every unpaused poll first refuses to run (before fetching) when
