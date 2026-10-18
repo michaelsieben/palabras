@@ -18,7 +18,7 @@
   ],
   "alternatives": [
     { "kind": "different-sense", "value": "tíos", "gloss": "uncle and aunt, uncles", "reason": "Plural often means the couple together, not just uncles." },
-    { "kind": "register", "value": "colega", "gloss": "mate, bloke", "reason": "Colloquial Peninsular for a person; not the family sense at all." }
+    { "kind": "different-sense", "value": "colega", "gloss": "mate, bloke", "reason": "The colloquial Peninsular sense of tío for a person; not the family sense at all." }
   ],
   "status": "pending_review",
   "provenance": { "method": "hand-authored" },
