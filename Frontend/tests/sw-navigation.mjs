@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
 import { chromium } from '@playwright/test'
 import { preview } from 'vite'
+import { browserPlan } from './learnBrowser.mjs'
 
 // Test-only cookie gate + hostile URL-keyed proxy. No Playwright API mocks:
 // worker-originated /me and every navigation reach real local HTTP middleware.
@@ -46,6 +47,20 @@ const server = await preview({ preview: { host: '127.0.0.1', port: 4174, strictP
         res.setHeader('Content-Type', 'application/json')
         res.setHeader('Set-Cookie', 'fixture_session=owner; Path=/; HttpOnly; SameSite=Lax')
         res.end(JSON.stringify({ username: 'fixture-owner', role: 'owner' }))
+      } else if (url.pathname.startsWith('/api/learn/')) {
+        // The authenticated learner view (App.tsx:64 → LearnSession) resolves its queue from
+        // the API, so the reveal control only exists once a plan is served. Fixtures mirror
+        // browser.mjs's fulfillLearn, but over real local HTTP like the auth endpoints above.
+        res.setHeader('Content-Type', 'application/json')
+        res.setHeader('Cache-Control', 'no-store')
+        if (url.pathname.endsWith('/session/plan')) res.end(JSON.stringify(browserPlan()))
+        else if (url.pathname.endsWith('/words')) res.end(JSON.stringify({ items: [] }))
+        else if (url.pathname.endsWith('/forecast')) res.end(JSON.stringify({ tomorrow: 2, next7Days: Array.from({ length: 7 }, (_, i) => ({ date: `2026-10-${19 + i}`, due: i === 0 ? 2 : i === 1 ? 7 : 0 })) }))
+        else if (url.pathname.endsWith('/attempts')) {
+          let body = ''
+          for await (const chunk of req) body += chunk
+          res.end(JSON.stringify({ results: JSON.parse(body).attempts.map(attempt => ({ clientAttemptId: attempt.clientAttemptId, status: 'applied' })) }))
+        } else { res.statusCode = 404; res.end(JSON.stringify({ error: 'not_found' })) }
       } else if (url.pathname === '/legacy-bootstrap') {
         res.setHeader('Content-Type', 'text/html')
         res.end('<!doctype html><title>Legacy worker fixture</title>')

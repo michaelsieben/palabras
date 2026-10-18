@@ -40,12 +40,36 @@ jobs:
       - name: Build and smoke-test container
         shell: bash
         run: |
+          set -euo pipefail
           docker build -t palabras:ci .
           docker run -d --name palabras-ci-smoke -p 127.0.0.1:18480:18480 palabras:ci
-          body=$(curl --retry-all-errors --retry 30 --retry-delay 1 --connect-timeout 2 --max-time 5 --fail http://127.0.0.1:18480/healthz)
-          [[ "$body" == *'"status":"ok"'* ]]
-          [[ "$(curl --silent --show-error --connect-timeout 2 --max-time 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:18480/api/nope)" == "404" ]]
-          [[ "$(curl --silent --show-error --connect-timeout 2 --max-time 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:18480/anything)" == "200" ]]
+          base=http://127.0.0.1:18480
+          request=(curl --silent --show-error --connect-timeout 2 --max-time 5)
+          status_of() { "${request[@]}" -o /dev/null -w '%{http_code}' "$base$1"; }
+          body_of() { "${request[@]}" "$base$1"; }
+          expect_status() { # path expected-status
+            actual=$(status_of "$1")
+            [[ "$actual" == "$2" ]] || { echo "FAIL $1: expected $2, got $actual"; exit 1; }
+          }
+          # Readiness is the health body, not the open socket.
+          body=$(curl --retry-all-errors --retry 30 --retry-delay 1 --fail "$base/healthz")
+          [[ "$body" == *'"status":"ok"'* ]] || { echo "FAIL /healthz body: $body"; exit 1; }
+
+          # Anonymous requests are challenged before routing, so the challenge owns the
+          # contract: /api/* answers 401 with the JSON error shape, everything else is
+          # redirected to the login page carrying the original path.
+          expect_status /api/nope 401
+          api_body=$(body_of /api/nope)
+          [[ "$api_body" == '{"error":"unauthorized"}' ]] || { echo "FAIL /api/nope body: $api_body"; exit 1; }
+          redirect=$(curl --silent --show-error --connect-timeout 2 --max-time 5 -o /dev/null -w '%{redirect_url}' "$base/anything")
+          [[ "$redirect" == *'/login?ReturnUrl=%2Fanything' ]] || { echo "FAIL /anything redirect: $redirect"; exit 1; }
+
+          # Public-route 200 anchors: the SPA document still answers without a session, and a
+          # real static asset is served as itself rather than as a fallback document.
+          expect_status /login 200
+          document=$(body_of /login)
+          [[ "$document" == *'<div id="root">'* ]] || { echo "FAIL /login document: ${document:0:200}"; exit 1; }
+          expect_status /offline.htm 200
       - name: Container logs and cleanup
         if: always()
         run: |
