@@ -12,6 +12,9 @@ internal sealed class PalabrasDbContext : DbContext
     public DbSet<WordAlternative> WordAlternatives => Set<WordAlternative>();
     public DbSet<WordTopic> WordTopics => Set<WordTopic>();
     public DbSet<WordRevision> WordRevisions => Set<WordRevision>();
+    public DbSet<Card> Cards => Set<Card>();
+    public DbSet<ReviewLog> ReviewLogs => Set<ReviewLog>();
+    public DbSet<UserSettings> UserSettings => Set<UserSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +35,7 @@ internal sealed class PalabrasDbContext : DbContext
         user.Property(value => value.CreatedAt).HasColumnName("created_at");
         user.Property(value => value.UpdatedAt).HasColumnName("updated_at");
         user.Property(value => value.LastLoginAt).HasColumnName("last_login_at");
+        user.Property(value => value.Timezone).HasColumnName("timezone");
 
         var word = modelBuilder.Entity<Word>();
         word.ToTable("words", table =>
@@ -116,5 +120,103 @@ internal sealed class PalabrasDbContext : DbContext
         revision.Property(value => value.Action).HasColumnName("action").IsRequired();
         revision.Property(value => value.SnapshotJson).HasColumnName("snapshot_json").IsRequired();
         revision.Property(value => value.CreatedAt).HasColumnName("created_at");
+        ConfigureSrs(modelBuilder);
+    }
+
+    private static void ConfigureSrs(ModelBuilder modelBuilder)
+    {
+        var settings = modelBuilder.Entity<UserSettings>();
+        settings.ToTable("user_settings");
+        settings.HasKey(value => value.UserId);
+        settings.Property(value => value.UserId).HasColumnName("user_id").ValueGeneratedNever();
+        settings.HasOne<User>().WithOne().HasForeignKey<UserSettings>(value => value.UserId).OnDelete(DeleteBehavior.NoAction);
+        settings.Property(value => value.DesiredRetention).HasColumnName("desired_retention").HasDefaultValue(0.90);
+        settings.Property(value => value.NewPerDay).HasColumnName("new_per_day").HasDefaultValue(12).HasSentinel(-1);
+        settings.Property(value => value.MaxReviewsPerDay).HasColumnName("max_reviews_per_day").HasDefaultValue(200).HasSentinel(-1);
+        settings.Property(value => value.BacklogThreshold).HasColumnName("backlog_threshold").HasDefaultValue(150).HasSentinel(-1);
+        settings.Property(value => value.SessionTargetS).HasColumnName("session_target_s").HasDefaultValue(600);
+        settings.Property(value => value.SessionMaxS).HasColumnName("session_max_s").HasDefaultValue(900);
+        settings.Property(value => value.MaxIntervalDays).HasColumnName("max_interval_days").HasDefaultValue(730);
+        settings.Property(value => value.EnableFuzz).HasColumnName("enable_fuzz").HasDefaultValue(true).HasSentinel(true);
+        settings.Property(value => value.LearningSteps).HasColumnName("learning_steps").HasDefaultValue("[\"00:01:00\",\"00:10:00\"]");
+        settings.Property(value => value.RelearningSteps).HasColumnName("relearning_steps").HasDefaultValue("[\"00:10:00\"]");
+        settings.Property(value => value.LeechLapses).HasColumnName("leech_lapses").HasDefaultValue(8);
+        settings.Property(value => value.WeightsJson).HasColumnName("weights_json");
+        settings.Property(value => value.WeightsVersion).HasColumnName("weights_version").HasDefaultValue(0);
+
+        var card = modelBuilder.Entity<Card>();
+        card.ToTable("cards", table =>
+        {
+            table.HasCheckConstraint("ck_cards_direction", "direction IN ('es_en', 'en_es')");
+            table.HasCheckConstraint("ck_cards_state", "state IN (0, 1, 2, 3)");
+            table.HasCheckConstraint("ck_cards_suspended_reason", "suspended_reason IN ('word_not_approved', 'sense_removed', 'manual', 'leech')");
+        });
+        card.HasKey(value => value.Id);
+        card.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
+        card.Property(value => value.UserId).HasColumnName("user_id");
+        card.HasOne<User>().WithMany().HasForeignKey(value => value.UserId).OnDelete(DeleteBehavior.NoAction);
+        card.Property(value => value.SenseId).HasColumnName("sense_id");
+        card.HasOne<Sense>().WithMany().HasForeignKey(value => value.SenseId).OnDelete(DeleteBehavior.Cascade);
+        card.Property(value => value.Direction).HasColumnName("direction").IsRequired();
+        card.Property(value => value.Epoch).HasColumnName("epoch").HasDefaultValue(0);
+        card.Property(value => value.State).HasColumnName("state");
+        card.Property(value => value.Step).HasColumnName("step");
+        card.Property(value => value.Stability).HasColumnName("stability");
+        card.Property(value => value.Difficulty).HasColumnName("difficulty");
+        card.Property(value => value.DueMs).HasColumnName("due_ms");
+        card.Property(value => value.LastReviewMs).HasColumnName("last_review_ms");
+        card.Property(value => value.Reps).HasColumnName("reps").HasDefaultValue(0);
+        card.Property(value => value.Lapses).HasColumnName("lapses").HasDefaultValue(0);
+        card.Property(value => value.SuspendedReason).HasColumnName("suspended_reason");
+        card.Property(value => value.BuriedUntilLocalDate).HasColumnName("buried_until_local_date");
+        card.Property(value => value.IsLeech).HasColumnName("is_leech").HasDefaultValue(false);
+        card.Property(value => value.IntroducedLocalDate).HasColumnName("introduced_local_date");
+        card.Property(value => value.CreatedAt).HasColumnName("created_at");
+        card.HasIndex(value => new { value.SenseId, value.UserId, value.Direction }).IsUnique();
+        card.HasIndex(value => new { value.UserId, value.DueMs }).HasDatabaseName("ix_cards_due").HasFilter("suspended_reason IS NULL AND state <> 0");
+        card.HasIndex(value => new { value.UserId, value.CreatedAt }).HasDatabaseName("ix_cards_new").HasFilter("suspended_reason IS NULL AND state = 0");
+
+        var log = modelBuilder.Entity<ReviewLog>();
+        log.ToTable("review_log", table =>
+        {
+            table.HasCheckConstraint("ck_review_log_rating", "rating BETWEEN 1 AND 4");
+            table.HasCheckConstraint("ck_review_log_mode", "mode IN ('recognition', 'typed', 'cloze')");
+        });
+        log.HasKey(value => value.Id);
+        log.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
+        log.Property(value => value.ClientAttemptId).HasColumnName("client_attempt_id").IsRequired();
+        log.HasIndex(value => value.ClientAttemptId).IsUnique();
+        log.Property(value => value.UserId).HasColumnName("user_id");
+        log.HasOne<User>().WithMany().HasForeignKey(value => value.UserId).OnDelete(DeleteBehavior.NoAction);
+        log.Property(value => value.WordId).HasColumnName("word_id");
+        log.HasOne<Word>().WithMany().HasForeignKey(value => value.WordId).OnDelete(DeleteBehavior.NoAction);
+        log.Property(value => value.CardId).HasColumnName("card_id");
+        log.HasOne<Card>().WithMany().HasForeignKey(value => value.CardId).OnDelete(DeleteBehavior.NoAction);
+        log.Property(value => value.CardEpoch).HasColumnName("card_epoch");
+        log.Property(value => value.SessionId).HasColumnName("session_id");
+        log.Property(value => value.Rating).HasColumnName("rating");
+        log.Property(value => value.ReviewedAtMs).HasColumnName("reviewed_at_ms");
+        log.Property(value => value.ReceivedAtMs).HasColumnName("received_at_ms");
+        log.Property(value => value.ElapsedDays).HasColumnName("elapsed_days");
+        log.Property(value => value.IntervalBeforeDays).HasColumnName("interval_before_days");
+        log.Property(value => value.IntervalAfterDays).HasColumnName("interval_after_days");
+        log.Property(value => value.DurationMs).HasColumnName("duration_ms");
+        log.Property(value => value.Mode).HasColumnName("mode").IsRequired();
+        log.Property(value => value.IsCorrectMeaning).HasColumnName("is_correct_meaning");
+        log.Property(value => value.IsCorrectForm).HasColumnName("is_correct_form");
+        log.Property(value => value.FeedbackKind).HasColumnName("feedback_kind");
+        log.Property(value => value.Overridden).HasColumnName("overridden").HasDefaultValue(false);
+        log.Property(value => value.AnswerText).HasColumnName("answer_text");
+        log.Property(value => value.StateBefore).HasColumnName("state_before");
+        log.Property(value => value.StabilityBefore).HasColumnName("stability_before");
+        log.Property(value => value.DifficultyBefore).HasColumnName("difficulty_before");
+        log.Property(value => value.StateAfter).HasColumnName("state_after");
+        log.Property(value => value.StabilityAfter).HasColumnName("stability_after");
+        log.Property(value => value.DifficultyAfter).HasColumnName("difficulty_after");
+        log.Property(value => value.DueAfterMs).HasColumnName("due_after_ms");
+        log.Property(value => value.WeightsVersion).HasColumnName("weights_version");
+        log.Property(value => value.CountsForSrs).HasColumnName("counts_for_srs").HasDefaultValue(true).HasSentinel(true);
+        log.HasIndex(value => new { value.CardId, value.ReviewedAtMs });
+        log.HasIndex(value => new { value.UserId, value.ReviewedAtMs });
     }
 }

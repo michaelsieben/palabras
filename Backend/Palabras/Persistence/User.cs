@@ -11,4 +11,5 @@ internal sealed class User
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
+    public string? Timezone { get; set; }
 }

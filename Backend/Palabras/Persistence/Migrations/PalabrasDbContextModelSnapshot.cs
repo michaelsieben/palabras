@@ -17,6 +17,257 @@ namespace Palabras.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
 
+            modelBuilder.Entity("Palabras.Persistence.Card", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BuriedUntilLocalDate")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("buried_until_local_date");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<double?>("Difficulty")
+                        .HasColumnType("REAL")
+                        .HasColumnName("difficulty");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("direction");
+
+                    b.Property<long>("DueMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("due_ms");
+
+                    b.Property<int>("Epoch")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("epoch");
+
+                    b.Property<string>("IntroducedLocalDate")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("introduced_local_date");
+
+                    b.Property<bool>("IsLeech")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_leech");
+
+                    b.Property<int>("Lapses")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("lapses");
+
+                    b.Property<long?>("LastReviewMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("last_review_ms");
+
+                    b.Property<int>("Reps")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("reps");
+
+                    b.Property<int>("SenseId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("sense_id");
+
+                    b.Property<double?>("Stability")
+                        .HasColumnType("REAL")
+                        .HasColumnName("stability");
+
+                    b.Property<int>("State")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("state");
+
+                    b.Property<int?>("Step")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("step");
+
+                    b.Property<string>("SuspendedReason")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("suspended_reason");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("ix_cards_new")
+                        .HasFilter("suspended_reason IS NULL AND state = 0");
+
+                    b.HasIndex("UserId", "DueMs")
+                        .HasDatabaseName("ix_cards_due")
+                        .HasFilter("suspended_reason IS NULL AND state <> 0");
+
+                    b.HasIndex("SenseId", "UserId", "Direction")
+                        .IsUnique();
+
+                    b.ToTable("cards", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_cards_direction", "direction IN ('es_en', 'en_es')");
+
+                            t.HasCheckConstraint("ck_cards_state", "state IN (0, 1, 2, 3)");
+
+                            t.HasCheckConstraint("ck_cards_suspended_reason", "suspended_reason IN ('word_not_approved', 'sense_removed', 'manual', 'leech')");
+                        });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.ReviewLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AnswerText")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("answer_text");
+
+                    b.Property<int>("CardEpoch")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("card_epoch");
+
+                    b.Property<int>("CardId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("card_id");
+
+                    b.Property<string>("ClientAttemptId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("client_attempt_id");
+
+                    b.Property<bool?>("CountsForSrs")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true)
+                        .HasColumnName("counts_for_srs");
+
+                    b.Property<double?>("DifficultyAfter")
+                        .HasColumnType("REAL")
+                        .HasColumnName("difficulty_after");
+
+                    b.Property<double?>("DifficultyBefore")
+                        .HasColumnType("REAL")
+                        .HasColumnName("difficulty_before");
+
+                    b.Property<long>("DueAfterMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("due_after_ms");
+
+                    b.Property<int?>("DurationMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("duration_ms");
+
+                    b.Property<double>("ElapsedDays")
+                        .HasColumnType("REAL")
+                        .HasColumnName("elapsed_days");
+
+                    b.Property<string>("FeedbackKind")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("feedback_kind");
+
+                    b.Property<double>("IntervalAfterDays")
+                        .HasColumnType("REAL")
+                        .HasColumnName("interval_after_days");
+
+                    b.Property<double?>("IntervalBeforeDays")
+                        .HasColumnType("REAL")
+                        .HasColumnName("interval_before_days");
+
+                    b.Property<bool?>("IsCorrectForm")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("is_correct_form");
+
+                    b.Property<bool?>("IsCorrectMeaning")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("is_correct_meaning");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("mode");
+
+                    b.Property<bool>("Overridden")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false)
+                        .HasColumnName("overridden");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("rating");
+
+                    b.Property<long>("ReceivedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("received_at_ms");
+
+                    b.Property<long>("ReviewedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("reviewed_at_ms");
+
+                    b.Property<string>("SessionId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("session_id");
+
+                    b.Property<double?>("StabilityAfter")
+                        .HasColumnType("REAL")
+                        .HasColumnName("stability_after");
+
+                    b.Property<double?>("StabilityBefore")
+                        .HasColumnType("REAL")
+                        .HasColumnName("stability_before");
+
+                    b.Property<int>("StateAfter")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("state_after");
+
+                    b.Property<int>("StateBefore")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("state_before");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("WeightsVersion")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("weights_version");
+
+                    b.Property<int>("WordId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("word_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientAttemptId")
+                        .IsUnique();
+
+                    b.HasIndex("WordId");
+
+                    b.HasIndex("CardId", "ReviewedAtMs");
+
+                    b.HasIndex("UserId", "ReviewedAtMs");
+
+                    b.ToTable("review_log", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_review_log_mode", "mode IN ('recognition', 'typed', 'cloze')");
+
+                            t.HasCheckConstraint("ck_review_log_rating", "rating BETWEEN 1 AND 4");
+                        });
+                });
+
             modelBuilder.Entity("Palabras.Persistence.Sense", b =>
                 {
                     b.Property<int>("Id")
@@ -104,6 +355,10 @@ namespace Palabras.Persistence.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("role");
 
+                    b.Property<string>("Timezone")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("timezone");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT")
                         .HasColumnName("updated_at");
@@ -128,6 +383,93 @@ namespace Palabras.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_users_username", "length(username) BETWEEN 3 AND 32 AND username = lower(trim(username)) COLLATE BINARY AND username NOT GLOB '*[^a-z0-9._-]*'");
                         });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.UserSettings", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("BacklogThreshold")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(150)
+                        .HasColumnName("backlog_threshold");
+
+                    b.Property<double>("DesiredRetention")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("REAL")
+                        .HasDefaultValue(0.90000000000000002)
+                        .HasColumnName("desired_retention");
+
+                    b.Property<bool>("EnableFuzz")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true)
+                        .HasColumnName("enable_fuzz");
+
+                    b.Property<string>("LearningSteps")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("[\"00:01:00\",\"00:10:00\"]")
+                        .HasColumnName("learning_steps");
+
+                    b.Property<int>("LeechLapses")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(8)
+                        .HasColumnName("leech_lapses");
+
+                    b.Property<int>("MaxIntervalDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(730)
+                        .HasColumnName("max_interval_days");
+
+                    b.Property<int>("MaxReviewsPerDay")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(200)
+                        .HasColumnName("max_reviews_per_day");
+
+                    b.Property<int>("NewPerDay")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(12)
+                        .HasColumnName("new_per_day");
+
+                    b.Property<string>("RelearningSteps")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("[\"00:10:00\"]")
+                        .HasColumnName("relearning_steps");
+
+                    b.Property<int?>("SessionMaxS")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(900)
+                        .HasColumnName("session_max_s");
+
+                    b.Property<int?>("SessionTargetS")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(600)
+                        .HasColumnName("session_target_s");
+
+                    b.Property<string>("WeightsJson")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("weights_json");
+
+                    b.Property<int>("WeightsVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("weights_version");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("user_settings", (string)null);
                 });
 
             modelBuilder.Entity("Palabras.Persistence.Word", b =>
@@ -350,12 +692,57 @@ namespace Palabras.Persistence.Migrations
                     b.ToTable("word_topics", (string)null);
                 });
 
+            modelBuilder.Entity("Palabras.Persistence.Card", b =>
+                {
+                    b.HasOne("Palabras.Persistence.Sense", null)
+                        .WithMany()
+                        .HasForeignKey("SenseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Palabras.Persistence.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.ReviewLog", b =>
+                {
+                    b.HasOne("Palabras.Persistence.Card", null)
+                        .WithMany()
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Palabras.Persistence.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Palabras.Persistence.Word", null)
+                        .WithMany()
+                        .HasForeignKey("WordId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Palabras.Persistence.Sense", b =>
                 {
                     b.HasOne("Palabras.Persistence.Word", null)
                         .WithMany()
                         .HasForeignKey("WordId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.UserSettings", b =>
+                {
+                    b.HasOne("Palabras.Persistence.User", null)
+                        .WithOne()
+                        .HasForeignKey("Palabras.Persistence.UserSettings", "UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });
 
