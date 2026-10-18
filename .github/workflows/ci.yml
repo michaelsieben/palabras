@@ -33,6 +33,15 @@ jobs:
         working-directory: Frontend
       - run: npm run build
         working-directory: Frontend
+      # The browser job runs the Playwright suite against this exact bundle, so it is
+      # published here - before the container step - instead of being rebuilt there.
+      - name: Publish frontend bundle for the browser job
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: Frontend/dist
+          retention-days: 1
+          if-no-files-found: error
       # Content gate: validates content/words/*.json against the schema and the
       # peninsular-vs-LatAm lexicon. Zero dependencies, so no install is needed.
       - name: Lint content
@@ -70,6 +79,45 @@ jobs:
           document=$(body_of /login)
           [[ "$document" == *'<div id="root">'* ]] || { echo "FAIL /login document: ${document:0:200}"; exit 1; }
           expect_status /offline.htm 200
+
+          # Authenticated contract. The anonymous probes above say nothing about what a
+          # signed-in caller reaches, so seed one account with the app's own CLI (the same
+          # binary, `user create`, driven by UserCli) and log in for real. The password only
+          # travels on stdin and in the login body - never in argv, never printed.
+          jar=$(mktemp)
+          login_out=$(mktemp)
+          password=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
+          docker exec -i palabras-ci-smoke dotnet Palabras.dll user create owner \
+            --username ci-owner --password-stdin <<<"$password" > /dev/null
+          login_body="{\"username\":\"ci-owner\",\"password\":\"$password\"}"
+          # The body goes in on stdin, so the password never reaches the curl argv.
+          login_status=$(curl --silent --show-error --connect-timeout 2 --max-time 5 \
+            -X POST -H 'Content-Type: application/json' -H 'X-Palabras: 1' \
+            -c "$jar" -o "$login_out" -w '%{http_code}' --data @- \
+            <<<"$login_body" "$base/api/auth/login")
+          [[ "$login_status" == 200 ]] || { echo "FAIL /api/auth/login: expected 200, got $login_status $(cat "$login_out")"; exit 1; }
+          # The session cookie is read back out of the jar curl wrote. Sending it explicitly
+          # keeps the gate independent of curl's Secure-cookie replay policy over plain http
+          # (the __Host- prefix makes the cookie Secure), while still proving that the login
+          # really did populate a cookie jar.
+          cookie=$(awk '$6 == "__Host-palabras" { print $6 "=" $7 }' "$jar")
+          [[ "$cookie" == __Host-palabras=?* ]] || { echo "FAIL login cookie jar: no __Host-palabras entry in $jar"; exit 1; }
+
+          expect_auth_status() { # path expected-status
+            actual=$(curl --silent --show-error --connect-timeout 2 --max-time 5 -o /dev/null \
+              -w '%{http_code}' -H "Cookie: $cookie" "$base$1")
+            [[ "$actual" == "$2" ]] || { echo "FAIL (authenticated) $1: expected $2, got $actual"; exit 1; }
+          }
+          # An authenticated caller is routed instead of challenged: an unknown /api/* path
+          # reaches the JSON 404 fallback (never the anonymous 401), and real learner routes
+          # answer 200 for the owner account, which carries the learner role.
+          expect_auth_status /api/nope 404
+          auth_body=$(curl --silent --show-error --connect-timeout 2 --max-time 5 -H "Cookie: $cookie" "$base/api/nope")
+          [[ "$auth_body" == '{"error":"not_found"}' ]] || { echo "FAIL (authenticated) /api/nope body: $auth_body"; exit 1; }
+          expect_auth_status /api/auth/me 200
+          expect_auth_status /api/learn/words 200
+          # A protected SPA route is served as the document once signed in: 200, not the 302 above.
+          expect_auth_status /sesion 200
       - name: Container logs and cleanup
         if: always()
         run: |
@@ -77,3 +125,50 @@ jobs:
             docker logs palabras-ci-smoke || true
             docker rm -f palabras-ci-smoke
           fi
+  browser:
+    # Real gate for the browser and Service Worker suites. `npm run test:browser` is the one
+    # piece of coverage the build job never had, which is how a broken sw-navigation.mjs
+    # stayed invisible on main. A failing test fails this job; there is no continue-on-error.
+    runs-on: ubuntu-latest
+    needs: build
+    # Still runs when the build job fails at the container step: the bundle this job consumes
+    # was published earlier in that job, and the browser suite is an independent signal.
+    if: ${{ !cancelled() }}
+    timeout-minutes: 10
+    # Pinned to the tag whose bundled Chromium matches the lockfile's @playwright/test
+    # 1.64.1 exactly, and which carries the Chromium system libraries. `latest` would drift
+    # the browser out of step with the driver.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      # The Playwright image requires a large /dev/shm: Chromium renders through it and the
+      # 64 MB Docker default can crash a page. This is the documented invocation and it
+      # removes a whole class of intermittent browser failures.
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+      # The suite serves the built bundle through `vite preview`, so it needs the test
+      # toolchain (vite, @playwright/test) but no second frontend build.
+      - run: npm ci
+        working-directory: Frontend
+      - name: Download the bundle built by the build job
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: Frontend/dist
+      # browser.mjs binds 127.0.0.1:4173 and sw-navigation.mjs binds 127.0.0.1:4174, both with
+      # strictPort. Each job gets its own network namespace, so these are private and fixed:
+      # nothing can collide with them and no dynamic port allocation is needed.
+      - name: Run the browser and Service Worker suites
+        working-directory: Frontend
+        run: |
+          set -euo pipefail
+          # The suites serve ../dist through vite preview. A changed artifact layout must fail
+          # here with a clear message instead of as a missing-file error inside Playwright.
+          test -f dist/index.html && test -f dist/sw.js || {
+            echo "FAIL: the frontend-dist artifact is not laid out at Frontend/dist"; exit 1; }
+          npm run test:browser
