@@ -8,7 +8,7 @@ import { loadProducerLexicon } from '../dist/lexicon.js';
 import { merge } from '../dist/merge.js';
 import { normaliseProposal, slug } from '../dist/normalise.js';
 import { validateBundle } from '../dist/validate.js';
-import { proposal, critique, script, workspace, MODELS } from './helpers.mjs';
+import { proposal, critique, script, workspace, writingAdapter, MODELS } from './helpers.mjs';
 
 test('three vendors propose, merge, critique, score, lint and write a valid bundle', async () => {
   const w = workspace();
@@ -16,7 +16,7 @@ test('three vendors propose, merge, critique, score, lint and write a valid bund
     const replay = script([proposal()], ['es-zorzal-01']);
     replay[MODELS[2]][0].text = JSON.stringify({ candidates: [{ ...proposal(), register: 'formal' }, { garbage: true }] });
     replay[MODELS[2]][1] = critique(['es-zorzal-01'], 'issue');
-    const result = await runPipeline({ ...w, request: { topic: 'food', cefr: 'A2', count: 3 }, adapter: replayAdapter(replay) });
+    const result = await runPipeline({ ...w, request: { topic: 'food', cefr: 'A2', count: 3 }, adapter: writingAdapter(replayAdapter(replay)) });
     assert.equal(result.manifest.status, 'ok', result.manifest.error);
     assert.equal(result.manifest.models_requested, 3);
     assert.deepEqual(result.manifest.models_succeeded, { propose: 3, critique: 3 });
@@ -110,7 +110,7 @@ test('critique is batched at 25 and all successful batches determine phase succe
     const replay = Object.fromEntries(MODELS.map((model) => [model, [
       { text: JSON.stringify({ candidates: words }) }, critique(keys.slice(0, 25)), critique(keys.slice(25)),
     ]]));
-    const result = await runPipeline({ ...w, request: { count: 30 }, adapter: replayAdapter(replay) });
+    const result = await runPipeline({ ...w, request: { count: 30 }, adapter: writingAdapter(replayAdapter(replay)) });
     assert.equal(result.manifest.status, 'ok', result.manifest.error);
     assert.equal(result.candidates.length, 26);
     assert.equal(readFileSync(path.join(result.dir, 'candidates.jsonl'), 'utf8').trim().split('\n').length, 26);

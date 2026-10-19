@@ -5,7 +5,7 @@ import { merge } from '../dist/merge.js';
 import { lint } from '../dist/lint.js';
 import { runPipeline } from '../dist/pipeline.js';
 import { replayAdapter } from '../dist/providers/replay.js';
-import { proposal, critique, script, workspace, MODELS } from './helpers.mjs';
+import { proposal, critique, script, workspace, writingAdapter, MODELS } from './helpers.mjs';
 
 test('alternative dedupe counts unique models, ranked by support', () => {
   const alt = proposal().alternatives[0];
@@ -23,9 +23,9 @@ test('one top-up reuses critique prompt and merges suggestions, does not alter o
     replay[MODELS[0]].push(critique(['es-zorzal-01'], 'issue', proposal().alternatives));
     let topup = '';
     let count = 0;
-    const result = await runPipeline({ ...w, request: {}, adapter: replayAdapter(replay, (model, prompt) => {
+    const result = await runPipeline({ ...w, request: {}, adapter: writingAdapter(replayAdapter(replay, (model, prompt) => {
       if (model === MODELS[0] && ++count === 3) topup = prompt;
-    }) });
+    })) });
     assert.equal(result.manifest.status, 'ok', result.manifest.error);
     assert.ok(topup.startsWith('# critique.v1'));
     assert.equal(result.candidates[0].council.agreement, 1);
@@ -39,7 +39,7 @@ test('top-up still short drops candidate and produces no importable bundle', asy
   try {
     const replay = script([proposal('zorzal', 'noun', false)], ['es-zorzal-01']);
     replay[MODELS[0]].push(critique(['es-zorzal-01']));
-    const result = await runPipeline({ ...w, request: {}, adapter: replayAdapter(replay) });
+    const result = await runPipeline({ ...w, request: {}, adapter: writingAdapter(replayAdapter(replay)) });
     assert.equal(result.manifest.status, 'failed');
     assert.equal(result.candidates.length, 0);
     assert.equal(result.dropped[0].reason, 'insufficient_alternatives');
@@ -51,7 +51,7 @@ test('limits enforce 2-4 gloss and 1-3 examples without padded optional variants
   try {
     const word = proposal();
     word.alternatives.push(...Array.from({ length: 5 }, (_, i) => ({ field: 'gloss', sense: 0, en: `bird type ${i}`, rationale: 'Another useful gloss' })));
-    const result = await runPipeline({ ...w, request: {}, adapter: replayAdapter(script([word], ['es-zorzal-01'])) });
+    const result = await runPipeline({ ...w, request: {}, adapter: writingAdapter(replayAdapter(script([word], ['es-zorzal-01']))) });
     assert.equal(result.manifest.status, 'ok', result.manifest.error);
     assert.equal(result.candidates[0].alternatives.filter((alt) => alt.field === 'gloss').length, 4);
     assert.equal(result.candidates[0].alternatives.filter((alt) => alt.field === 'regional_variant').length, 0);

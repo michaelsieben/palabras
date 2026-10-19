@@ -10,7 +10,7 @@ import { listBundles, validateBundle } from './validate.js';
 import type { BundleValidation } from './validate.js';
 import { promptValues, renderPrompt } from './prompts.js';
 import { runPipeline } from './pipeline.js';
-import { PrivacyBlockedError, ProviderError } from './provider.js';
+import { PrivacyBlockedError, ProviderError, REPLAY_WRITE_REFUSED } from './provider.js';
 import type { ProviderAdapter } from './provider.js';
 import { PromptError } from './prompts.js';
 import { readReplay } from './providers/replay.js';
@@ -399,6 +399,8 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
     try { if (replay !== undefined) transport = readReplay(replay); }
     catch (error) { io.err(`Error: ${(error as Error).message}`); return 1; }
     if (dryRun && !transport) { io.err('Error: a dry run must use replay, never HTTP'); return 1; }
+    // Same invariant as the pipeline guard, stated here so the operator sees why nothing was written.
+    if (!dryRun && transport?.replay === true) { io.err(`Error: ${REPLAY_WRITE_REFUSED}`); return 1; }
     return runPipeline({ config, request, policy, dryRun, adapter: transport }).then((result) => {
       io.out(`council propose${dryRun ? ' (dry run replay)' : ''}: status=${result.manifest.status} candidates=${result.candidates.length} dropped=${result.dropped.length}`);
       if (result.dir) io.out(`bundle=${displayPath(result.dir)}`);

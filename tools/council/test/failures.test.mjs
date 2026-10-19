@@ -9,14 +9,14 @@ import { replayAdapter } from '../dist/providers/replay.js';
 import { validateBundle } from '../dist/validate.js';
 import { createProvider, PrivacyBlockedError, ProviderError } from '../dist/provider.js';
 import { runCli } from '../dist/cli.js';
-import { proposal, critique, script, workspace, MODELS } from './helpers.mjs';
+import { proposal, critique, script, workspace, writingAdapter, MODELS } from './helpers.mjs';
 
 test('one provider auth failure continues with reduced confidence and healthy denominators', async () => {
   const w = workspace();
   try {
     const replay = script([proposal()], ['es-zorzal-01']);
     replay[MODELS[2]] = [{ error: 'auth' }, { error: 'auth' }];
-    const result = await runPipeline({ ...w, request: {}, adapter: replayAdapter(replay) });
+    const result = await runPipeline({ ...w, request: {}, adapter: writingAdapter(replayAdapter(replay)) });
     assert.equal(result.manifest.status, 'ok', result.manifest.error);
     assert.equal(result.manifest.reduced_confidence, true);
     assert.deepEqual(result.manifest.models_succeeded, { propose: 2, critique: 2 });
@@ -32,7 +32,7 @@ for (const phase of ['propose', 'critique']) {
     try {
       const replay = script([proposal()], ['es-zorzal-01']);
       replay[MODELS[2]][phase === 'propose' ? 0 : 1] = { error: 'auth' };
-      const result = await runPipeline({ ...w, request: {}, adapter: replayAdapter(replay) });
+      const result = await runPipeline({ ...w, request: {}, adapter: writingAdapter(replayAdapter(replay)) });
       assert.equal(result.manifest.status, 'failed');
       assert.match(result.manifest.error, new RegExp(`${phase}: healthy models below COUNCIL_MIN_MODELS`));
       assert.equal(existsSync(path.join(result.dir, 'candidates.jsonl')), false);
@@ -66,7 +66,7 @@ test('schema-invalid JSON retries once; partial invalid proposals counted withou
     const replay = script([proposal()], ['es-zorzal-01']);
     replay[MODELS[0]].unshift({ text: 'not JSON' });
     const prompts = [];
-    const result = await runPipeline({ ...w, request: {}, adapter: replayAdapter(replay, (_model, prompt) => prompts.push(prompt)) });
+    const result = await runPipeline({ ...w, request: {}, adapter: writingAdapter(replayAdapter(replay, (_model, prompt) => prompts.push(prompt))) });
     assert.equal(result.manifest.status, 'ok', result.manifest.error);
     assert.equal(result.manifest.models[0].invalid_count, 1);
     assert.ok(prompts.some((prompt) => prompt.endsWith('Return valid JSON matching the schema. No prose or unknown fields.')));
@@ -81,7 +81,7 @@ test('private model output aborts whole run before critique, no dirty committed 
     dirty.senses[0].example_es = 'synthetic forbidden sentinel.';
     replay[MODELS[0]][0] = { text: JSON.stringify({ candidates: [dirty] }) };
     let critiqueCalls = 0;
-    const result = await runPipeline({ ...w, request: {}, adapter: replayAdapter(replay, (_model, prompt) => { if (prompt.startsWith('# critique')) critiqueCalls++; }) });
+    const result = await runPipeline({ ...w, request: {}, adapter: writingAdapter(replayAdapter(replay, (_model, prompt) => { if (prompt.startsWith('# critique')) critiqueCalls++; })) });
     assert.equal(result.manifest.status, 'failed');
     assert.equal(critiqueCalls, 0);
     assert.equal(existsSync(path.join(result.dir, 'dropped.jsonl')), false);
@@ -145,7 +145,7 @@ test('CLI output-operation catch preserves safe errno without echoing exception 
     const err = [];
     const code = await runCli(['propose', '--privacy', w.config.paths.privacy,
       '--out', blockedOut, '--models', MODELS.join(',')], { out() {}, err: (line) => err.push(line) }, {},
-      replayAdapter(script([proposal()], ['es-zorzal-01'])));
+      writingAdapter(replayAdapter(script([proposal()], ['es-zorzal-01']))));
     assert.equal(code, 1);
     assert.match(err.join('\n'), /council generation failed .*\[Error code=ENOTDIR\]/);
     assert.doesNotMatch(err.join('\n'), /UNSAFE-output-path/);
@@ -166,7 +166,7 @@ test('CLI rejected-pipeline diagnostics distinguish network and privacy errors w
       const err = [];
       const code = await runCli(['propose', '--privacy', w.config.paths.privacy,
         '--out', w.config.paths.outDir, '--models', MODELS.join(',')], { out() {}, err: (line) => err.push(line) }, {},
-        replayAdapter(script([proposal()], ['es-zorzal-01'])));
+        writingAdapter(replayAdapter(script([proposal()], ['es-zorzal-01']))));
       assert.equal(code, 1);
       assert.ok(err.join('\n').includes(`[${label}]`), err.join('\n'));
       assert.doesNotMatch(err.join('\n'), /UNSAFE-secret-message/);

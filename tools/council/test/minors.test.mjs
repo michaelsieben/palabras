@@ -7,7 +7,7 @@ import { runPipeline } from '../dist/pipeline.js';
 import { replayAdapter } from '../dist/providers/replay.js';
 import { checkPrivacyHashes, PrivacyNotConfiguredError } from '../dist/privacy-check.js';
 import { privacyHashDocument, PrivacyConfigError } from '../dist/privacy.js';
-import { proposal, script, workspace, MODELS } from './helpers.mjs';
+import { proposal, script, workspace, writingAdapter, MODELS } from './helpers.mjs';
 
 test('real run summary reports every intentional skip and manifest counts match audit records', async () => {
   const w = workspace();
@@ -17,7 +17,7 @@ test('real run summary reports every intentional skip and manifest counts match 
       '--privacy-hashes', w.config.paths.privacyHashes, '--env-file', path.join(w.dir, 'missing.env'),
       '--models', MODELS.join(','), '--out', w.config.paths.outDir],
     { out: (line) => out.push(line), err: (line) => err.push(line) }, {},
-    replayAdapter(script([proposal(), proposal('tender', 'verb')], ['es-zorzal-01'])));
+    writingAdapter(replayAdapter(script([proposal(), proposal('tender', 'verb')], ['es-zorzal-01']))));
     assert.equal(code, 0, err.join('\n'));
     assert.match(out.join('\n'), /dropped: .*"reason":"exists".*"lemma":"tender"/);
     const dir = out.find((line) => line.startsWith('bundle=')).slice(7);

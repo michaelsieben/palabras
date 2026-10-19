@@ -20,6 +20,14 @@ export function critique(keys, verdict = 'ok', suggestions = []) {
 export function script(words, keys) {
   return Object.fromEntries(MODELS.map((id) => [id, [{ text: JSON.stringify({ candidates: words }) }, critique(keys)]]));
 }
+/**
+ * Canned replies for a test that must exercise a *writing* path. `replayAdapter` marks its
+ * provenance, and runPipeline/runCli refuse to write a bundle from it; wrapping yields a plain
+ * adapter that behaves identically, which is what these tests mean (a stand-in for a real run).
+ */
+export function writingAdapter(adapter) {
+  return (model, prompt, signal) => adapter(model, prompt, signal);
+}
 export function workspace(overrides = {}) {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'palabras-c7-'));
   const privacy = path.join(dir, 'privacy.local.json');

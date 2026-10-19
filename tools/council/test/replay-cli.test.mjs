@@ -4,6 +4,9 @@ import path from 'node:path';
 import test from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { REPO_ROOT } from '../dist/config.js';
+import { runPipeline } from '../dist/pipeline.js';
+import { REPLAY_WRITE_REFUSED } from '../dist/provider.js';
+import { replayAdapter } from '../dist/providers/replay.js';
 import { MODELS, proposal, script, workspace } from './helpers.mjs';
 
 function snapshot(dir) {
@@ -61,5 +64,36 @@ test('failed replay and attempted write override cannot create a bundle', async 
       assert.equal(code, 1);
       assert.deepEqual(snapshot(w.dir), before);
     }
+  } finally { w.cleanup(); }
+});
+
+test('pipeline refuses to write a replay-marked adapter bundle', async () => {
+  const w = workspace();
+  try {
+    const before = snapshot(w.dir);
+    await assert.rejects(
+      runPipeline({ ...w, request: {}, adapter: replayAdapter(script([proposal()], ['es-zorzal-01'])) }),
+      (error) => { assert.equal(error.message, REPLAY_WRITE_REFUSED); return true; });
+    assert.deepEqual(snapshot(w.dir), before, 'no writes from a refused replay write');
+    // The same adapter is accepted when the run is a preview.
+    const preview = await runPipeline({ ...w, request: {}, dryRun: true, adapter: replayAdapter(script([proposal()], ['es-zorzal-01'])) });
+    assert.equal(preview.manifest.status, 'ok', preview.manifest.error);
+    assert.equal(preview.dir, undefined);
+  } finally { w.cleanup(); }
+});
+
+test('CLI refuses an injected replay adapter and says why, writing nothing', async () => {
+  const w = workspace();
+  try {
+    const before = snapshot(w.dir);
+    const err = [];
+    const code = await runCli(['propose', '--privacy', w.config.paths.privacy,
+      '--models', MODELS.join(','), '--out', w.config.paths.outDir],
+    { out() {}, err: (line) => err.push(line) }, {},
+    replayAdapter(script([proposal()], ['es-zorzal-01'])));
+    assert.equal(code, 1);
+    assert.deepEqual(err, [`Error: ${REPLAY_WRITE_REFUSED}`]);
+    assert.doesNotMatch(err.join('\n'), /^bundle=/m);
+    assert.deepEqual(snapshot(w.dir), before, 'no writes from a refused replay write');
   } finally { w.cleanup(); }
 });

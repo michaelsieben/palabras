@@ -6,7 +6,12 @@ import { httpProvider } from './providers/http.js';
 
 export interface ProviderReply { text: string; inputTokens?: number; outputTokens?: number; cost?: number }
 /** Adapters are supplied only to this chokepoint, never called by pipeline code. */
-export type ProviderAdapter = (model: string, prompt: string, signal: AbortSignal) => Promise<ProviderReply>;
+export type ProviderAdapter = ((model: string, prompt: string, signal: AbortSignal) => Promise<ProviderReply>) & {
+  /** Provenance: canned replies are preview evidence, so no bundle may be written from them. */
+  replay?: true;
+};
+export const REPLAY_WRITE_REFUSED =
+  'refusing to write a bundle from a replay adapter; a replay is a preview, never evidence';
 export class ProviderError extends Error {
   public readonly kind: 'auth' | 'http' | 'timeout' | 'network' | 'invalid' | 'config';
   public readonly status?: number;

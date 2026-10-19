@@ -16,7 +16,7 @@ import { attributed, capAlternatives, enoughAlternatives, mergeAlternatives } fr
 import { score } from './score.js';
 import { lint } from './lint.js';
 import { promptValues, readTemplate, renderPrompt, PromptError } from './prompts.js';
-import { assertPrivateTextSafe, createProvider, PrivacyBlockedError, ProviderError } from './provider.js';
+import { assertPrivateTextSafe, createProvider, PrivacyBlockedError, ProviderError, REPLAY_WRITE_REFUSED } from './provider.js';
 import type { ProviderAdapter } from './provider.js';
 import type { PrivacyPolicy } from './privacy.js';
 import { validateBundle } from './validate.js';
@@ -60,6 +60,8 @@ export function assignKeys(candidates: CouncilCandidate[], lexicon: CorpusLexico
 
 export async function runPipeline(options: PipelineOptions): Promise<PipelineResult> {
   const { config, request, policy } = options;
+  // Replay output is fabricated: it may be previewed, never written as importable evidence.
+  if (!options.dryRun && options.adapter?.replay === true) throw new Error(REPLAY_WRITE_REFUSED);
   if (!options.dryRun && policy.localTerms.length === 0) throw new Error('a real run requires a non-empty privacy.local.json');
   const runId = options.runId ?? randomUUID();
   const createdAt = new Date();
