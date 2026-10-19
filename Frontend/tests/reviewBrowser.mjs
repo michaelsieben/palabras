@@ -153,10 +153,15 @@ try {
     try {
       await page.goto(`${testBaseUrl}/aprobadas`)
       await expect(page.getByRole('article')).toHaveCount(30)
+      await page.getByLabel('Buscar aprobadas').fill('aprobada')
+      await page.getByRole('button', { name: 'Buscar', exact: true }).click()
+      await expect(page.getByRole('article')).toHaveCount(30)
       fixture.staleCursor = true
       await page.getByRole('button', { name: 'Siguiente', exact: true }).click()
       await expect(page.getByText(/Volvemos a la página 1/)).toBeVisible()
       await expect(page.getByRole('article')).toHaveCount(30)
+      await expect(page.getByLabel('Buscar aprobadas')).toHaveValue('aprobada')
+      assert.equal(new URL(fixture.reads.at(-1), testBaseUrl).searchParams.get('q'), 'aprobada')
       await page.getByRole('button', { name: 'Siguiente', exact: true }).click()
       await expect(page.getByRole('article')).toHaveCount(5)
       await page.getByLabel('Buscar aprobadas').fill('aprobada-101')
@@ -254,21 +259,46 @@ try {
   }
   // Rejected keyset cursor invalidation restarts page1; page2 reversal echoes that row's version.
   {
-    const fixture = reviewBrowserFixture({ approved: [], pending: [], rejected: Array.from({ length: 31 }, (_, i) => reviewWord(i + 201, { status: 'rejected', version: 19 })) })
+    const fixture = reviewBrowserFixture({ approved: [], pending: [], rejected: Array.from({ length: 32 }, (_, i) => reviewWord(i + 201, { status: 'rejected', version: 19 })) })
     const { context, page, errors } = await session(fixture)
     try {
       await page.goto(`${testBaseUrl}/aprobadas`)
       await page.getByRole('button', { name: 'Retiradas', exact: true }).click()
       await expect(page.getByRole('article')).toHaveCount(30)
-      fixture.staleCursor = true
+      // Another reviewer reverses the cursor row; fixture returns real bad_request, not a forced failure.
+      fixture.rejected = fixture.rejected.filter(w => w.wordId !== 230)
       await page.getByRole('button', { name: 'Siguiente', exact: true }).click()
       await expect(page.getByText(/Volvemos a la página 1/)).toBeVisible()
       await expect(page.getByRole('article')).toHaveCount(30)
+      const reads = fixture.reads.filter(q => q.includes('status=rejected'))
+      assert.equal(new URL(reads.at(-2), testBaseUrl).searchParams.get('after'), 'd:230')
+      assert.equal(new URL(reads.at(-1), testBaseUrl).searchParams.has('after'), false)
       await page.getByRole('button', { name: 'Siguiente', exact: true }).click()
       await expect(page.getByRole('article')).toHaveCount(1)
       await page.getByRole('button', { name: 'Volver a incluir', exact: true }).click()
       await expect(page.getByRole('article')).toContainText('Decisión confirmada')
-      assert.equal(fixture.sent.at(-1)[0].wordId, 231); assert.equal(fixture.sent.at(-1)[0].wordVersion, 19)
+      assert.equal(fixture.sent.at(-1)[0].wordId, 232); assert.equal(fixture.sent.at(-1)[0].wordVersion, 19)
+      assert.deepEqual(errors, [])
+    } finally { await context.close() }
+  }
+  // Persistent invalidation of the same cursor cannot cause an automatic restart loop in either scope.
+  for (const scope of ['approved', 'rejected']) {
+    const fixture = reviewBrowserFixture({ pending: [], rejected: Array.from({ length: 31 }, (_, i) => reviewWord(i + 201, { status: 'rejected' })) })
+    const { context, page, errors } = await session(fixture)
+    try {
+      await page.goto(`${testBaseUrl}/aprobadas`)
+      if (scope === 'rejected') await page.getByRole('button', { name: 'Retiradas', exact: true }).click()
+      await expect(page.getByRole('article')).toHaveCount(30)
+      fixture.staleCursor = true
+      await page.getByRole('button', { name: 'Siguiente', exact: true }).click()
+      await expect(page.getByText(/Volvemos a la página 1/)).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Siguiente', exact: true })).toBeEnabled()
+      fixture.staleCursor = true
+      await page.getByRole('button', { name: 'Siguiente', exact: true }).click()
+      await expect(page.getByText(/No se han podido cargar/)).toBeVisible()
+      const last = new URL(fixture.reads.at(-1), testBaseUrl)
+      assert.equal(last.searchParams.get('status'), scope)
+      assert.ok(last.searchParams.has('after'), 'second failure did not restart at page one')
       assert.deepEqual(errors, [])
     } finally { await context.close() }
   }

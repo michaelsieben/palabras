@@ -9,7 +9,7 @@ import * as model from '../src/review/reviewModel.ts'
 import { reviewWord, approvedWord, reviewAction } from './reviewFixtures.mjs'
 
 // Existing SpeakButton harness pattern: real TSX handlers/virtual tree, not a browser or visual proof.
-function component(file, modules = {}) {
+function component(file, modules = {}, transform = source => source) {
   const state = []; const refs = []; let si = 0; let ri = 0; let effects = []
   const react = {
     useState(initial) { const i = si++; if (!(i in state)) state[i] = typeof initial === 'function' ? initial() : initial; return [state[i], v => { state[i] = typeof v === 'function' ? v(state[i]) : v }] },
@@ -17,7 +17,7 @@ function component(file, modules = {}) {
     useEffect(fn) { effects.push(fn) }, useCallback: fn => fn, useMemo: fn => fn(), useSyncExternalStore: (_subscribe, snapshot) => snapshot(),
   }
   const jsx = (type, props) => ({ type, props })
-  const source = ts.transpileModule(readFileSync(new URL(file, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
+  const source = ts.transpileModule(transform(readFileSync(new URL(file, import.meta.url), 'utf8')), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
   const exports = {}
   runInNewContext(source, { exports, require: name => ({ react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' }, ...modules })[name], queueMicrotask, AbortController, crypto: { randomUUID }, localStorage: { getItem: () => null, setItem() {} }, requestAnimationFrame: () => {}, document: { getElementById: () => null }, Map, Set, Intl })
   return { exports, render(fn) { si = 0; ri = 0; effects = []; return fn(exports) }, hydrate: () => effects[0](), effect: i => effects[i]() }
@@ -34,6 +34,54 @@ function text(tree) {
 const button = (tree, label) => nodes(tree).find(n => n.type === 'button' && text(n) === label)
 const tick = () => new Promise(resolve => setImmediate(resolve))
 const emptyQueue = () => ({ getSnapshot: () => ({ rows: [], storageError: false }), subscribe: () => () => {}, flush: async () => {}, discard: async () => {} })
+async function cursorRestartScenario(scope, transform) {
+  const calls = []; const actions = []; let changed = false
+  const queue = { ...emptyQueue(), enqueue: async a => { actions.push(a) }, flush: async () => { if (actions.length) changed = true } }
+  const read = async (q, after) => {
+    calls.push({ q, after, scope })
+    if (after && changed) throw new ApiError('http', 400, { error: 'bad_request' })
+    // After mutation the old row leaves the scope; deliberately re-advertise its cursor to test the loop guard.
+    return { items: [scope === 'approved' ? approvedWord(changed ? 8 : 7) : reviewWord(changed ? 8 : 7, { status: 'rejected' })], nextCursor: scope === 'approved' ? '7' : 'd:7' }
+  }
+  const h = component('../src/review/ApprovedPanel.tsx', { '../api/client': { ApiError }, '../api/review': {
+    getApprovedWords: read,
+    getReviewQueue: async (_signal, status, after) => { assert.equal(status, 'rejected'); const page = await read('', after); return { items: page.items, nextAfter: page.nextCursor } },
+  }, './ReviewRowStatus': { ReviewRowStatus: 'RowStatus' } }, transform)
+  const render = () => h.render(e => e.ApprovedPanel({ queue }))
+  render(); h.hydrate(); await tick()
+  if (scope === 'approved') {
+    nodes(render()).find(n => n.type === 'input').props.onChange({ target: { value: 'café' } })
+    nodes(render()).find(n => n.type === 'form').props.onSubmit({ preventDefault() {} })
+  } else button(render(), 'Retiradas').props.onClick()
+  render(); h.hydrate(); await tick(); calls.length = 0
+  await button(render(), scope === 'approved' ? 'Retirar' : 'Volver a incluir').props.onClick(); await tick()
+  button(render(), 'Siguiente').props.onClick(); render()
+  // Concurrent refreshes share the generation guard; only latest failure can reset the walk.
+  h.hydrate(); h.hydrate(); await tick()
+  assert.match(text(render()), /Volvemos a la página 1/)
+  h.hydrate(); await tick()
+  assert.equal(calls.filter(c => c.after === undefined).length, 1)
+  assert.match(text(render()), /Página 1/)
+  assert.ok(calls.every(c => c.scope === scope && c.q === (scope === 'approved' ? 'café' : '')))
+  assert.equal(actions[0].wordId, 7, 'mutation removed the cursor row from its scope')
+  const before = calls.length
+  button(render(), 'Siguiente').props.onClick(); render(); h.hydrate(); await tick()
+  assert.match(text(render()), /No se han podido cargar/)
+  assert.match(text(render()), /Página 2/)
+  assert.equal(calls.length, before + 1, 'same cursor must not restart twice')
+  return calls
+}
+for (const scope of ['approved', 'rejected']) test(`${scope} cursor400 after mutation coalesces page1 restart, preserves filters, and never repeats same cursor restart`, async () => {
+  const calls = await cursorRestartScenario(scope)
+  assert.ok(calls.some(c => c.after === (scope === 'approved' ? '7' : 'd:7')))
+})
+test('mutation check: disabling cursor400 restart fails both real panel recovery scenarios', async () => {
+  for (const scope of ['approved', 'rejected']) await assert.rejects(cursorRestartScenario(scope, source => {
+    const branch = 'failure instanceof ApiError && failure.status === 400 && after'
+    assert.ok(source.includes(branch))
+    return source.replace(branch, 'false')
+  }), /Volvemos a la página 1/)
+})
 test('real row status renders each result locally, preserves actionable retry/refresh/discard and success confirmation', () => {
   const h = component('../src/review/ReviewRowStatus.tsx'); let retries = 0; let refreshes = 0; let discards = 0
   for (const result of ['invalid', 'invalid_transition', 'stale_version', 'applied', 'duplicate']) {
@@ -132,14 +180,14 @@ test('rejected filter pages with explicit status and reversal uses authoritative
   const queue = { ...emptyQueue(), enqueue: async (action, word) => saved.push({ action, word }) }
   const h = component('../src/review/ApprovedPanel.tsx', { '../api/client': { ApiError }, '../api/review': {
     getApprovedWords: async () => ({ items: [] }),
-    getReviewQueue: async (signal, status, after) => { calls.push({ status, after }); return { items: [reviewWord(after ? 8 : 7, { status: 'rejected', version: 15 })], nextAfter: after ? null : 7 } },
+    getReviewQueue: async (signal, status, after) => { calls.push({ status, after }); return { items: [reviewWord(after ? 8 : 7, { status: 'rejected', version: 15 })], nextAfter: after ? null : 'd:7' } },
   }, './ReviewRowStatus': { ReviewRowStatus: 'RowStatus' } })
   const render = () => h.render(e => e.ApprovedPanel({ queue }))
   render(); h.hydrate(); await tick()
   button(render(), 'Retiradas').props.onClick(); render(); h.hydrate(); await tick()
   assert.match(text(render()), /Retirada/); assert.match(text(render()), /volverán como nuevas/)
   button(render(), 'Siguiente').props.onClick(); render(); h.hydrate(); await tick()
-  assert.deepEqual(calls, [{ status: 'rejected', after: undefined }, { status: 'rejected', after: '7' }])
+  assert.deepEqual(calls, [{ status: 'rejected', after: undefined }, { status: 'rejected', after: 'd:7' }])
   await button(render(), 'Volver a incluir').props.onClick(); await tick()
   assert.equal(saved[0].action.action, 'approve'); assert.equal(saved[0].action.wordId, 8); assert.equal(saved[0].action.wordVersion, 15)
   assert.equal(saved[0].word.status, 'rejected')
@@ -150,7 +198,7 @@ for (const found of [true, false]) test(`rejected stale reversal refreshes page1
   const queue = { ...emptyQueue(), getSnapshot: () => ({ rows, storageError: false }), discard: async id => { discarded.push(id); rows = rows.filter(r => r.action.clientReviewId !== id) }, enqueue: async a => saved.push(a) }
   const h = component('../src/review/ApprovedPanel.tsx', { '../api/client': { ApiError }, '../api/review': {
     getApprovedWords: async () => ({ items: [] }),
-    getReviewQueue: async (_signal, status, after) => { calls.push({ status, after }); return { items: [reviewWord(stale && found ? 8 : 7, { status: 'rejected', version: stale ? 9 : 7 })], nextAfter: 7 } },
+    getReviewQueue: async (_signal, status, after) => { calls.push({ status, after }); return { items: [reviewWord(stale && found ? 8 : 7, { status: 'rejected', version: stale ? 9 : 7 })], nextAfter: 'd:7' } },
   }, './ReviewRowStatus': { ReviewRowStatus: 'RowStatus' } })
   const render = () => h.render(e => e.ApprovedPanel({ queue }))
   render(); h.hydrate(); await tick()
@@ -158,7 +206,7 @@ for (const found of [true, false]) test(`rejected stale reversal refreshes page1
   button(render(), 'Siguiente').props.onClick(); render(); h.hydrate(); await tick()
   stale = true; rows = [{ action: old, word: reviewWord(8, { status: 'rejected', version: 7 }), state: 'failed', result: 'stale_version' }]
   render(); const cleanup = h.effect(1); cleanup(); h.effect(1); await tick()
-  assert.deepEqual(calls.map(c => c.after), [undefined, '7', undefined]); assert.ok(calls.every(c => c.status === 'rejected'))
+  assert.deepEqual(calls.map(c => c.after), [undefined, 'd:7', undefined]); assert.ok(calls.every(c => c.status === 'rejected'))
   assert.match(text(render()), /Página 1/)
   if (found) {
     assert.match(text(render()), /La palabra ha cambiado/); assert.deepEqual(discarded, [old.clientReviewId])

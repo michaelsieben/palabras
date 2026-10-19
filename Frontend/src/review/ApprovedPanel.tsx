@@ -11,7 +11,7 @@ async function loadWords(scope: 'approved' | 'rejected', search: string, after?:
   // Preserve global approved search; withdrawn discovery uses the explicit rejected queue scope.
   if (scope === 'approved') return getApprovedWords(search, after, signal)
   const result = await getReviewQueue(signal, 'rejected', after)
-  return { items: result.items, nextCursor: result.nextAfter ? String(result.nextAfter) : undefined }
+  return { items: result.items, nextCursor: result.nextAfter ?? undefined }
 }
 export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQueueStore> }) {
   const snapshot = useSyncExternalStore(queue.subscribe, queue.getSnapshot)
@@ -28,6 +28,7 @@ export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQue
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({})
   const requestId = useRef(0)
   const seenStale = useRef(new Set<string>())
+  const seenCursorRestarts = useRef(new Set<string>())
   const mutationBusy = useRef(false)
   const after = cursors.at(-1)
   const scopeLabel = scope === 'approved' ? 'aprobadas' : 'retiradas'
@@ -44,7 +45,17 @@ export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQue
       for (const row of acknowledged) await queue.discard(row.action.clientReviewId)
     } catch (failure) {
       if (id !== requestId.current || signal?.aborted) return
-      if (failure instanceof ApiError && failure.status === 400 && after) { setCursors([undefined]); setNotice('La lista ha cambiado. Volvemos a la página 1.'); return }
+      if (failure instanceof ApiError && failure.status === 400 && after) {
+        const cursorKey = JSON.stringify([scope, search, after])
+        if (!seenCursorRestarts.current.has(cursorKey)) {
+          seenCursorRestarts.current.add(cursorKey)
+          // Invalidate concurrent refreshes; stale-version renew uses the same request generation.
+          ++requestId.current
+          setCursors([undefined]); setNext(undefined); setError(''); setLoading(true)
+          setNotice('La lista ha cambiado. Volvemos a la página 1.')
+          return
+        }
+      }
       setError(`No se han podido cargar las ${scopeLabel}. Conéctate y vuelve a intentarlo.`)
     } finally { if (id === requestId.current && !signal?.aborted) setLoading(false) }
   }, [after, search, scope, scopeLabel, queue])

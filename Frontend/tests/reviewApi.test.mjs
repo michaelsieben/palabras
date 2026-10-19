@@ -44,18 +44,37 @@ test('approved final page exposes no next cursor; stale cursor 400 stays identif
 })
 test('queue scopes explicitly serialize status and rejected cursor; retain authoritative status/version/counts', async t => {
   const calls = []
-  const body = { items: [reviewWord(9, { status: 'rejected', version: 12 })], pendingTotal: 0, topics: [], rejectedTotal: 31, approvedTotal: 0, nextAfter: 9 }
+  const body = { items: [reviewWord(9, { status: 'rejected', version: 12 })], pendingTotal: 0, topics: [], rejectedTotal: 31, approvedTotal: 0, nextAfter: 'd:9' }
   t.mock.method(globalThis, 'fetch', async path => {
     calls.push(path)
     const status = new URL(path, 'http://localhost').searchParams.get('status')
     return Response.json({ ...body, items: [reviewWord(9, { status: status === 'pending' ? 'pending_review' : status === 'all' ? 'rejected' : status, version: 12 })] })
   })
   for (const scope of ['pending', 'approved', 'rejected', 'all']) {
-    const result = await getReviewQueue(undefined, scope, '10')
+    const result = await getReviewQueue(undefined, scope, 'd:10')
     assert.equal(result.items[0].status, scope === 'pending' ? 'pending_review' : scope === 'all' ? 'rejected' : scope); assert.equal(result.items[0].version, 12)
-    assert.equal(result.rejectedTotal, 31); assert.equal(result.nextAfter, 9)
-    assert.equal(calls.at(-1), `/api/review/queue?limit=30&status=${scope}&after=10`)
+    assert.equal(result.rejectedTotal, 31); assert.equal(result.nextAfter, 'd:9')
+    assert.equal(calls.at(-1), `/api/review/queue?limit=30&status=${scope}&after=d%3A10`)
   }
+})
+test('opaque queue cursors round-trip unchanged, including IDs beyond numeric precision', async t => {
+  const calls = []
+  const body = { items: [], pendingTotal: 0, topics: [] }
+  for (const nextAfter of ['p:123', 'd:900719925474099312345']) {
+    t.mock.method(globalThis, 'fetch', async path => { calls.push(path); return Response.json({ ...body, nextAfter }) })
+    const page = await getReviewQueue(undefined, 'all')
+    await getReviewQueue(undefined, 'all', page.nextAfter)
+    assert.equal(new URL(calls.at(-1), 'http://localhost').searchParams.get('after'), nextAfter)
+  }
+})
+test('invalid queue cursor shapes reject both responses and outgoing requests before fetch', async t => {
+  let calls = 0
+  t.mock.method(globalThis, 'fetch', async () => { calls++; return Response.json({ items: [], pendingTotal: 0, topics: [] }) })
+  for (const nextAfter of [1, '1', '', 'p:', 'd:0', 'p:01', 'P:1', 'x:1', 'd:-1', 'd:1.2', 'p:1 ', 'd:1\n']) {
+    assert.throws(() => parseReviewQueue({ items: [], pendingTotal: 0, topics: [], nextAfter }), ApiError)
+    await assert.rejects(getReviewQueue(undefined, 'all', nextAfter), ApiError)
+  }
+  assert.equal(calls, 0)
 })
 test('decided queue scopes reject omitted or mismatched status rather than inventing an approved state', async t => {
   for (const status of [undefined, 'approved']) {

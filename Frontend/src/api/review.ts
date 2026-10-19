@@ -12,7 +12,7 @@ export type ReviewItem = {
   lastFlag?: { action: string; note?: string; at: string }
 }
 export type ApprovedWord = { wordId: number; key: string; version: number; headword: string; article?: string; gloss: string; topic?: string; approvedAt: string; status?: ReviewStatus }
-export type ReviewQueueResponse = { items: ReviewItem[]; pendingTotal: number; topics: { topic: string; pending: number }[]; approvedTotal?: number; rejectedTotal?: number; nextAfter?: number | null }
+export type ReviewQueueResponse = { items: ReviewItem[]; pendingTotal: number; topics: { topic: string; pending: number }[]; approvedTotal?: number; rejectedTotal?: number; nextAfter?: string | null }
 export type ReviewEdit = { field: ReviewField; senseOrder?: number; after: string }
 export type ReviewAction = { clientReviewId: string; wordId: number; wordVersion: number
   action: 'approve' | 'approve_alt' | 'approve_edit' | 'reject' | 'needs_change' | 'demote'
@@ -23,6 +23,8 @@ const integer = (v: unknown, min = 0) => Number.isSafeInteger(v) && Number(v) >=
 const strings = (v: unknown) => Array.isArray(v) && v.every(x => typeof x === 'string')
 const optional = (v: Record<string, unknown>, keys: string[]) => keys.every(k => v[k] === undefined || typeof v[k] === 'string')
 const date = (v: unknown) => typeof v === 'string' && Number.isFinite(Date.parse(v))
+// Strict end-of-input, including trailing newlines; validate shape without interpreting the ID.
+const cursor = (v: unknown): v is string => typeof v === 'string' && /^[pd]:[1-9][0-9]*(?![\s\S])/.test(v)
 export function isApprovedWord(v: unknown): v is ApprovedWord {
   return object(v) && integer(v.wordId, 1) && integer(v.version, 1) && ['key', 'headword', 'gloss'].every(k => typeof v[k] === 'string') && optional(v, ['article', 'topic']) && date(v.approvedAt)
 }
@@ -40,10 +42,11 @@ export function parseReviewQueue(body: unknown): ReviewQueueResponse {
   if (!object(body) || !Array.isArray(body.items) || !body.items.every(isReviewItem) || !integer(body.pendingTotal)
     || !Array.isArray(body.topics) || !body.topics.every(t => object(t) && typeof t.topic === 'string' && integer(t.pending))
     || !['approvedTotal', 'rejectedTotal'].every(k => body[k] === undefined || integer(body[k]))
-    || !(body.nextAfter === undefined || body.nextAfter === null || integer(body.nextAfter, 1))) throw new ApiError('invalid-response')
+    || !(body.nextAfter === undefined || body.nextAfter === null || cursor(body.nextAfter))) throw new ApiError('invalid-response')
   return body as ReviewQueueResponse
 }
 export async function getReviewQueue(signal?: AbortSignal, status: 'pending' | 'approved' | 'rejected' | 'all' = 'pending', after?: string): Promise<ReviewQueueResponse> {
+  if (after !== undefined && !cursor(after)) throw new ApiError('invalid-response')
   const query = new URLSearchParams({ limit: '30', status })
   if (after) query.set('after', after)
   const result = parseReviewQueue(await apiRequest(`/api/review/queue?${query}`, { signal }))

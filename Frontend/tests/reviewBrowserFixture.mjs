@@ -18,12 +18,12 @@ export function reviewBrowserFixture(options = {}) {
         let items = status === 'rejected' ? fixture.rejected : fixture.pending
         const after = url.searchParams.get('after')
         if (after) {
-          const index = items.findIndex(w => String(w.wordId) === after)
+          const index = items.findIndex(w => `${status === 'rejected' || status === 'approved' ? 'd' : 'p'}:${w.wordId}` === after)
           if (fixture.staleCursor || index < 0) { fixture.staleCursor = false; return route.fulfill({ status: 400, json: { error: 'bad_request' } }) }
           items = items.slice(index + 1)
         }
         const page = items.slice(0, 30)
-        return route.fulfill({ json: { items: page, pendingTotal: status === 'rejected' ? 0 : fixture.pending.length, topics: [], rejectedTotal: status === 'rejected' ? fixture.rejected.length : 0, nextAfter: items.length > 30 ? page.at(-1).wordId : null } })
+        return route.fulfill({ json: { items: page, pendingTotal: status === 'rejected' ? 0 : fixture.pending.length, topics: [], rejectedTotal: status === 'rejected' ? fixture.rejected.length : 0, nextAfter: status !== 'pending' && items.length > 30 ? `${status === 'rejected' || status === 'approved' ? 'd' : 'p'}:${page.at(-1).wordId}` : null } })
       }
       if (url.pathname.endsWith('/approved')) {
         fixture.reads.push(url.search)
