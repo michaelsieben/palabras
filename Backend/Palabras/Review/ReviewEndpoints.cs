@@ -45,22 +45,33 @@ internal static class ReviewEndpoints
     // rejected row is a full ReviewItem (wordId, version, status), which is exactly what `approve`
     // needs to lift the objection. The three scopes stay mutually exclusive.
     //
-    // Paging contract (T-20261019-2100 step 41): `status=all` walks one sequence — the pending block
-    // first, then the decided list (approved + rejected) in the shared decision order. `nextAfter` is
-    // the word id of the last row on the page; that row is never returned again, and walking until
-    // `nextAfter` is absent reaches every pending, approved and rejected row exactly once.
+    // Paging contract (T-20261019-2100 steps 41 + 43): `status=all` walks one sequence — the
+    // pending block first, then the decided list (approved + rejected) in the shared decision order.
+    // `nextAfter` is the typed cursor of the last row on the page; that row is never returned again,
+    // and walking until `nextAfter` is absent reaches every pending, approved and rejected row
+    // exactly once for a stable corpus.
+    //
+    // The cursor is typed and opaque: `p:<wordId>` addresses the pending block, `d:<wordId>` the
+    // decided list. The kind is never inferred from the id, so the two independently ordered lists
+    // cannot be confused. Clients must echo the whole string back as `after` without parsing it.
     //
     // The pending block is page one only: a decided cursor goes straight to the decided list. A
     // pending cursor resumes inside the pending block, and the decided list then starts at its own
     // beginning with whatever budget the pending page left over. When the pending block fills the
-    // page (pending >= limit), the page still carries a cursor — its last pending id — so the
-    // decided rows remain reachable instead of the walk stopping with `nextAfter` absent.
+    // page (pending >= limit), the page still carries a pending cursor, so the decided rows remain
+    // reachable instead of the walk stopping with `nextAfter` absent.
+    //
+    // A `p:` cursor whose row is no longer pending (the reviewer approved or rejected the last row
+    // of the previous page) is a `bad_request`, never a silent skip: the row left this list, so the
+    // position cannot be resolved, and resuming from the pending head would repeat rows already
+    // served. The client restarts the walk at page one, which re-reads the whole selected scope.
+    // A `p:` cursor on a decided-only scope is also `bad_request`; the pending block is not there.
     //
     // Decided rows (approved + rejected) share one ordering: newest decision first, keyset-paged
-    // by word id through `after`/`nextAfter`. The cursor addresses the decided list of the
+    // by word id through `after`/`nextAfter`. The decided cursor addresses the decided list of the
     // selected scope, so `status=approved`, `status=rejected` and the decided part of `all` page
-    // the same way. A cursor for a word whose status changed between pages is a `bad_request`; the
-    // client restarts the walk. `status=pending` keeps the pre-change page and ignores `after`.
+    // the same way. A `d:` cursor for a word that is not in the decided list is a `bad_request`;
+    // the client restarts the walk. `status=pending` keeps the pre-change page and ignores `after`.
     private static async Task<IResult> QueueAsync(DatabaseSettings settings, string? limit, string? status,
         string? after, CancellationToken cancellationToken)
     {
@@ -72,46 +83,52 @@ internal static class ReviewEndpoints
         {
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         }
-        int? cursor = null;
-        if (!string.IsNullOrWhiteSpace(after))
+        if (!TryQueueCursor(after, out var cursor))
         {
-            if (!int.TryParse(after, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) || parsed <= 0)
-            {
-                return Error(StatusCodes.Status400BadRequest, "bad_request");
-            }
-            cursor = parsed;
+            return Error(StatusCodes.Status400BadRequest, "bad_request");
         }
         var includesDecided = includeApproved || includeRejected;
+        // A pending cursor addresses the pending block only, so it cannot be honoured by a scope that
+        // does not serve pending rows. Reject it instead of silently ignoring it.
+        if (cursor is { Pending: true } && !includePending)
+        {
+            return Error(StatusCodes.Status400BadRequest, "bad_request");
+        }
         await using var database = settings.CreateContext();
         // Only a combined page understands a cursor on the pending side; the pending-only scope keeps
-        // its pre-change single page.
+        // its pre-change single page and ignores `after`. A decided cursor reaches the pending loader
+        // so it can answer "the pending block was already served" with an empty page.
         var pending = includePending
             ? await LoadPendingQueueAsync(database, take, includesDecided ? cursor : null, cancellationToken)
             : PendingQueue.Empty;
         // A decided cursor addresses the decided list alone: the pending block was already carried by
         // page one. A pending cursor resumes the pending block, so the decided list starts fresh.
+        var decidedCursor = includesDecided && cursor is { Pending: false } decidedTyped
+            ? decidedTyped
+            : (QueueCursor?)null;
         var decided = includesDecided
             ? await LoadDecidedQueueAsync(database, includeApproved, includeRejected,
-                take - pending.Words.Count, pending.CursorInsidePending ? null : cursor, cancellationToken)
+                take - pending.Words.Count, decidedCursor, cancellationToken)
             : DecidedQueue.Empty;
-        if (decided.InvalidCursor)
+        if (pending.InvalidCursor || decided.InvalidCursor)
         {
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         }
-        int? nextAfter = null;
+        string? nextAfter = null;
         if (includesDecided && pending.Remaining > 0)
         {
-            nextAfter = pending.Words[^1].Id;
+            nextAfter = QueueCursorText(pending: true, pending.Words[^1].Id);
         }
         else if (decided.Remaining > 0)
         {
             // Usually the decided list continues from its own last row. When the pending block filled
             // the page the decided budget was zero, so the pending block's last id is the handoff
             // cursor and the next page starts the decided list.
-            var lastWord = decided.Words.Count > 0
-                ? decided.Words[^1]
-                : pending.Words.Count > 0 ? pending.Words[^1] : null;
-            nextAfter = lastWord?.Id;
+            nextAfter = decided.Words.Count > 0
+                ? QueueCursorText(pending: false, decided.Words[^1].Id)
+                : pending.Words.Count > 0
+                    ? QueueCursorText(pending: true, pending.Words[^1].Id)
+                    : null;
         }
         var pageWords = pending.Words.Concat(decided.Words).ToArray();
         var items = pageWords.Length == 0
@@ -121,8 +138,12 @@ internal static class ReviewEndpoints
             decided.ApprovedTotal, nextAfter, decided.RejectedTotal));
     }
 
+    // The cursor kind is explicit: pending and decided rows are ordered by unrelated rules, so an id
+    // alone cannot say which list it belongs to. Both prefixes stay client-opaque.
+    private readonly record struct QueueCursor(bool Pending, int WordId);
+
     private sealed record PendingQueue(IReadOnlyList<Word> Words, int Total,
-        IReadOnlyList<ReviewTopicCount> Topics, int Remaining, bool CursorInsidePending)
+        IReadOnlyList<ReviewTopicCount> Topics, int Remaining, bool InvalidCursor)
     {
         public static PendingQueue Empty { get; } = new([], 0, [], 0, false);
     }
@@ -134,13 +155,15 @@ internal static class ReviewEndpoints
     }
 
     private static async Task<PendingQueue> LoadPendingQueueAsync(PalabrasDbContext database, int take,
-        int? cursor, CancellationToken cancellationToken)
+        QueueCursor? cursor, CancellationToken cancellationToken)
     {
         var pending = await database.Words.AsNoTracking()
             .Where(word => word.Status == "pending_review").ToListAsync(cancellationToken);
         if (pending.Count == 0)
         {
-            return PendingQueue.Empty;
+            // A pending cursor with no pending rows left is stale, not an empty page; a decided
+            // cursor here is the normal case (page one already carried the empty pending block).
+            return new PendingQueue([], 0, [], 0, InvalidCursor: cursor is { Pending: true });
         }
         var wordIds = pending.Select(word => word.Id).ToArray();
         var snapshots = await ReviewTransitions.LoadCurrentSnapshotsAsync(database, wordIds, cancellationToken);
@@ -155,39 +178,39 @@ internal static class ReviewEndpoints
             .ThenByDescending(word => word.CouncilAgreement ?? double.NegativeInfinity)
             .ThenBy(word => word.Key, StringComparer.Ordinal)
             .ToArray();
-        // The cursor is a word id from the page before. A pending id resumes this ordered list; any
-        // other id belongs to the decided list, whose page one already carried the pending block.
-        var start = 0;
-        var cursorInsidePending = false;
-        if (cursor is { } afterId)
+        // The cursor is a typed word id from the page before. A pending cursor resumes this ordered
+        // list; a decided cursor means the pending block was already carried by page one, so this
+        // page holds none of it. A pending cursor whose row has left the list is stale: the row was
+        // approved or rejected between the two fetches, so its position no longer exists. Returning
+        // an empty page here would silently skip the rest of the pending block, and resuming from
+        // the head would repeat rows already served, so the walk is rejected and the client
+        // restarts at page one.
+        var topics = topicCounts.OrderByDescending(count => count.Value)
+            .ThenBy(count => count.Key, StringComparer.Ordinal)
+            .Select(count => new ReviewTopicCount(count.Key, count.Value)).ToArray();
+        if (cursor is { Pending: false })
         {
-            var index = Array.FindIndex(ordered, word => word.Id == afterId);
-            if (index >= 0)
-            {
-                start = index + 1;
-                cursorInsidePending = true;
-            }
+            return new PendingQueue([], pending.Count, topics, 0, InvalidCursor: false);
         }
         Word[] page;
         var remainingAfterPage = 0;
-        if (cursor is null)
+        if (cursor is { } pendingCursor)
         {
-            page = ordered.Take(take).ToArray();
-            remainingAfterPage = ordered.Length - page.Length;
-        }
-        else if (cursorInsidePending)
-        {
+            var index = Array.FindIndex(ordered, word => word.Id == pendingCursor.WordId);
+            if (index < 0)
+            {
+                return new PendingQueue([], pending.Count, topics, 0, InvalidCursor: true);
+            }
+            var start = index + 1;
             page = ordered.Skip(start).Take(take).ToArray();
             remainingAfterPage = ordered.Length - start - page.Length;
         }
         else
         {
-            page = [];
+            page = ordered.Take(take).ToArray();
+            remainingAfterPage = ordered.Length - page.Length;
         }
-        var topics = topicCounts.OrderByDescending(count => count.Value)
-            .ThenBy(count => count.Key, StringComparer.Ordinal)
-            .Select(count => new ReviewTopicCount(count.Key, count.Value)).ToArray();
-        return new PendingQueue(page, pending.Count, topics, remainingAfterPage, cursorInsidePending);
+        return new PendingQueue(page, pending.Count, topics, remainingAfterPage, InvalidCursor: false);
     }
 
     // Decided rows (approved and rejected) are ordered by the same "decision time" rule
@@ -196,7 +219,8 @@ internal static class ReviewEndpoints
     // cursor is resolved against the full ordered list, so a non-existent id is a bad_request
     // rather than a silently empty page.
     private static async Task<DecidedQueue> LoadDecidedQueueAsync(PalabrasDbContext database,
-        bool includeApproved, bool includeRejected, int take, int? cursor, CancellationToken cancellationToken)
+        bool includeApproved, bool includeRejected, int take, QueueCursor? cursor,
+        CancellationToken cancellationToken)
     {
         var statuses = new List<string>(2);
         if (includeApproved)
@@ -239,9 +263,9 @@ internal static class ReviewEndpoints
             .ThenByDescending(row => row.Word.Id)
             .ToList();
         var start = 0;
-        if (cursor is { } afterId)
+        if (cursor is { } decidedCursor)
         {
-            var index = ordered.FindIndex(row => row.Word.Id == afterId);
+            var index = ordered.FindIndex(row => row.Word.Id == decidedCursor.WordId);
             if (index < 0)
             {
                 return new DecidedQueue([], approvedTotal, rejectedTotal, 0, true);
@@ -688,6 +712,46 @@ internal static class ReviewEndpoints
         value = parsed;
         return true;
     }
+
+    private const string PendingCursorPrefix = "p:";
+    private const string DecidedCursorPrefix = "d:";
+
+    // Cursors are `p:<wordId>` or `d:<wordId>`; the kind is part of the value, never inferred from
+    // the id. An untyped or unknown-kind cursor is a bad_request rather than a guess, because the
+    // guess (a bare id as a decided cursor) is exactly the silent skip this scheme removes.
+    private static bool TryQueueCursor(string? raw, out QueueCursor? cursor)
+    {
+        cursor = null;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return true;
+        }
+        var value = raw.Trim();
+        bool pending;
+        if (value.StartsWith(PendingCursorPrefix, StringComparison.Ordinal))
+        {
+            pending = true;
+        }
+        else if (value.StartsWith(DecidedCursorPrefix, StringComparison.Ordinal))
+        {
+            pending = false;
+        }
+        else
+        {
+            return false;
+        }
+        if (!int.TryParse(value.AsSpan(2), NumberStyles.None, CultureInfo.InvariantCulture, out var wordId)
+            || wordId <= 0)
+        {
+            return false;
+        }
+        cursor = new QueueCursor(pending, wordId);
+        return true;
+    }
+
+    private static string QueueCursorText(bool pending, int wordId) =>
+        (pending ? PendingCursorPrefix : DecidedCursorPrefix)
+        + wordId.ToString(CultureInfo.InvariantCulture);
 
     private static IResult Error(int status, string error) =>
         Results.Json(new { error }, statusCode: status);

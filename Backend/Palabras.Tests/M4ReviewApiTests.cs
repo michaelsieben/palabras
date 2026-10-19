@@ -138,10 +138,12 @@ public sealed partial class M4ReviewApiTests
             Assert.All(items, item => Assert.Equal("approved", item.GetProperty("status").GetString()));
             Assert.Equal(3, approved.RootElement.GetProperty("approvedTotal").GetInt32());
             firstPageLastId = items[^1].GetProperty("wordId").GetInt32();
-            Assert.Equal(firstPageLastId, approved.RootElement.GetProperty("nextAfter").GetInt32());
+            // The decided cursor is typed, so a decided id can never be read as a pending one.
+            Assert.Equal("d:" + firstPageLastId.ToString(CultureInfo.InvariantCulture),
+                approved.RootElement.GetProperty("nextAfter").GetString());
         }
         using (var rest = await JsonAsync(await client.GetAsync(
-            "/api/review/queue?status=approved&after=" + firstPageLastId)))
+            "/api/review/queue?status=approved&after=d:" + firstPageLastId)))
         {
             var item = Assert.Single(rest.RootElement.GetProperty("items").EnumerateArray());
             Assert.Equal("approved", item.GetProperty("status").GetString());
@@ -151,10 +153,16 @@ public sealed partial class M4ReviewApiTests
         {
             await AssertJsonErrorAsync(bad, HttpStatusCode.BadRequest, "bad_request");
         }
-        using (var badCursor = await client.GetAsync("/api/review/queue?status=approved&after=999",
+        using (var badCursor = await client.GetAsync("/api/review/queue?status=approved&after=d:999",
             CancellationToken.None))
         {
             await AssertJsonErrorAsync(badCursor, HttpStatusCode.BadRequest, "bad_request");
+        }
+        // An untyped id is no longer accepted: guessing its list is the silent-skip defect.
+        using (var untypedCursor = await client.GetAsync("/api/review/queue?status=approved&after=999",
+            CancellationToken.None))
+        {
+            await AssertJsonErrorAsync(untypedCursor, HttpStatusCode.BadRequest, "bad_request");
         }
     }
 
@@ -231,9 +239,9 @@ public sealed partial class M4ReviewApiTests
         {
             var item = Assert.Single(page.RootElement.GetProperty("items").EnumerateArray());
             Assert.Equal("es-pan-02", item.GetProperty("key").GetString());
-            Assert.Equal(2, page.RootElement.GetProperty("nextAfter").GetInt32());
+            Assert.Equal("d:2", page.RootElement.GetProperty("nextAfter").GetString());
         }
-        using (var rest = await JsonAsync(await client.GetAsync("/api/review/queue?status=rejected&after=2")))
+        using (var rest = await JsonAsync(await client.GetAsync("/api/review/queue?status=rejected&after=d:2")))
         {
             var item = Assert.Single(rest.RootElement.GetProperty("items").EnumerateArray());
             Assert.Equal("es-mesa-04", item.GetProperty("key").GetString());
@@ -327,6 +335,154 @@ public sealed partial class M4ReviewApiTests
         Assert.DoesNotContain(pages[2], row => pages[0].Concat(pages[1]).Any(earlier => earlier.WordId == row.WordId));
         Assert.Contains(walked, row => row.WordId == 7 && row.Status == "rejected");
         Assert.Contains(walked, row => row.WordId == 9 && row.Status == "rejected");
+    }
+
+    [Fact]
+    public async Task QueueAllScopeCursorsCarryTheKindOfTheListTheyAddress()
+    {
+        using var factory = new ReviewApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela", agreement: 0.9);
+            AddWord(database, 2, "es-pan-02", "pan", agreement: 0.8);
+            AddWord(database, 3, "es-mesa-03", "mesa", agreement: 0.7);
+            AddWord(database, 4, "es-tía-04", "tía", agreement: 0.6);
+            AddWord(database, 5, "es-casa-05", "casa", agreement: 0.5);
+            AddWord(database, 6, "es-silla-06", "silla", status: "approved",
+                statusChangedAt: Now.AddHours(-1).ToUnixTimeMilliseconds(), approvedVersion: 1);
+            AddWord(database, 7, "es-libro-07", "libro", status: "rejected",
+                statusChangedAt: Now.AddHours(-2).ToUnixTimeMilliseconds());
+            AddWord(database, 8, "es-verbo-08", "verbo", status: "approved",
+                statusChangedAt: Now.AddHours(-3).ToUnixTimeMilliseconds(), approvedVersion: 1);
+        });
+        using var client = await LoginAsync(factory, "reviewer");
+
+        using (var first = await JsonAsync(await client.GetAsync("/api/review/queue?status=all&limit=3")))
+        {
+            Assert.Equal(new[] { 1, 2, 3 }, WordIds(first));
+            // A pending page hands out a pending cursor, never a bare id.
+            Assert.Equal("p:3", first.RootElement.GetProperty("nextAfter").GetString());
+        }
+        using (var second = await JsonAsync(await client.GetAsync(
+            "/api/review/queue?status=all&limit=3&after=p:3")))
+        {
+            Assert.Equal(new[] { 4, 5, 6 }, WordIds(second));
+            // The page that enters the decided list carries a decided cursor.
+            Assert.Equal("d:6", second.RootElement.GetProperty("nextAfter").GetString());
+        }
+        using (var third = await JsonAsync(await client.GetAsync(
+            "/api/review/queue?status=all&limit=3&after=d:6")))
+        {
+            Assert.Equal(new[] { 7, 8 }, WordIds(third));
+            Assert.False(third.RootElement.TryGetProperty("nextAfter", out _));
+        }
+    }
+
+    // The review of step 41 (finding 1): deciding the cursor row between two fetches used to make the
+    // id fall through to the decided list, which returned that list from its head and skipped the
+    // pending remainder with no error. A typed cursor cannot be misread, and a stale pending cursor
+    // is 400, so the client restarts rather than losing rows.
+    [Theory]
+    [InlineData("approve")]
+    [InlineData("reject")]
+    public async Task QueueAllScopeRejectsAStalePendingCursorAndTheRestartLosesNoRow(string action)
+    {
+        using var factory = new ReviewApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela", agreement: 0.9);
+            AddWord(database, 2, "es-pan-02", "pan", agreement: 0.8);
+            AddWord(database, 3, "es-mesa-03", "mesa", agreement: 0.7);
+            AddWord(database, 4, "es-tía-04", "tía", agreement: 0.6);
+            AddWord(database, 5, "es-casa-05", "casa", agreement: 0.5);
+            AddWord(database, 6, "es-silla-06", "silla", status: "approved",
+                statusChangedAt: Now.AddHours(-1).ToUnixTimeMilliseconds(), approvedVersion: 1);
+            AddWord(database, 7, "es-libro-07", "libro", status: "rejected",
+                statusChangedAt: Now.AddHours(-2).ToUnixTimeMilliseconds());
+            AddWord(database, 8, "es-verbo-08", "verbo", status: "approved",
+                statusChangedAt: Now.AddHours(-3).ToUnixTimeMilliseconds(), approvedVersion: 1);
+            AddWord(database, 9, "es-lápiz-09", "lápiz", status: "rejected",
+                statusChangedAt: Now.AddHours(-4).ToUnixTimeMilliseconds());
+        });
+        using var client = await LoginAsync(factory, "reviewer");
+
+        // Page one ends on word 3 and hands out `p:3`.
+        using (var first = await JsonAsync(await client.GetAsync("/api/review/queue?status=all&limit=3")))
+        {
+            Assert.Equal(new[] { 1, 2, 3 }, WordIds(first));
+            Assert.Equal("p:3", first.RootElement.GetProperty("nextAfter").GetString());
+        }
+
+        // The reviewer acts on the last row of that page: word 3 leaves the pending list.
+        using (var response = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[] { Action(Guid.NewGuid().ToString(), 3, action) }
+        }))
+        {
+            using var body = await JsonAsync(response);
+            Assert.Equal("applied", Assert.Single(body.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+
+        // The pending cursor can no longer be resolved. Before this fix the page was served from the
+        // decided list and words 4 and 5 were skipped silently.
+        using (var stale = await client.GetAsync("/api/review/queue?status=all&limit=3&after=p:3"))
+        {
+            await AssertJsonErrorAsync(stale, HttpStatusCode.BadRequest, "bad_request");
+        }
+
+        // The documented recovery: restart at page one. The restarted walk still returns every row
+        // exactly once — words 4 and 5 included — with the acted-on word at its new status.
+        var pages = await WalkAllScopeAsync(client, limit: 3);
+        var walked = pages.SelectMany(page => page).ToArray();
+        Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 },
+            walked.Select(row => row.WordId).OrderBy(id => id).ToArray());
+        Assert.Equal(walked.Length, walked.Select(row => row.WordId).Distinct().Count());
+        Assert.Equal(4, walked.Count(row => row.Status == "pending_review"));
+        Assert.Equal(action == "approve" ? "approved" : "rejected",
+            Assert.Single(walked, row => row.WordId == 3).Status);
+        Assert.Contains(walked, row => row.WordId == 4 && row.Status == "pending_review");
+        Assert.Contains(walked, row => row.WordId == 5 && row.Status == "pending_review");
+    }
+
+    [Fact]
+    public async Task QueueRejectsCursorsThatAddressTheWrongList()
+    {
+        using var factory = new ReviewApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela");
+            AddWord(database, 2, "es-pan-02", "pan", status: "approved",
+                statusChangedAt: Now.AddHours(-1).ToUnixTimeMilliseconds(), approvedVersion: 1);
+        });
+        using var client = await LoginAsync(factory, "reviewer");
+
+        // A pending cursor on the decided list, a decided cursor on the pending list, a pending
+        // cursor on a decided-only scope, an untyped id, an unknown kind and an uppercase kind all
+        // fail loudly instead of being guessed.
+        foreach (var path in new[]
+        {
+            "/api/review/queue?status=all&after=p:2",
+            "/api/review/queue?status=all&after=d:1",
+            "/api/review/queue?status=approved&after=p:1",
+            "/api/review/queue?status=all&after=1",
+            "/api/review/queue?status=all&after=x:1",
+            "/api/review/queue?status=all&after=P:1"
+        })
+        {
+            using var response = await client.GetAsync(path, CancellationToken.None);
+            await AssertJsonErrorAsync(response, HttpStatusCode.BadRequest, "bad_request");
+        }
+
+        // The pending-only scope still ignores `after` (it never hands out a cursor), and a decided
+        // cursor at the end of the decided list is a clean empty page, not an error.
+        using (var pending = await JsonAsync(await client.GetAsync("/api/review/queue?status=pending&after=p:1")))
+        {
+            Assert.Equal(new[] { 1 }, WordIds(pending));
+            Assert.False(pending.RootElement.TryGetProperty("nextAfter", out _));
+        }
+        using (var done = await JsonAsync(await client.GetAsync("/api/review/queue?status=approved&after=d:2")))
+        {
+            Assert.Empty(WordIds(done));
+            Assert.False(done.RootElement.TryGetProperty("nextAfter", out _));
+        }
     }
 
     [Fact]
@@ -1578,6 +1734,9 @@ public sealed partial class M4ReviewApiTests
     private static async Task<JsonDocument> JsonAsync(HttpResponseMessage response) =>
         JsonDocument.Parse(await response.Content.ReadAsStringAsync(CancellationToken.None));
 
+    private static int[] WordIds(JsonDocument body) => body.RootElement.GetProperty("items")
+        .EnumerateArray().Select(item => item.GetProperty("wordId").GetInt32()).ToArray();
+
     // Walks `status=all` from the first page until `nextAfter` is absent, returning every page in
     // order. The page cap turns a cursor that never clears into a test failure instead of a hang.
     private static async Task<List<(int WordId, string Status)[]>> WalkAllScopeAsync(HttpClient client, int limit)
@@ -1595,7 +1754,7 @@ public sealed partial class M4ReviewApiTests
                 .ToArray());
             Assert.True(pages.Count < 20, "status=all walk did not terminate");
             cursor = body.RootElement.TryGetProperty("nextAfter", out var next)
-                ? next.GetInt32().ToString(CultureInfo.InvariantCulture)
+                ? next.GetString()
                 : null;
         }
         while (cursor is not null);
