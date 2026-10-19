@@ -6,6 +6,8 @@ import test from 'node:test';
 
 import { runCli } from '../dist/cli.js';
 import { CouncilConfigError, loadConfig, parseEnvFile } from '../dist/config.js';
+import { MODELS } from './helpers.mjs';
+import { PRIVACY_SCHEMA, PRIVACY_NORMALISATION } from '../dist/privacy.js';
 
 /**
  * The ΔH / design ΔE dry run: `propose --dry-run` prints the exact prompts and the resolved
@@ -24,9 +26,20 @@ function capture() {
 }
 
 function run(args, env = {}) {
-  const captured = capture();
-  const exitCode = runCli(args, captured.io, env);
-  return { exitCode, stdout: captured.stdout(), stderr: captured.stderr() };
+  const temp = mkdtempSync(path.join(os.tmpdir(), 'palabras-council-cli-'));
+  try {
+    const privacy = path.join(temp, 'privacy.local.json');
+    const hashes = path.join(temp, 'privacy.sha256.json');
+    writeFileSync(privacy, JSON.stringify({ terms: [] }));
+    writeFileSync(hashes, JSON.stringify({ schema: PRIVACY_SCHEMA, algorithm: 'sha256', normalisation: PRIVACY_NORMALISATION, terms: [] }));
+    const fixtureArgs = args[0] === 'propose' ? [
+      '--privacy', privacy, '--privacy-hashes', hashes,
+      '--env-file', path.join(temp, 'missing.env'),
+    ] : [];
+    const captured = capture();
+    const exitCode = runCli([args[0], ...fixtureArgs, ...args.slice(1)], captured.io, env);
+    return { exitCode, stdout: captured.stdout(), stderr: captured.stderr() };
+  } finally { rmSync(temp, { recursive: true, force: true }); }
 }
 
 function withNetworkSpy(body) {
@@ -50,7 +63,7 @@ test('propose --dry-run prints both prompts and the resolved configuration witho
     const outDir = path.join(temp, 'bundles');
     let result;
     const fetchCalls = withNetworkSpy(() => {
-      result = run(['propose', '--dry-run', '--topic', 'food', '--cefr', 'A2', '--count', '40', '--out', outDir]);
+      result = run(['propose', '--dry-run', '--topic', 'food', '--cefr', 'A2', '--count', '40', '--out', outDir, '--models', MODELS.join(',')]);
     });
 
     assert.equal(result.exitCode, 0, result.stderr);
@@ -74,8 +87,8 @@ test('propose --dry-run prints both prompts and the resolved configuration witho
   }
 });
 
-test('a bare propose requires a local privacy list', () => {
-  const result = run(['propose', '--topic', 'food']);
+test('a real propose requires a non-empty fixture privacy list', () => {
+  const result = run(['propose', '--topic', 'food', '--models', MODELS.join(',')]);
   assert.equal(result.exitCode, 1);
   assert.match(result.stderr, /privacy list not found|non-empty privacy.local.json/);
 });

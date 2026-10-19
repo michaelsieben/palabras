@@ -10,7 +10,9 @@ import { listBundles, validateBundle } from './validate.js';
 import type { BundleValidation } from './validate.js';
 import { promptValues, renderPrompt } from './prompts.js';
 import { runPipeline } from './pipeline.js';
+import { PrivacyBlockedError, ProviderError } from './provider.js';
 import type { ProviderAdapter } from './provider.js';
+import { PromptError } from './prompts.js';
 import { readReplay } from './providers/replay.js';
 import type { CouncilRequest } from './bundle.js';
 
@@ -46,7 +48,7 @@ const USAGE = [
    '          [--replay <file>] [--style-guide <file>] [--privacy <file>] [--privacy-hashes <file>]',
   '          [--lexicon <dir>] [--prompts <dir>] [--out <dir>] [--prompt-version <vN>]',
   '      Print the exact prompts, the resolved configuration and the exclusion count, and run',
-   '      the privacy guard. Dry run: no network or writes; --replay also previews candidates.',
+   '      the privacy guard. --replay implies --dry-run: no network or writes; previews candidates.',
    '  privacy hash [--privacy <file>]',
    '      Print a versioned, sorted, deduplicated hash-only document from the local list.',
   '',
@@ -244,7 +246,9 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
     io.err(`Error: council propose takes no positional arguments, got "${parsed.positionals.join(' ')}"`);
     return 1;
   }
-  const dryRun = parsed.flags.has('--dry-run');
+  const replay = stringFlag(parsed, '--replay');
+  // Replayed responses are previews, never evidence. No flag can enable replay writes.
+  const dryRun = parsed.flags.has('--dry-run') || replay !== undefined;
 
   const modelsFlag = stringFlag(parsed, '--models');
   const overrides: ConfigOverrides = { env };
@@ -365,8 +369,8 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
     { field: 'exclusion list (lemma|pos)', text: exclusion.join('\n') },
   ];
   const hits = scanForPrivateTerms(policy, scanInputs);
-  if (hits.length > 0 && dryRun) {
-    io.err('Error: privacy guard blocked the run before any provider call:');
+  if (hits.length > 0) {
+    io.err('Error: PrivacyBlockedError: privacy guard blocked the run before any provider call:');
     for (const hit of hits) {
       io.err(`       ${describePrivacyHit(hit)}`);
     }
@@ -381,12 +385,11 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
     const values = promptValues(config, request, exclusion);
     for (const prompt of prompts) prompt.text = renderPrompt(prompt.text, values);
     const renderedHits = scanForPrivateTerms(policy, prompts);
-    if (renderedHits.length) throw new Error(describePrivacyHit(renderedHits[0]));
+    if (renderedHits.length) throw new PrivacyBlockedError(describePrivacyHit(renderedHits[0]));
   } catch (error) {
-    if (dryRun) { io.err(`Error: ${(error as Error).message}`); return 1; }
-    // A real run records prompt/privacy failure through the pipeline's failed-manifest path.
+    io.err(`Error: ${error instanceof PrivacyBlockedError ? 'PrivacyBlockedError: ' : ''}${(error as Error).message}`);
+    return 1;
   }
-  const replay = stringFlag(parsed, '--replay');
   if (!dryRun || replay !== undefined || adapter !== undefined) {
     if (config.models.length < config.minModels) {
       // Pipeline writes the auditable failed manifest even when roster is below minimum.
@@ -405,7 +408,20 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
       }
       if (result.manifest.status === 'failed') io.err(`Error: ${result.manifest.error}`);
       return result.manifest.status === 'ok' ? 0 : 1;
-    }).catch(() => { io.err('Error: council generation failed (configuration, prompt or output operation)'); return 1; });
+    }).catch((error: unknown) => {
+      // Do not echo arbitrary exception messages, paths or transport bodies. Keep safe type/code
+      // diagnostics; Error subclasses here do not necessarily set their `name` property.
+      const kind = error instanceof PrivacyBlockedError ? 'PrivacyBlockedError' :
+        error instanceof ProviderError ? `ProviderError:${error.kind}` :
+        error instanceof PromptError ? 'PromptError' :
+        error instanceof PrivacyConfigError ? 'PrivacyConfigError' :
+        error instanceof CouncilConfigError ? 'CouncilConfigError' : 'Error';
+      const code = error instanceof Error && 'code' in error &&
+        ['EACCES', 'EPERM', 'ENOSPC', 'ENOENT', 'ENOTDIR', 'EISDIR', 'EEXIST', 'EROFS', 'EIO', 'EMFILE', 'ENFILE'].includes(String(error.code))
+        ? ` code=${String(error.code)}` : '';
+      io.err(`Error: council generation failed (configuration, prompt or output operation) [${kind}${code}]`);
+      return 1;
+    });
   }
   io.out('council propose (dry run)');
   io.out('mode=propose');

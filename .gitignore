@@ -22,4 +22,4 @@ Backend/Palabras/wwwroot/*
 content/council/**/raw/
 # The council CLI's plain-text privacy list holds real names and the domain. Only the example
 # file and the hash-only list are committed (design ΔH).
-tools/council/privacy.local.json
+tools/council/**/privacy.local*

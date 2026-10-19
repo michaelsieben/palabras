@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import path from 'node:path';
 import test from 'node:test';
 import { runPipeline } from '../dist/pipeline.js';
 import { replayAdapter } from '../dist/providers/replay.js';
 import { validateBundle } from '../dist/validate.js';
-import { createProvider, ProviderError } from '../dist/provider.js';
+import { createProvider, PrivacyBlockedError, ProviderError } from '../dist/provider.js';
 import { runCli } from '../dist/cli.js';
 import { proposal, critique, script, workspace, MODELS } from './helpers.mjs';
 
@@ -88,7 +90,7 @@ test('private model output aborts whole run before critique, no dirty committed 
   } finally { w.cleanup(); }
 });
 
-test('real CLI planted style text writes field-only failed manifest before any adapter call', async () => {
+test('real CLI planted style text reports privacy failure before any adapter call or write', async () => {
   const w = workspace();
   try {
     const guide = path.join(w.dir, 'guide.md');
@@ -100,11 +102,10 @@ test('real CLI planted style text writes field-only failed manifest before any a
       async () => { calls++; return { text: '{}' }; });
     assert.equal(code, 1);
     assert.equal(calls, 0);
-    const bundle = path.join(w.config.paths.outDir, readdirSync(w.config.paths.outDir)[0]);
-    assert.equal(JSON.parse(readFileSync(path.join(bundle, 'manifest.json'), 'utf8')).status, 'failed');
-    assert.equal(existsSync(path.join(bundle, 'candidates.jsonl')), false);
-    assert.equal(existsSync(path.join(bundle, 'dropped.jsonl')), false);
-    assert.doesNotMatch(err.join('\n') + readFileSync(path.join(bundle, 'manifest.json'), 'utf8'), /synthetic forbidden sentinel/);
+    assert.equal(existsSync(w.config.paths.outDir), false);
+    assert.match(err.join('\n'), /PrivacyBlockedError: privacy guard blocked/);
+    assert.match(err.join('\n'), /guide\.md contains a private term \(local #1\)/);
+    assert.doesNotMatch(err.join('\n'), /synthetic forbidden sentinel/);
   } finally { w.cleanup(); }
 });
 
@@ -116,6 +117,61 @@ test('provider failures redact exception text and keys from manifests', async ()
     assert.doesNotMatch(JSON.stringify(result.manifest), /UNSAFE|secret body/);
     assert.match(JSON.stringify(result.manifest), /provider network/);
   } finally { w.cleanup(); }
+});
+
+test('real CLI rendered prompt failure reports its message and exits before sends or writes', async () => {
+  const w = workspace();
+  try {
+    const guide = path.join(w.dir, 'guide.md');
+    writeFileSync(guide, '{{UNSAFE_PLACEHOLDER}}');
+    const err = [];
+    let calls = 0;
+    const code = await runCli(['propose', '--privacy', w.config.paths.privacy, '--style-guide', guide,
+      '--out', w.config.paths.outDir, '--models', MODELS.join(',')], { out() {}, err: (line) => err.push(line) }, {},
+      async () => { calls++; return { text: '{}' }; });
+    assert.equal(code, 1);
+    assert.equal(calls, 0);
+    assert.equal(existsSync(w.config.paths.outDir), false);
+    assert.match(err.join('\n'), /leftover prompt placeholder/);
+    assert.doesNotMatch(err.join('\n'), /UNSAFE_PLACEHOLDER/);
+  } finally { w.cleanup(); }
+});
+
+test('CLI output-operation catch preserves safe errno without echoing exception paths', async () => {
+  const w = workspace();
+  try {
+    const blockedOut = path.join(w.dir, 'UNSAFE-output-path');
+    writeFileSync(blockedOut, 'not a directory');
+    const err = [];
+    const code = await runCli(['propose', '--privacy', w.config.paths.privacy,
+      '--out', blockedOut, '--models', MODELS.join(',')], { out() {}, err: (line) => err.push(line) }, {},
+      replayAdapter(script([proposal()], ['es-zorzal-01'])));
+    assert.equal(code, 1);
+    assert.match(err.join('\n'), /council generation failed .*\[Error code=ENOTDIR\]/);
+    assert.doesNotMatch(err.join('\n'), /UNSAFE-output-path/);
+  } finally { w.cleanup(); }
+});
+
+test('CLI rejected-pipeline diagnostics distinguish network and privacy errors without their messages', async () => {
+  const w = workspace();
+  const original = fs.mkdirSync;
+  try {
+    for (const [error, label] of [
+      [new ProviderError('network'), 'ProviderError:network'],
+      [new PrivacyBlockedError('UNSAFE-secret-message'), 'PrivacyBlockedError'],
+    ]) {
+      // Force a rejection outside pipeline's failed-manifest handling to exercise CLI's catch.
+      fs.mkdirSync = () => { throw error; };
+      syncBuiltinESMExports();
+      const err = [];
+      const code = await runCli(['propose', '--privacy', w.config.paths.privacy,
+        '--out', w.config.paths.outDir, '--models', MODELS.join(',')], { out() {}, err: (line) => err.push(line) }, {},
+        replayAdapter(script([proposal()], ['es-zorzal-01'])));
+      assert.equal(code, 1);
+      assert.ok(err.join('\n').includes(`[${label}]`), err.join('\n'));
+      assert.doesNotMatch(err.join('\n'), /UNSAFE-secret-message/);
+    }
+  } finally { fs.mkdirSync = original; syncBuiltinESMExports(); w.cleanup(); }
 });
 
 test('critique below half drops candidate, never queued', async () => {
