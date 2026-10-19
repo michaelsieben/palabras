@@ -33,6 +33,13 @@ jobs:
         working-directory: Frontend
       - run: npm run build
         working-directory: Frontend
+      # node --test suite (16 *.test.mjs files) - the module-level coverage the browser
+      # suites never had. It runs after `npm run build` because pwa.test.mjs inspects the
+      # emitted dist/ for the PWA assets, and before the artifact upload so a unit failure
+      # stops the job before anything is published.
+      - name: Run frontend unit tests
+        working-directory: Frontend
+        run: npm test
       # The browser job runs the Playwright suite against this exact bundle, so it is
       # published here - before the container step - instead of being rebuilt there.
       - name: Publish frontend bundle for the browser job
@@ -175,3 +182,16 @@ jobs:
           test -f dist/index.html && test -f dist/sw.js || {
             echo "FAIL: the frontend-dist artifact is not laid out at Frontend/dist"; exit 1; }
           npm run test:browser
+      # Focused M7 day-status suite (dayBrowser.mjs -> learnBrowser/dayPanelBrowser): day panel,
+      # acceptance flow and the panel harness, without the full browser suite above.
+      # It starts `vite preview` through the same browserConfig helper, so PALABRAS_TEST_PORT
+      # moves it off the browser suite's 4173 and sw-navigation.mjs's fixed 4174 - an explicit
+      # override rather than a second hard-coded port, and the run above has already closed
+      # its server anyway (each job has its own network namespace).
+      - name: Run the M7 day-status browser suite
+        working-directory: Frontend
+        env:
+          PALABRAS_TEST_PORT: '4175'
+        # The dist layout was already asserted by the step above and nothing between the two
+        # steps touches it, so the suite runs directly.
+        run: npm run test:day:browser
