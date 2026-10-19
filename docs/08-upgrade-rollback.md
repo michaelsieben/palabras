@@ -54,9 +54,14 @@ progress from a JSON export in `restore-drill.md`; CLI behaviour in `06-content-
 - `SrsCards.Down` is **not a data-preserving rollback.** It drops `review_log`, `user_settings` and `cards` and the
   `users.timezone` column (`Backend/Palabras/Persistence/Migrations/20261018000241_SrsCards.cs:189-203`). Never run a
   down-migration to roll back. Roll back by restoring files and image, as below.
-- `ReviewGate` (`20261019140735_ReviewGate.cs`, M4) is the **first migration that rebuilds existing tables**
+- `ReviewGate` (`20261019140735_ReviewGate.cs`, M4) is the **only migration that rebuilds existing tables**
   (`words`, `word_revisions`). Part of it runs outside any transaction, so an interrupted run can leave a partly
   migrated database that the next start cannot finish. Its `Down` is not data-preserving either. Section G.
+- `CouncilImport` (`20261019182611`, the 7th migration, M3b) and `WordDifficulty` (`20261019192721`, the 8th) are
+  **additive-only**: three new tables (`council_runs`, `council_model_results`, `word_provenance`), raw
+  `ALTER TABLE … ADD COLUMN` on `words` and `word_alternatives`, and one nullable `words.difficulty` column. Neither
+  rebuilds a table, emits `PRAGMA foreign_keys = 0`, or backfills data, so the crash-window guidance applies to
+  `ReviewGate` alone. Section H.
 
 Tools needed on the host: `docker`, `sha256sum`, `pgrep`, and a `sqlite3` CLI. Whether the Unraid host has `sqlite3`
 was not checked; provide one before starting. This runbook does not install anything.
@@ -275,9 +280,11 @@ A row is abandoned only when no app, `docker exec` CLI or host CLI process exist
 4. Preserve the database, sidecars and keys exactly as in A step 6 (`set/`, `set.sha256`, `scratch/`).
 5. On `scratch/`: run `PRAGMA integrity_check;` (must be `ok`), list `__EFMigrationsHistory`, and run
    `SELECT * FROM "__EFMigrationsLock";`. Compare the history with the migration files of the image being started
-   (`Backend/Palabras/Persistence/Migrations/`; on `main` at `c3ce543`: `InitialAccounts`, `ContentSchema`, `SrsCards`, `DayStatusAndSkips`, `RolloverCutoverMarker`; `ReviewGate` added in `3565e75`). A
-   committed prefix is expected: each of the first five migrations runs in one transaction, so an interrupted one is
-   rolled back and re-applied on the next start. `ReviewGate` does not: if it is missing from the history, run the
+   (`Backend/Palabras/Persistence/Migrations/`; on `main` today: `InitialAccounts`, `ContentSchema`, `SrsCards`,
+   `DayStatusAndSkips`, `RolloverCutoverMarker`, `ReviewGate`, `CouncilImport`, `WordDifficulty` — eight). A
+   committed prefix is expected: each migration except `ReviewGate` runs in one transaction, so an interrupted one is
+   rolled back and re-applied on the next start; `CouncilImport` and `WordDifficulty` are additive (section H).
+   `ReviewGate` does not: if it is missing from the history, run the
    G.3 checks before clearing anything. If the integrity check fails or the history contains IDs the image does not
    know, do not clear the lock; use rollback R-B.
 6. Confirm the live files are still the verified ones: `(cd "$DATA" && sha256sum -c "$SAFE/set.sha256")` must
@@ -958,10 +965,11 @@ SQLite cannot add or change a CHECK on an existing table, so EF Core rebuilds `w
 `ef_temp_<table>`, copy the rows with an explicit column list, drop the old table, rename the copy, recreate its
 indexes. The repo pins parts of the generated script (`M4ReviewSchemaTests.cs:130-137`).
 
-**This is the repo's first table-rebuild migration.** `InitialAccounts`, `ContentSchema`, `DayStatusAndSkips` and
+**This is the repo's only table-rebuild migration.** `InitialAccounts`, `ContentSchema`, `DayStatusAndSkips` and
 `RolloverCutoverMarker` only create tables (their CHECKs are on new tables). `SrsCards` is purely additive: one
 `ALTER TABLE "users" ADD "timezone"` plus new tables, and its script contains no `DROP`
-(`M5SrsSchemaTests.cs:111-114`). The exposure below is therefore new with M4, not an accepted pre-existing pattern.
+(`M5SrsSchemaTests.cs:111-114`). `CouncilImport` and `WordDifficulty` are additive too (section H). The exposure below
+is therefore `ReviewGate`-only.
 
 ### G.2 Why it is not one transaction
 
@@ -1046,7 +1054,57 @@ Compare the index list with the same query on the drill copy from A step 7, whic
   list for G.3.
 - Upgrade by hand with the poll paused (A step 8). Do not stop or recreate the container until the log shows the
   migrations finished.
-- Acceptance as in A, plus: on a scratch copy after the upgrade, `__EFMigrationsHistory` lists six migrations ending
-  in `20261019140735_ReviewGate`, no `ef_temp_*` table exists, and `words` / `word_revisions` counts equal the
-  pre-upgrade copy. The backup service's schema check does not look at `word_reviews` (`BackupService.cs:99-101`);
-  check the first published backup's table list as in A acceptance.
+- Acceptance as in A, plus: on a scratch copy after the upgrade, `__EFMigrationsHistory` lists eight migrations, ending
+  in `20261019192721_WordDifficulty`, with `20261019140735_ReviewGate` present; no `ef_temp_*` table exists, and
+  `words` / `word_revisions` counts equal the pre-upgrade copy. The backup service's schema check does not look at
+  `word_reviews` (`BackupService.cs:99-101`); check the first published backup's table list as in A acceptance.
+
+## H. M3b (`CouncilImport`) and `WordDifficulty` additive migrations
+
+Owner-run addendum for the release that adds `20261019182611_CouncilImport` (7th) and `20261019192721_WordDifficulty`
+(8th). Follow section A in full; nothing here changes the G procedure, it narrows where G applies.
+
+### H.1 What the two migrations do
+
+- `CouncilImport` creates `council_runs`, `council_model_results`, `word_provenance`, adds columns to `words`
+  (`source`, `council_run_id`) and `word_alternatives` (`field`, `support`, `models`, `region`, `register`,
+  `word_version`, `source`), and adds the `word_reviews.council_run_id` index. `target_key`, `provenance_method` and
+  `provenance_run` already existed from `ContentSchema`. Every change to an existing table is a raw
+  `ALTER TABLE … ADD COLUMN` with its CHECK/REFERENCES inline; the migration is `CreateTable`/`CreateIndex` plus those
+  ALTERs and nothing else (`20261019182611_CouncilImport.cs:10-16` states the rule and the schema test fails on
+  `ef_temp_`, `PRAGMA`, `DROP COLUMN` or `RENAME COLUMN`).
+- `WordDifficulty` adds one nullable `words.difficulty` column via EF `AddColumn`; its generated script contains no
+  rebuild (`20261019192721_WordDifficulty.cs:19-32`).
+- **No backfill was done.** Existing `word_alternatives` rows keep `field = NULL`, `support = 0`, `word_version = 0`
+  and `source = 'manual'`; the legacy `kind` → reviewer-field fallback is the only mapping for them
+  (`09-review-api.md`). Existing `words` rows keep `difficulty = NULL` and sort after ranked words.
+
+### H.2 Transaction and crash window
+
+Both migrations are ordinary single-transaction migrations: a crash rolls them back and the next start retries them.
+`ReviewGate` remains the **only** table-rebuild migration, so the G.3 crash-window checks apply to `ReviewGate` alone.
+If a startup stops between them, look for `ReviewGate` in `__EFMigrationsHistory` first; `CouncilImport` and
+`WordDifficulty` being absent from the history only means "not applied yet".
+
+### H.3 Rollback
+
+- **Never run `CouncilImport.Down` or `WordDifficulty.Down` as a rollback.** The former drops `council_runs`,
+  `council_model_results`, `word_provenance` and the new columns (losing every provenance record and the audit trail of
+  imported words); the latter drops `words.difficulty` (the ranks are recoverable only by re-importing the content
+  batch). Roll back by restoring the image and the data, as in section A/Rollback.
+- **R-A (previous image on the migrated database) is expected to work** without a data restore: the old binary maps
+  none of the new tables/columns and its INSERTs name their columns explicitly, so the added columns take their
+  defaults (proven for `CouncilImport` by `M3CouncilSchemaTests`). The previous image does not run the startup council
+  sync and its reviewer UI has no chip `support`; already imported council words are ordinary `words` rows, so
+  approving or editing them still works at the old image's level.
+- To stop startup imports without a rollback, set `Content__CouncilSyncEnabled=false` (section H.4).
+- No `M7:*` flag, compose file or deploy script is touched by either migration.
+
+### H.4 Startup council sync on this release
+
+`ContentSyncService` runs once per boot and imports **`propose` bundles only** (Q-M3-7); `rework` bundles are refused
+on that path and reach the database only through the operator-run `import-council` verb (`06-content-cli.md`). The
+shipped image carries no bundles today (C5 adds `content/council/` and the packaging), so this is a no-op. If a bundle
+is added later, a restart imports it; a bad bundle is logged, skipped and retried on the next boot, and never fails
+startup or `/healthz`. The kill switch is `Content__CouncilSyncEnabled` (default true), the directory is
+`Content__CouncilDirectory` (default `content/council` under the app directory).

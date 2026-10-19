@@ -6,7 +6,8 @@ Shipped in T-20261019-1606: the reviewer gate over `word_reviews` (`3565e75` sch
 `.opencode/runs/T-20261019-1508/10-m4-plan.md` §2; this file describes the shipped code. The reviewer UI (`/revisar`,
 `/aprobadas`) is not covered here — its status and open acceptance items are in `00-handoff.md` §7 and
 `01-next-steps.md` Status. CLI approval: `06-content-cli.md`. Learner API conventions: `07-learn-api.md`.
-Migration and rollback: `08-upgrade-rollback.md` section G.
+Migration and rollback: `08-upgrade-rollback.md` section G (`ReviewGate`) and section H (`CouncilImport`,
+`WordDifficulty`).
 
 ## Common rules
 
@@ -46,7 +47,8 @@ ReviewItem = {
             exampleEs: string; exampleEn: string; notes?: string }[];
   notes?: string; regionNotes?: string; registerNotes?: string;
   agreement?: number; band?: string; reducedConfidence: boolean; lintWarnings: string[];
-  alternatives: { id: number; field: string; text: string; translation?: string; reason: string; support?: string }[];
+  alternatives: { id: number; field: string; text: string; translation?: string; reason: string;
+                  support?: string /* "<support>/<models_requested>", e.g. "2/4" */ }[];
   lastFlag?: { action: "needs_change"; note?: string; at: string };
 }
 ```
@@ -57,9 +59,16 @@ ReviewItem = {
   then `key` (ordinal). A word's topic is `topics[0]` of its current-version snapshot, else the alphabetically first
   `word_topics` row.
 - `senses` are the active senses of the current version (`sense_order` below the snapshot's sense count).
-- `alternatives` maps the stored `word_alternatives.kind` to the reviewer field: `synonym`, `near-synonym`,
-  `different-sense` → `lemma`; `regional` → `regional_variant`; `register` → `register_variant`. Rows with
-  `kind` `previous_*` (undo values, below) are not listed. `support` is never set in M4.
+- `alternatives` is the chip list. A stored `word_alternatives.field` (council rows since M3b) wins over the legacy
+  `kind` vocabulary; `kind` resolves as `synonym`, `near-synonym`, `different-sense` → `lemma`; `regional` →
+  `regional_variant`; `register` → `register_variant`; the ΔF field names `lemma`, `gloss`, `example`,
+  `regional_variant` and `register_variant` resolve to themselves. So a council word exposes `lemma`, `gloss`,
+  `example`, `regional_variant` and `register_variant` chips. Rows with `kind` `previous_*` (undo values, below)
+  are not listed.
+- `support` is `"<support>/<council_runs.models_requested>"` for a word with a `council_run_id` (for example
+  `"2/4"`: the alternatives that value had behind it, over the models the run requested). A legacy row has no run,
+  so `support` is omitted. Council `regional_note` alternatives are stored and snapshotted but are deliberately not
+  chips, on the read and the write path (see "Council chips and the example round trip").
 - `lastFlag` is the newest `needs_change` verdict for the word, any version.
 - `version` is `words.version`. Every action must echo it as `wordVersion`.
 
@@ -94,8 +103,8 @@ Each action is legal from exactly one status. Any other pair is `invalid_transit
 | Action | Allowed from | Effect when applied |
 | --- | --- | --- |
 | `approve` | `pending_review` | status `approved`; `approve` revision at the same version; `status_changed_at` and `approved_version` stamped; missing cards created, `word_not_approved` suspensions released; FSRS state untouched |
-| `approve_alt` | `pending_review` | chip value replaces the current value; version + 1; `edit` and `approve` revisions at the new version; old value kept as a `previous_<field>` alternative; then as `approve`, plus `epoch` + 1 on existing cards |
-| `approve_edit` | `pending_review` | 1–10 edits applied; otherwise as `approve_alt` |
+| `approve_alt` | `pending_review` | chip value replaces the current value; version + 1; `edit` and `approve` revisions at the new version; old value kept as a `previous_<field>` alternative; then as `approve`, plus `epoch` + 1 on existing cards. An `example` chip also replaces `example_en` with the chip's `gloss` |
+| `approve_edit` | `pending_review` | 1–10 edits applied; otherwise as `approve_alt`. An `example` edit clears `example_en`/`exampleGloss` (the wire form carries no English) and keeps the old English on the undo row |
 | `reject` | `pending_review` | status `rejected`; `reject` revision; version unchanged |
 | `needs_change` | `pending_review` | status `needs_change`; `needs_change` revision; optional `field` stored on the verdict |
 | `demote` | `approved` | status `pending_review`; `demote` revision; cards `epoch` + 1 and `suspended_reason` set to `word_not_approved` where empty; FSRS state, due, reps, lapses untouched; `approved_version` kept |
@@ -138,10 +147,11 @@ anything but `approve`.
 
 Content rules (`invalid`):
 
-- `approve_alt`: the alternative must belong to the word and map to a field; a `field` in the request must equal
-  that field. `lemma`, `regional_variant` and `register_variant` chips replace the headword. `gloss`/`example` chips
-  (only `previous_gloss`/`previous_example` undo rows) need a `senseOrder` of an active sense. A chip equal to the
-  current value is `invalid`.
+- `approve_alt`: the alternative must belong to the word and resolve to a field through `field ?? kind` (above); a
+  `field` in the request must equal that field. `lemma`, `regional_variant` and `register_variant` chips replace the
+  headword. `gloss`/`example` chips (council rows, and the `previous_gloss`/`previous_example` undo rows) need a
+  `senseOrder` of an active sense. A chip whose field resolves to `regional_note` is `invalid`: it is never offered.
+  A chip equal to the current value is `invalid`.
 - `approve_edit`: `article` ∈ `el`, `la`, `los`, `las`; `gender` ∈ `masculine`, `feminine`, `common`,
   `not_applicable`; `gloss`, `example` and `accepted` need the `senseOrder` of an active sense; `accepted` is a
   comma-separated list that must not be empty after trimming; an edit whose `after` equals the current value is
@@ -153,8 +163,8 @@ Every `applied` item inserts one `word_reviews` row in the same transaction: `wo
 `wordVersion`; `field` = the edited field (`whole` for more than one edit), the chip's field, or the `needs_change`
 field; `chosen_alternative_id`; `edit_diff` = JSON array of `{field, sense, before, after}` for `approve_edit` /
 `approve_alt`; `note`; `client_review_id` (unique); `via_batch` 0/1; `agreement_at_review` = `words.council_agreement`
-at decision time; `decision_ms`; `created_at`. `council_run_id` stays NULL until M3b. CLI approvals write no verdict
-row.
+at decision time; `decision_ms`; `created_at`. `council_run_id` stays NULL: M3b added the column, but no writer fills
+it (the queue reads `words.council_run_id` only, to compute chip `support`). CLI approvals write no verdict row.
 
 ### `GET /api/review/approved`
 
@@ -173,6 +183,40 @@ row.
 - **Stale cursor.** `after` must name a word that is still in the approved list for that `q`. If it was demoted (or
   changed so it no longer matches `q`) between pages, the server answers 400 `bad_request`. The client must restart
   at page 1 (no `after`). `after` that is not a positive integer is also 400.
+
+## Council chips and the example round trip (M3b)
+
+Shipped with `CouncilImport` and the `import-council` verb (`06-content-cli.md`). These are the precedents the C3/C4
+reviews asked to have written down, not incidental details:
+
+- **Resolution is `field ?? kind`.** `ReviewTransitions.ChipFieldFor(field, kind)` reads `word_alternatives.field`
+  first and falls back to `FieldForAlternativeKind(kind)`; the same resolver serves the queue projection and
+  `approve_alt`, so the read and the write path cannot disagree about what a row is. Council rows store the ΔF field
+  name in both columns (`kind = field`), so they resolve either way.
+- **`kind = field` rows are visible as chips.** `lemma`, `gloss`, `example`, `regional_variant` and
+  `register_variant` all resolve to themselves. `approve_alt` on a `gloss` chip swaps `senses.en_gloss`; on an
+  `example` chip it swaps `senses.example_es`; on the three variant/lemma fields it swaps the headword.
+- **`regional_note` is stored, never a chip.** Council bundles may carry `regional_note` alternatives; the importer
+  writes them to `word_alternatives` (`field='regional_note'`) and into the revision snapshot, so nothing is lost,
+  but neither read nor write path offers them: the sheet has no `regional_note` tab and `approve_alt` has no swap
+  target for a note (it would fall through to `example_es` and corrupt the example). This is a recorded UI decision,
+  not an omission; revisiting it needs a UI design, not a bug fix.
+- **An `example` chip swap refreshes the English too.** The chip's `gloss` is the bundle's English translation of the
+  alternative sentence, so `approve_alt` writes it to `senses.example_en` and to the snapshot's `exampleGloss` when
+  it is non-empty. A legacy `previous_example` undo row carries no gloss, so its behaviour is unchanged.
+- **An `example` edit clears the English.** `approve_edit` carries only the new Spanish sentence (no English input
+  exists on the wire), so it sets `example_en = ""` and `exampleGloss = ""` instead of leaving the translation of the
+  sentence it replaced. The old English is not lost: it goes on the undo row (next bullet). Clearing changes what
+  the learner card shows until the reviewer undoes or a rework supplies a translation; the alternatives were keeping
+  stale English (wrong invariant) or refusing example edits (blocks typo fixes), and this is the honest one.
+- **The undo round trip restores both languages.** Every `approve_edit`/`approve_alt` keeps the replaced value as a
+  `previous_<field>` alternative. For an example, that row's `word_alternatives.gloss` now holds the replaced
+  English sentence; undo is another `approve_alt`, which already consumes `gloss` as the new `example_en`. So
+  swap → undo restores the Spanish and the English. No column was added for this.
+
+The chip `support` numerator is `word_alternatives.support`; the denominator is
+`council_runs.models_requested` for the word's run, loaded once per queue page. A word whose run row is missing
+(should not happen; deletions are blocked by the FK) omits `support` rather than showing `"n/0"`.
 
 ## Export and join semantics
 

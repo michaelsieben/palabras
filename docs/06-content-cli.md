@@ -9,8 +9,8 @@ commands are in `04-accounts.md`; the learner HTTP API is in `07-learn-api.md`; 
 
 ## How the CLI runs
 
-The same binary is the web app and the CLI. When the first argument is `user`, `import`, `content`, `learn` or
-`restore-progress`, `Program.cs` runs that verb and exits; no web host starts. Configuration comes from
+The same binary is the web app and the CLI. When the first argument is `user`, `import`, `import-council`, `content`,
+`learn` or `restore-progress`, `Program.cs` runs that verb and exits; no web host starts. Configuration comes from
 `appsettings.json` and environment variables only, so `DATA_DIR` (default `/data`, database `palabras.db`) and
 `ConnectionStrings__Default=Data Source=...` select the database exactly as for the app (`04-accounts.md`).
 
@@ -26,11 +26,12 @@ Common behaviour:
 
 - Exit code `0` on success, `1` on any error. Errors go to stderr as `Error: <message>`. A database failure prints
   only a generic `Database operation failed; ... transaction rolled back.` line, never the EF/SQLite detail.
-- Every write verb runs in one SQLite transaction: it either commits fully or changes nothing.
+- Every write verb runs in one SQLite transaction: it either commits fully or changes nothing (`import-council` opens
+  one per bundle, so a bad bundle cannot roll back its siblings).
 - Ctrl-C prints `Command cancelled.` and exits `1`.
-- `user`, `import` (without `--dry-run`) and all `content` verbs create the database and apply pending migrations
-  first (`DatabaseLifecycle.InitializeAsync`), as the app does at startup. `import --dry-run` and `restore-progress`
-  never create or migrate a database.
+- `user`, `import` (without `--dry-run`), `import-council` (without `--dry-run`) and all `content` verbs create the
+  database and apply pending migrations first (`DatabaseLifecycle.InitializeAsync`), as the app does at startup.
+  `import --dry-run`, `import-council --dry-run` and `restore-progress` never create or migrate a database.
 - These verbs have no HTTP equivalent. Anyone who can run them has full content and progress control.
 
 Migrations in order: `InitialAccounts` (M1), `ContentSchema` (M2, `20261017234822`), `SrsCards` (M5,
@@ -44,6 +45,7 @@ Migrations in order: `InitialAccounts` (M1), `ContentSchema` (M2, `2026101723482
 | --- | --- | --- | --- |
 | `user …` | `users` | per sub-command, see `04-accounts.md` | per sub-command |
 | `import <dir> [--dry-run]` | `words`, `senses`, `word_alternatives`, `word_topics`, `word_revisions`, card epochs/suspension | yes: re-run with the same files → all `unchanged` | `created=N updated=N unchanged=N rejected=N` |
+| `import-council <dir> [--dry-run] [--force] [--hold]` | `council_runs`, `council_model_results`, `word_provenance`, and the same content tables as `import` | yes: a recorded `run_id` is a strict no-op; a rework whose content hash is unchanged writes nothing | per-bundle lines, then `bundles=N imported=N created=N skipped=N failed=N` |
 | `content approve <key…>` | `words.status`, `word_revisions`, `cards` | yes: already approved → `unchanged` | `approved=N unchanged=N` |
 | `content approve --all-pending` | same | yes | `approved=N unchanged=N` |
 | `content approve --top N [--dry-run]` | same | row-level only: a re-run approves the **next** N pending words | `approved=N unchanged=N`; dry run: one key per line, then `dry-run=N` |
@@ -59,8 +61,8 @@ start with `-`; duplicates in a key list are collapsed.
 ### `import <dir> [--dry-run]`
 
 Loads every `*.json` file directly in `<dir>` (not recursive) into the content tables. The argument is a path as
-the process sees it; inside the container that is a container path. The image ships only
-`content/schema/word.schema.json` (`Dockerfile:18`), not `content/words/`; copy them in with `docker cp`
+the process sees it; inside the container that is a container path. The image ships `content/schema/` only (the word
+and council schemas), not `content/words/` (`Dockerfile:18`); copy them in with `docker cp`
 (`10-bring-up.md` §4).
 
 1. **Validate the whole batch before any write.** Each file must parse, contain no duplicate JSON property, pass
@@ -134,6 +136,103 @@ is the headword.
 a database without the `words` table, every valid file counts as `created`.
 
 Only lower-case `.json` is matched; on Linux `X.JSON` is skipped silently.
+
+### `import-council <dir> [--dry-run] [--force] [--hold]`
+
+Loads council bundles into the provenance and content tables (M3b). A **bundle** is a directory containing
+`manifest.json`; `<dir>` is either one bundle or a parent directory of bundles (`*/manifest.json`, ordinal order),
+the same discovery rule the startup sync uses. Flags may appear in any order; a duplicate flag or a second positional
+argument is a usage error before the database is opened. One stdout line per accepted bundle, then the summary
+`bundles=N imported=N created=N skipped=N failed=N`, where `skipped` covers `unchanged`, `skipped_existing` and
+`skipped_reviewer_edit_newer`. Exit `0` when no bundle was refused (imported, already imported, or all candidates
+skipped/unchanged) and on a clean dry run; `1` on any refusal, usage/validation error, hash mismatch or database
+failure. Refusals go to stderr as
+`Error: <run-id|dir>: <reason>`; DB failures print only
+`Error: Database operation failed; council import transaction rolled back.`
+
+#### Bundle contract
+
+Committed schemas: `content/schema/council-manifest.schema.json` (`palabras.council.manifest.v1`) and
+`content/schema/council-candidate.schema.json`. Both are validated by the C# importer (JSON Schema, format checks on,
+unknown properties refused at every level) against the shared fixtures under `tools/council/fixtures/`; the future
+`tools/council` validator (C6) consumes the same schemas and fixtures.
+
+- `manifest.json` — required. Carries `run_id` (path-safe, 3–64 chars, also the bundle directory name), `mode`
+  (`propose` or `rework`), `prompt_version`, `style_guide_sha256`, the request block, the model roster with per-phase
+  status (`ok`/`failed`/`timeout`/`invalid`), `models_requested`, `models_succeeded`, `reduced_confidence`, `counts`,
+  `status` and `created_at`. The roster still lists a failed model; `models_requested == models.length`,
+  `models_succeeded.<phase>` must equal the models reporting that phase `ok`, and `reduced_confidence` must agree
+  with those counts.
+- `candidates.jsonl` — required when `status` is `ok`, one candidate per line. `candidates_sha256` must equal the
+  SHA-256 of the raw file bytes (trailing newline included), `counts.candidates` must equal the line count (zero
+  candidates is refused), and every candidate's `council.run_id` must equal `manifest.run_id`.
+- `council.proposed_by` — **required and validated.** It lists the model ids that proposed the winning candidate
+  itself (not `alternatives[].models`, which are the dissenting values). Every id must be declared in `manifest.models`
+  and have `phases.propose == "ok"`; a bundle without it, or with an undeclared or failed-phase id, is refused before
+  any write. It is never back-filled from alternatives.
+- Per-candidate semantic rules: `council.band` must equal the band recomputed from `council.agreement` (`≥0.75`
+  `alta`, `≥0.50` `media`; below `0.50` belongs in `dropped.jsonl` and is refused), each sense needs 2–4 `gloss` and
+  1–3 `example` alternatives and at most 2 each of `lemma`/`regional_variant`/`register_variant`, `support` must equal
+  `models.length`, `(field, sense, es, en)` must be unique, and a `target_key` must resolve to a word in the bundle or
+  in the database's whole `words.key` set (all statuses).
+- `dropped.jsonl` is audit only: its count is not cross-checked and none of its rows are imported. `raw/` (provider
+  responses) is never read and must not be committed.
+- The bundle is refused **whole** — nothing written, `run_id` not recorded — on: missing/invalid manifest,
+  `status:"failed"`, missing `candidates.jsonl`, `candidates_sha256` mismatch, zero candidates, any schema or semantic
+  violation, a rework candidate whose key does not exist, or a rework candidate older than the word's newest reviewer
+  `edit`/`approve` revision without `--force`.
+
+#### What it writes
+
+- `council_runs`: one row per bundle (`run_id` unique, mode, prompt versions, style-guide hash, request topic/CEFR/count,
+  requested and succeeded model counts, reduced-confidence flag, candidate/dropped counts, `candidates_sha256`,
+  created/imported timestamps).
+- `council_model_results`: one `propose` and one `critique` row per roster model, with per-phase status and latency;
+  token and cost figures are per model, so they are written on the `propose` row only (no double count).
+- `word_provenance`: one `proposed` row per id in `council.proposed_by`, plus one `critique_ok` / `critique_issue` row
+  per critique entry (`issues` as JSON when the verdict is `issue`), each at the written `word_version` and run.
+- `words` / `senses` / `word_alternatives` / `word_topics` / `word_revisions`: `source='council'`, `council_run_id`,
+  `council_agreement`, `council_band`, `reduced_confidence`, `lint_warnings`, `provenance_method='council'`,
+  `provenance_run=<run_id>`; one `action='import'` revision at the written version. Alternatives carry
+  `field` and `kind` = the ΔF field name, `support`, `models` (JSON), `region`, `register` and `word_version`; an
+  `example` alternative stores its Spanish sentence in `example` and its English in `gloss`. The revision snapshot is
+  the candidate mapped into the corpus document shape (not the raw candidate line), because the reviewer state machine
+  reads `senses[].gloss`/`acceptedEs`, `region` and `topics` from it.
+- `propose` lands every new word in `pending_review`; `--hold` lands it in `draft` instead. `--hold` affects `propose`
+  only. A key that already exists is skipped whatever its status (`skipped_existing`), but the run is still recorded,
+  so the bundle is not retried.
+- `rework` bumps `version` from the database's current version (never from a bundle number), sets `pending_review`,
+  demotes cards (`epoch` + 1, `suspended_reason='word_not_approved'`, FSRS state untouched) and appends the new
+  revision; the previous snapshot stays readable at its old version. `--force` overrides the newer-reviewer-verdict
+  refusal for the **whole** bundle.
+
+#### Idempotency and the content hash
+
+- `council_runs.run_id` is unique. A bundle whose run id is already recorded is a strict no-op
+  (`already imported`); the run-id check and every write share one SQLite `BEGIN IMMEDIATE` transaction, so the startup
+  sync and an operator CLI cannot both import the same bundle.
+- `words.content_hash` for a council word is the canonical JSON of the candidate **without `council.run_id`** (run
+  identity is provenance, not source content; without the exclusion the §3.3(1) `unchanged` case is unreachable,
+  because a rework run always carries a new id). Set-valued arrays — `council.proposed_by` and each
+  `alternatives[].models` — are sorted ordinally before hashing, so an order-only permutation is not a content change.
+  Everything else is hashed in document order.
+- A `rework` candidate whose hash equals the stored `content_hash` is `unchanged`: no version bump, status change,
+  revision, card epoch or alternative replacement. A reviewer's `approve_edit`/`approve_alt` never rewrites
+  `content_hash`, so the comparison still detects a real source change.
+- `--dry-run` validates and prints predicted counts through a read-only connection; with no database file it creates
+  none and every valid candidate is predicted as `created`, otherwise the same decision code predicts
+  `created`/`updated`/`unchanged`/`skipped_existing`/`skipped_reviewer_edit_newer`.
+
+#### Startup sync
+
+`ContentSyncService` scans `Content:CouncilDirectory` (default `content/council` under the app directory) once at
+startup and imports every `*/manifest.json` with `ProposeOnly`: a `rework` bundle is refused on this path and only
+logged.
+`rework` reaches the database solely through `import-council` (Q-M3-7), because a container restart must never move
+approved content. `Content:CouncilSyncEnabled` (env `Content__CouncilSyncEnabled`) is the kill switch, default true;
+a missing directory is a successful no-op. Each bundle has its own transaction; a refusal or error is logged and
+skipped, retried on the next start (its run id was never recorded), and `/healthz` is unaffected. The image ships no
+bundles yet, so today this is the no-op path.
 
 ### `content approve <key…>` / `content approve --all-pending`
 
