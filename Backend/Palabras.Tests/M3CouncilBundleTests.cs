@@ -81,6 +81,10 @@ public sealed class M3CouncilBundleTests : IDisposable
         Assert.Equal("ES", patata.Candidate.Region);
         Assert.Equal("media", patata.Candidate.Council.Band);
         Assert.Equal(0.67, patata.Candidate.Council.Agreement, 2);
+        // Proposers are the models behind the winning candidate, not the union of alternative
+        // models: es-patata's alternatives name all three models, but only two proposed the winner.
+        Assert.Equal(new[] { "anthropic:claude-sonnet-5-5", "openai:gpt-6-mini" },
+            patata.Candidate.Council.ProposedBy);
         Assert.Equal("issue", patata.Candidate.Council.Critique[2].Verdict);
         Assert.Equal(new[] { "register" }, patata.Candidate.Council.Critique[2].Issues);
         Assert.Equal(5, patata.Candidate.Alternatives.Count);
@@ -90,6 +94,7 @@ public sealed class M3CouncilBundleTests : IDisposable
         Assert.Equal(2, nevera.Line);
         Assert.Equal("ES-NA", nevera.Candidate.Region);
         Assert.Equal("colloquial", nevera.Candidate.Register);
+        Assert.Equal(3, nevera.Candidate.Council.ProposedBy.Count);
         Assert.Equal(2, nevera.Candidate.Senses.Count);
         Assert.Equal(7, nevera.Candidate.Alternatives.Count);
         Assert.Equal(1, nevera.Candidate.Alternatives[6].SenseIndex);
@@ -119,6 +124,49 @@ public sealed class M3CouncilBundleTests : IDisposable
         var issue = Assert.Single(result.Issues);
         Assert.Equal("candidates.jsonl:1", issue.Location);
         Assert.Contains("lemma", issue.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CandidateWithoutProposedByIsRefusedWithItsOwnDiagnosticAsync()
+    {
+        // A bundle produced before council.proposed_by existed must not import: the importer cannot
+        // infer proposers from alternatives, which name dissenters.
+        var result = await ValidateFixtureAsync("missing-proposed-by");
+
+        Assert.False(result.IsValid);
+        var issue = Assert.Single(result.Issues);
+        Assert.Equal("candidates.jsonl:1", issue.Location);
+        Assert.Contains("council.proposed_by is missing or empty", issue.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProposedByMustNameDeclaredModelsThatSucceededInTheProposePhaseAsync()
+    {
+        var unknown = CopyFixture("valid-propose");
+        EditCandidate(unknown, 0, candidate =>
+            candidate["council"]!["proposed_by"] = new JsonArray("mistral:ghost-1"));
+        var unknownResult = await CouncilBundleValidator.ValidateAsync(unknown, null, CancellationToken.None);
+
+        Assert.False(unknownResult.IsValid);
+        Assert.Contains(unknownResult.Issues, issue =>
+            issue.Location == "candidates.jsonl:1" &&
+            issue.Message.Contains("'mistral:ghost-1', which is not declared in manifest.models", StringComparison.Ordinal));
+
+        // A model that is on the roster but failed the propose phase produced no candidate, so it
+        // cannot be a proposer. Fail the phase in the manifest and keep naming that model.
+        var failedPhase = CopyFixture("valid-propose");
+        EditManifest(failedPhase, manifest =>
+        {
+            manifest["models"]![2]!["phases"]!["propose"] = "failed";
+            manifest["reduced_confidence"] = true;
+            manifest["models_succeeded"]!["propose"] = 2;
+        });
+        var failedResult = await CouncilBundleValidator.ValidateAsync(failedPhase, null, CancellationToken.None);
+
+        Assert.False(failedResult.IsValid);
+        Assert.Contains(failedResult.Issues, issue =>
+            issue.Location == "candidates.jsonl:2" &&
+            issue.Message.Contains("phases.propose is \"failed\"", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -330,6 +378,20 @@ public sealed class M3CouncilBundleTests : IDisposable
         var manifest = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
         edit(manifest);
         File.WriteAllText(path, manifest.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
+    }
+
+    // Rewrites one candidate line and refreshes candidates_sha256, so a test isolates the rule it
+    // plants instead of tripping the bundle hash first.
+    private static void EditCandidate(string bundle, int index, Action<JsonObject> edit)
+    {
+        var path = Path.Combine(bundle, "candidates.jsonl");
+        var lines = File.ReadAllLines(path).Where(line => !string.IsNullOrWhiteSpace(line))
+            .Select(line => JsonNode.Parse(line)!.AsObject()).ToList();
+        edit(lines[index]);
+        var text = string.Join('\n', lines.Select(line => line.ToJsonString())) + "\n";
+        File.WriteAllText(path, text, new UTF8Encoding(false));
+        EditManifest(bundle, manifest =>
+            manifest["candidates_sha256"] = CanonicalJson.Sha256Hex(Encoding.UTF8.GetBytes(text)));
     }
 
     public void Dispose()

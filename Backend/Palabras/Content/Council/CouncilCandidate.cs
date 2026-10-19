@@ -130,6 +130,13 @@ internal sealed class CouncilCandidateVerdict
     [JsonPropertyName("proposal_support")]
     public double ProposalSupport { get; set; }
 
+    // The models that proposed the winning candidate. Deliberately separate from
+    // CouncilAlternative.Models: an alternative's models dissented from this candidate, so inferring
+    // `proposed` provenance from alternatives names the wrong models (and names none when a
+    // candidate has no alternatives).
+    [JsonPropertyName("proposed_by")]
+    public List<string> ProposedBy { get; set; } = [];
+
     [JsonPropertyName("critique")]
     public List<CouncilCritique> Critique { get; set; } = [];
 

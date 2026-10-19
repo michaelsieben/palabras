@@ -285,6 +285,8 @@ public sealed class M3CouncilImportTests : IDisposable
 
         Assert.NotEmpty(refused.Refusals);
         Assert.Contains(refused.Refusals, line => line.Contains("older than the newest reviewer revision", StringComparison.Ordinal));
+        // The flag is bundle-wide; the diagnostic must say so, not imply one stale key is skipped.
+        Assert.Contains(refused.Refusals, line => line.Contains("--force is bundle-wide", StringComparison.Ordinal));
         Assert.Equal(1, refused.SkippedReviewerEditNewer);
         Assert.Equal(0, refused.Created + refused.Updated);
         await using (var database = _settings.CreateContext())
@@ -323,9 +325,12 @@ public sealed class M3CouncilImportTests : IDisposable
         var patata = await database.Words.SingleAsync(word => word.Key == "es-patata-01");
         var rows = await database.WordProvenances.Where(row => row.WordId == patata.Id)
             .OrderBy(row => row.Role).ThenBy(row => row.ModelId).ToListAsync();
-        Assert.Equal(6, rows.Count);
-        Assert.Equal(new[] { "anthropic:claude-sonnet-5-5", "google:gemini-3-flash", "openai:gpt-6-mini" },
+        // es-patata's alternatives name all three models, but only two proposed the winning
+        // candidate: alternatives are disagreements, so the dissenter must not get a `proposed` row.
+        Assert.Equal(5, rows.Count);
+        Assert.Equal(new[] { "anthropic:claude-sonnet-5-5", "openai:gpt-6-mini" },
             rows.Where(row => row.Role == "proposed").Select(row => row.ModelId).ToArray());
+        Assert.DoesNotContain(rows, row => row.Role == "proposed" && row.ModelId == "google:gemini-3-flash");
         Assert.Equal(new[] { "critique_issue", "critique_ok", "critique_ok" },
             rows.Where(row => row.Role.StartsWith("critique", StringComparison.Ordinal)).Select(row => row.Role).ToArray());
         var issue = rows.Single(row => row.Role == "critique_issue");
@@ -339,9 +344,25 @@ public sealed class M3CouncilImportTests : IDisposable
 
         var nevera = await database.Words.SingleAsync(word => word.Key == "es-nevera-01");
         var neveraRows = await database.WordProvenances.Where(row => row.WordId == nevera.Id).ToListAsync();
+        // All three models proposed this candidate (proposal_support 1), so all three get a row.
         Assert.Equal(6, neveraRows.Count);
+        Assert.Equal(3, neveraRows.Count(row => row.Role == "proposed"));
         Assert.All(neveraRows.Where(row => row.Role != "proposed"), row => Assert.Null(row.Issues));
         Assert.DoesNotContain(neveraRows, row => row.ModelId == "mistral:ghost-1");
+    }
+
+    [Fact]
+    public async Task BundleWithoutProposedByIsRefusedBeforeAnyWriteAsync()
+    {
+        // An older bundle must fail loudly: inferring proposers from alternatives would name the
+        // wrong models (and name none when a candidate carries no alternatives), so the importer
+        // refuses rather than inventing provenance.
+        var result = await ImportAsync(Path.Combine(FixtureRoot(), "missing-proposed-by"));
+
+        Assert.Contains(result.Refusals,
+            line => line.Contains("council.proposed_by is missing or empty", StringComparison.Ordinal));
+        Assert.Equal(0, result.Created + result.Updated);
+        Assert.False(File.Exists(_settings.FilePath));
     }
 
     [Fact]
@@ -368,7 +389,9 @@ public sealed class M3CouncilImportTests : IDisposable
                 "potatoes (as a bar dish)", "papa", "patatilla" },
             alternatives.Select(alternative => alternative.Value).ToArray());
         Assert.Equal("I buy potatoes at the market.", alternatives[0].Gloss);
-        Assert.Equal("I buy potatoes at the market.", alternatives[0].Example);
+        // word_alternatives.example is the Spanish sentence (word.schema.json); the chip translation
+        // rides on Gloss, which is what the reviewer sees as `translation`.
+        Assert.Equal("Compro patatas en el mercado.", alternatives[0].Example);
         Assert.Equal("Propuesta del consejo", alternatives[0].Reason);
         Assert.Null(alternatives[1].Gloss);
         Assert.Equal("ES-NA", alternatives[4].Region);
@@ -387,6 +410,38 @@ public sealed class M3CouncilImportTests : IDisposable
         Assert.Equal("frigorífico", register.Value);
         Assert.Equal("formal", register.Register);
         Assert.Null(register.Region);
+    }
+
+    [Fact]
+    public async Task ExampleAlternativeStoresItsSpanishSentenceAndRegionalNoteIsStoredWithoutAChipTargetAsync()
+    {
+        var bundle = CopyFixture("valid-propose");
+        var lines = ReadCandidates(bundle);
+        lines[0]["alternatives"]!.AsArray().Add(JsonNode.Parse("""
+            {"field":"regional_note","sense":0,"es":"En Navarra se dice también patatilla.","support":1,
+             "models":["google:gemini-3-flash"],"rationale":"regional note the sheet has no tab for"}
+            """));
+        WriteCandidates(bundle, lines);
+
+        Assert.Empty((await ImportAsync(bundle)).Refusals);
+
+        await using var database = _settings.CreateContext();
+        var patata = await database.Words.SingleAsync(word => word.Key == "es-patata-01");
+        // word_alternatives.example means the Spanish sentence (word.schema.json and
+        // ContentImporter agree); the English translation is the chip's `gloss`/translation.
+        var example = Assert.Single(await database.WordAlternatives
+            .Where(alternative => alternative.WordId == patata.Id && alternative.Field == "example")
+            .ToListAsync());
+        Assert.Equal("Compro patatas en el mercado.", example.Value);
+        Assert.Equal("Compro patatas en el mercado.", example.Example);
+        Assert.Equal("I buy potatoes at the market.", example.Gloss);
+        // The regional note is stored for the audit trail; ReviewTransitions has no chip/swap target
+        // for it, which M4ReviewCouncilChipsTests pins. Storage is the decision, not an omission.
+        var note = Assert.Single(await database.WordAlternatives
+            .Where(alternative => alternative.WordId == patata.Id && alternative.Field == "regional_note")
+            .ToListAsync());
+        Assert.Equal("En Navarra se dice también patatilla.", note.Value);
+        Assert.Null(note.Example);
     }
 
     [Fact]

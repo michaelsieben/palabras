@@ -60,6 +60,11 @@
       "code": "alternative_field"
     },
     {
+      "dir": "missing-proposed-by",
+      "valid": false,
+      "code": "proposed_by_missing"
+    },
+    {
       "dir": "candidate-carries-source",
       "valid": false,
       "code": "candidate_schema"

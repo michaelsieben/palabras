@@ -154,8 +154,10 @@ internal sealed class CouncilImporter
     {
         CouncilImportOutcomes.MissingWord =>
             $"candidates.jsonl:{decision.Entry.Line}: rework candidate '{decision.Entry.Candidate.Key}' does not exist in the database; rework may only version an existing word",
+        // --force is bundle-wide, not per candidate: say so here, because the reviewer is about to
+        // override the guard for every stale key in this bundle at once.
         _ =>
-            $"candidates.jsonl:{decision.Entry.Line}: rework candidate '{decision.Entry.Candidate.Key}' is older than the newest reviewer revision; pass --force to override"
+            $"candidates.jsonl:{decision.Entry.Line}: rework candidate '{decision.Entry.Candidate.Key}' is older than the newest reviewer revision; pass --force to override. --force is bundle-wide: it imports every rework candidate in this bundle, including ones you did not mean to override"
     };
 
     // A null database means "no words and no runs exist yet" (a dry run before the first start), so
@@ -476,7 +478,11 @@ internal sealed class CouncilImporter
                 Gloss = alternative.Es is null ? null : alternative.En,
                 Reason = alternative.Rationale ?? AlternativeReasonFallback,
                 TargetKey = alternative.TargetKey,
-                Example = alternative.Field == "example" ? alternative.En : null,
+                // word_alternatives.example means the Spanish sentence in use (word.schema.json:
+                // "Optional Spanish sentence showing the alternative in use", and ContentImporter
+                // copies the document's `example` verbatim). The English translation rides on Gloss
+                // so the chip shows it and an example swap can refresh sense.ExampleEn.
+                Example = alternative.Field == "example" ? alternative.Es : null,
                 Rank = rank,
                 Support = alternative.Support,
                 Models = JsonSerializer.Serialize(alternative.Models),
@@ -507,11 +513,12 @@ internal sealed class CouncilImporter
         CouncilCandidate candidate)
     {
         var seen = new HashSet<(string Model, string Role)>();
-        // The bundle carries no per-candidate proposer list; the models that proposed a surviving
-        // alternative are the only per-candidate proposal evidence it has. A model named in two
-        // alternatives gets one row (the PK is per model and role).
-        foreach (var model in candidate.Alternatives.SelectMany(alternative => alternative.Models)
-                     .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
+        // Proposers come from council.proposed_by, never from alternatives[].models: an alternative
+        // is a value a model preferred over this candidate, so its models are the dissenters. The
+        // schema requires a non-empty list, and the validator checked every id against the manifest
+        // roster and the propose phase, so this loop is a straight projection.
+        foreach (var model in candidate.Council.ProposedBy.Distinct(StringComparer.Ordinal)
+                     .Order(StringComparer.Ordinal))
         {
             if (!seen.Add((model, "proposed")))
             {

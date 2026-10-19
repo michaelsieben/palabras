@@ -124,6 +124,18 @@ internal static class CouncilBundleValidator
                 issues.Add(new(at, "not valid JSON: " + exception.Message));
                 continue;
             }
+            // A bundle produced before `council.proposed_by` existed must fail loudly here rather
+            // than import: the importer refuses to infer proposers from alternatives, which list
+            // only the models that dissented from this candidate. A wrong-typed value is left to
+            // the schema check below, which names the type.
+            if (node is JsonObject candidateNode && candidateNode["council"] is JsonObject councilNode
+                && (!councilNode.TryGetPropertyValue("proposed_by", out var proposedBy)
+                    || proposedBy is JsonArray { Count: 0 }))
+            {
+                issues.Add(new(at,
+                    "council.proposed_by is missing or empty; it must list the model ids that proposed this candidate, one or more ids that are declared in manifest.models and successful in the propose phase"));
+                continue;
+            }
             if (AddSchemaIssues(CandidateSchema.Value, node, at, issues))
             {
                 continue;
@@ -207,12 +219,29 @@ internal static class CouncilBundleValidator
     {
         var at = $"{CandidatesFileName}:{entry.Line}";
         var candidate = entry.Candidate;
-        var modelIds = manifest.Models.Select(model => model.Id).ToHashSet(StringComparer.Ordinal);
+        var proposePhase = manifest.Models
+            .ToDictionary(model => model.Id, model => model.Phases.Propose, StringComparer.Ordinal);
+        var modelIds = proposePhase.Keys.ToHashSet(StringComparer.Ordinal);
 
         if (!StringComparer.Ordinal.Equals(candidate.Council.RunId, manifest.RunId))
         {
             issues.Add(new(at,
                 $"council.run_id '{candidate.Council.RunId}' does not match manifest.run_id '{manifest.RunId}'"));
+        }
+        // The proposer list is provenance the importer writes verbatim, so it has to name only
+        // models that exist and that actually proposed in this run. A model that failed the
+        // propose phase has no candidate output to be a proposer of.
+        foreach (var model in candidate.Council.ProposedBy)
+        {
+            if (!proposePhase.TryGetValue(model, out var phase))
+            {
+                issues.Add(new(at, $"council.proposed_by contains '{model}', which is not declared in manifest.models"));
+            }
+            else if (phase != "ok")
+            {
+                issues.Add(new(at,
+                    $"council.proposed_by contains '{model}', whose phases.propose is \"{phase}\"; only a model that succeeded in the propose phase can be listed as a proposer"));
+            }
         }
         var expectedBand = BandFor(candidate.Council.Agreement);
         if (expectedBand == null)

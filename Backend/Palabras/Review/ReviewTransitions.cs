@@ -139,8 +139,12 @@ internal static class ReviewTransitions
 
     // Legacy word_alternatives carry a v1 `kind`; M3b council rows store the ΔF field name in `kind`
     // (and `field`). Both vocabularies resolve here, so a council chip is visible even before the
-    // endpoint's `field` preference lands (C4). `regional_note` is deliberately absent: the sheet has
-    // no swap target for a note, and approve_alt would otherwise write it as an example.
+    // endpoint's `field` preference lands (C4). `regional_note` is deliberately absent, and that is
+    // a recorded decision rather than an omission: the note is stored (word_alternatives with
+    // field='regional_note', and in the revision snapshot) but not offered as a chip, because the
+    // sheet has no regional_note tab and approve_alt has no swap target for a note (it would fall
+    // through to ExampleEs and corrupt the example). Revisiting it means a UI decision, not a bug
+    // fix.
     internal static string? FieldForAlternativeKind(string kind) => kind switch
     {
         "lemma" or "gloss" or "example" or "regional_variant" or "register_variant" => kind,
@@ -397,6 +401,15 @@ internal static class ReviewTransitions
         {
             sense!.ExampleEs = alternative.Value;
             source!["example"] = alternative.Value;
+            // A council example alternative carries its English translation in `gloss` (the bundle's
+            // `en`); without this the swap would leave example_en describing the sentence it just
+            // replaced. Legacy undo alternatives (`previous_example`) carry no gloss, so their
+            // behaviour is unchanged.
+            if (!string.IsNullOrEmpty(alternative.Gloss))
+            {
+                sense.ExampleEn = alternative.Gloss;
+                source!["exampleGloss"] = alternative.Gloss;
+            }
         }
         previous[(field, request.SenseOrder)] = before;
         diff.Add(new JsonObject

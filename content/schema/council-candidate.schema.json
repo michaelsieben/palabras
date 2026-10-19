@@ -252,6 +252,7 @@
         "agreement",
         "band",
         "proposal_support",
+        "proposed_by",
         "critique",
         "lint_warnings",
         "lint_actions"
@@ -278,7 +279,14 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1,
-          "description": "Fraction of proposing models that produced this candidate. Tie-breaker only."
+          "description": "Fraction of proposing models that produced this candidate (proposed_by.length / models_succeeded.propose). Tie-breaker only."
+        },
+        "proposed_by": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": "Model ids that proposed the winning candidate itself. Not the same set as alternatives[].models: those list the models behind a dissenting value. Every id must be declared in manifest.models and must have phases.propose \"ok\"; the importer writes one word_provenance row per id. Required, so a bundle produced before the field existed is refused instead of importing provenance inferred from alternatives."
         },
         "critique": {
           "type": "array",

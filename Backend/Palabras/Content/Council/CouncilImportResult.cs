@@ -41,6 +41,9 @@ internal static class CouncilImportOutcomes
 // CLI/sync flags. ProposeOnly is the startup-sync guard (Q-M3-7): a rework bundle changes the status
 // and version of approved content, so the importer itself refuses it for the sync path and only the
 // explicit `import-council` verb passes both modes through.
+// Force is bundle-wide by design: there is no per-key override, so --force disables the "reviewer
+// edit is newer than the bundle" guard for EVERY rework candidate in the bundle. The refusal text
+// names that blast radius; if a per-key flag ever lands, keep the text honest.
 internal sealed record CouncilImportOptions(
     bool DryRun = false,
     bool Force = false,
