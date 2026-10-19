@@ -24,6 +24,11 @@ internal sealed record QueueBounds(int UserId, string LocalToday, long StartOfLo
 
 internal static class LearnQueries
 {
+    // The content schema bounds `difficulty` at 9999 (content/schema/word.schema.json), so
+    // int.MaxValue is above every possible rank by construction. NULL therefore sorts after every
+    // ranked word instead of landing mid-ramp.
+    internal const int UnrankedDifficulty = int.MaxValue;
+
     internal static IQueryable<Card> Eligible(PalabrasDbContext database, QueueBounds bounds, ActiveSenses active)
     {
         ArgumentNullException.ThrowIfNull(database);
@@ -100,7 +105,9 @@ internal static class LearnQueries
             join word in database.Words on sense.WordId equals word.Id
             // Within a band, the content rank ramps the session (plan §2). SQLite sorts NULL first
             // in ASC, so the coalesce is load-bearing: an unranked word must sort last, not first.
-            orderby word.Cefr, word.Difficulty ?? 999, word.Id, sense.SenseOrder
+            // The sentinel is int.MaxValue, above the schema's 9999 ceiling, so no shipped rank
+            // can tie with it.
+            orderby word.Cefr, word.Difficulty ?? UnrankedDifficulty, word.Id, sense.SenseOrder
             select card;
         return limit is { } take ? query.Take(take) : query;
     }

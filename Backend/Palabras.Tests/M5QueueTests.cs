@@ -134,7 +134,7 @@ public sealed class M5QueueTests
             .OrderByDescending(item => item.Card.State == CardState.Learning || item.Card.State == CardState.Relearning)
             .ThenBy(item => item.Card.DueMs).Select(item => item.Card).Take(200);
         IQueryable<Card> fresh = eligible.Where(item => item.Card.State == CardState.New && item.Card.Direction == "es_en")
-            .OrderBy(item => item.Word.Cefr).ThenBy(item => item.Word.Difficulty ?? 999)
+            .OrderBy(item => item.Word.Cefr).ThenBy(item => item.Word.Difficulty ?? LearnQueries.UnrankedDifficulty)
             .ThenBy(item => item.Word.Id).ThenBy(item => item.Sense.SenseOrder)
             .Select(item => item.Card).Take(12);
         string dueSql = due.ToQueryString();
@@ -156,7 +156,7 @@ public sealed class M5QueueTests
         Assert.Contains("\"reviewed_at_ms\" <", dueSql);
         Assert.Contains("\"cefr\"", newSql);
         // U2: the rank is coalesced in SQL, so no client evaluation and no NULL-first ordering.
-        Assert.Contains("COALESCE(\"w\".\"difficulty\", 999)", newSql);
+        Assert.Contains("COALESCE(\"w\".\"difficulty\", 2147483647)", newSql);
         Assert.Equal(new[] { 3, 2, 9, 1 }, (await due.ToListAsync(CancellationToken.None)).Select(card => card.Id).ToArray());
         Assert.Equal(new[] { 14, 13 }, (await fresh.ToListAsync(CancellationToken.None)).Select(card => card.Id).ToArray());
         Assert.Equal(new[] { 3, 2 }, (await due.Take(2).ToListAsync(CancellationToken.None)).Select(card => card.Id).ToArray());
@@ -168,8 +168,9 @@ public sealed class M5QueueTests
     }
 
     // U2: within a CEFR band the new-card ramp is the content rank, and SQLite sorts NULL first in
-    // ASC, so `?? 999` is load-bearing: the unranked word must sort last, not jump the queue.
-    // ids are chosen so that ordering by id alone gives the wrong answer.
+    // ASC, so the coalesce is load-bearing: the unranked word must sort last, not jump the queue.
+    // The sentinel must clear the schema's 9999 ceiling, so a real rank above 999 cannot tie with
+    // an unranked word. ids are chosen so that ordering by id alone gives the wrong answer.
     [Fact]
     public async Task NewCardsFollowCefrThenDifficultyThenIdAsync()
     {
@@ -182,6 +183,9 @@ public sealed class M5QueueTests
         AddNewWord(database, 10, "A1", 20);
         AddNewWord(database, 11, "A1", null);
         AddNewWord(database, 12, "A1", 10);
+        // Ranked above the old 999 sentinel: still ahead of the unranked word, and its id (9) sits
+        // below 10/12 so neither id order nor the 999 fallback can produce the expected sequence.
+        AddNewWord(database, 9, "A1", 5000);
         // Cross-band control: an A2 word ranked ahead of every A1 word still sorts after them.
         AddNewWord(database, 1, "A2", 1);
         await database.SaveChangesAsync(CancellationToken.None);
@@ -189,7 +193,7 @@ public sealed class M5QueueTests
         var active = await ActiveSenses.LoadAsync(database, null, CancellationToken.None);
         IQueryable<Card> query = LearnQueries.New(database, bounds, active, 12);
         Assert.Contains("COALESCE(", query.ToQueryString());
-        Assert.Equal(new[] { 12, 10, 11, 1 },
+        Assert.Equal(new[] { 12, 10, 9, 11, 1 },
             (await query.Select(card => card.Id).ToListAsync(CancellationToken.None)).ToArray());
     }
 

@@ -155,7 +155,8 @@ internal sealed class ContentImporter
             word.Pos = Text(root, "partOfSpeech")!;
             word.Cefr = Text(root, "cefr")!;
             // Intra-band authoring rank (content schema `difficulty`). A file without it maps to
-            // NULL: the new-card ordering coalesces NULL to 999, so unranked words sort last.
+            // NULL: the new-card ordering coalesces NULL to int.MaxValue, above the schema's 9999
+            // ceiling, so unranked words sort after every ranked word.
             word.Difficulty = root["difficulty"]?.GetValue<int>();
             word.RegionScope = Text(root["region"]!, "scope")!;
             word.RegionNotes = Text(root["region"]!, "notes");

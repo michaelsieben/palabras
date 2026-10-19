@@ -10,7 +10,8 @@ internal sealed class Word
     public string Pos { get; set; } = "";
     public string Cefr { get; set; } = "";
     // Intra-band authoring rank (lower = taught earlier), content-level `difficulty`. NULL for a file
-    // that carries no rank; the new-card ordering coalesces it to 999 so an unranked word sorts last.
+    // that carries no rank; the new-card ordering coalesces it to int.MaxValue so an unranked word
+    // sorts after every ranked word (the content schema caps ranks at 9999).
     public int? Difficulty { get; set; }
     public string RegionScope { get; set; } = "";
     public string Register { get; set; } = "";

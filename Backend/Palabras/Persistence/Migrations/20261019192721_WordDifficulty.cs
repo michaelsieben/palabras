@@ -12,7 +12,9 @@ namespace Palabras.Persistence.Migrations
     /// <c>ALTER TABLE "words" ADD "difficulty" INTEGER NULL</c>. No CHECK, no FK, no index: any of
     /// them would rebuild <c>words</c> (or force a rebuild of an indexed sibling table) and widen the
     /// crash window documented for ReviewGate in docs/08-upgrade-rollback.md §G. The column stays
-    /// NULL for rows the old image inserts, and the new-card ordering coalesces NULL to 999.
+    /// NULL for rows the old image inserts, and the new-card ordering coalesces NULL to
+    /// <c>int.MaxValue</c>, above the content schema's 9999 rank ceiling, so an unranked word sorts
+    /// after every ranked word.
     ///
     /// Do not replace the <c>AddColumn</c> with a provider operation that needs a rebuild. The schema
     /// test (<c>M3WordDifficultySchemaTests</c>) fails if the generated script contains
