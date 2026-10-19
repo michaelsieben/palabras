@@ -86,7 +86,7 @@ export async function getSessionPlan(options: { maxNew?: number; budgetS?: numbe
   return parseSessionPlan(body)
 }
 export function parseSessionPlan(body: unknown): SessionPlan {
-  if (!object(body) || !['sessionId', 'generatedAtUtc', 'localDate'].every(key => typeof body[key] === 'string')
+  if (!object(body) || !['sessionId', 'generatedAtUtc'].every(key => typeof body[key] === 'string') || !isLocalDate(body.localDate)
     || !Array.isArray(body.items) || !body.items.every(planItem) || !object(body.counts)
     || !['due', 'newOffered', 'backlog'].every(key => typeof (body.counts as Record<string, unknown>)[key] === 'number')
     || !strings(body.warnings) || (body.nextDueUtc !== undefined && typeof body.nextDueUtc !== 'string')) throw new ApiError('invalid-response')

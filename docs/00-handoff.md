@@ -105,7 +105,7 @@ At M0 handoff time (2026-10-17) `Frontend/**`, `content/**`, `tools/**` and some
 - ~~Forwarded headers, host filtering, auth, roles, data protection keys (M1).~~ Done; see §7.
 - ~~EF Core model, migrations, importer, revisions (M2).~~ Done; see §7.
 - Council CLI (M3), reviewer gate backed by the API (M4), ~~FSRS (M5)~~, real sessions (M6, in
-  progress), day status / streak / skip frontend (M7; backend shipped `83d29a5`), Web Push (M8), ~~backups (M10)~~. Struck items
+  progress), ~~day status / streak / skip frontend~~ (M7 wiring shipped `0303a87`, server-date and refresh corrections T-20261019-1508), Web Push (M8), ~~backups (M10)~~. Struck items
   shipped; see §7.
 - ~~Content lint in CI~~ Done: `Lint content` step in `.github/workflows/ci.yml:38-39`.
 - Real-device measurements on the OnePlus 15 / Tab 3 (`runs/13-pwa-ultrawide.md`).
@@ -149,7 +149,7 @@ MVP = M0–M10. Later = L1–L6. Full text in `design-amendment.md` ΔG.
 | M4 | Reviewer gate `/revisar` | Mock UI only (`/api/review/queue` is an empty stub) |
 | M5 | FSRS-6 + cards created on approval (parallel after M2) | Implemented |
 | M6 | Session composer + exercises 1–4 + offline | In progress (composer API, session UI and IndexedDB offline attempt queue + Chromium e2e shipped, `21f1d52`; Android Chrome device check not done, checklist in `Frontend/HOSTING.md`). Exercises 1–2 and the timer/estimate are replaced by owner decision (`07-learn-api.md` deviations) |
-| M7 | Day status, streak, rolling skip | Backend implemented (`83d29a5`, `07-learn-api.md` M7 section); rollover gate default OFF, backfill guard and bounded `localDate` on `day/done` added (`3a6b4c9`). Cutover made durable in `app_meta` (`c7262f8`); `missed` history restricted to the owner account (`c3ce543`). Rollover **not enabled**: a separate decision, gated on the remaining C4/C6 items (M7-capable client, job evidence; `07-learn-api.md` "Not covered yet") and the `08-upgrade-rollback.md` §D evidence. Frontend not wired |
+| M7 | Day status, streak, rolling skip | Backend implemented (`83d29a5`, `07-learn-api.md` M7 section); rollover gate default OFF, backfill guard and bounded `localDate` on `day/done` added (`3a6b4c9`). Cutover made durable in `app_meta` (`c7262f8`); `missed` history restricted to the owner account (`c3ce543`). Frontend wired (`0303a87`; server plan date and live status refresh corrections T-20261019-1508). Rollover **not enabled**: operator decision still gated on deployed client/device and job evidence (`07-learn-api.md` "Not covered yet", `08-upgrade-rollback.md` §D). Timezone-change acceptance remains unavailable: no zone-setting API |
 | M8 | Web Push at 22:00 | Not started |
 | M9 | Wide-tablet learner layout | Mock layout done; device check pending |
 | M10 | Backups + restore | Implemented |

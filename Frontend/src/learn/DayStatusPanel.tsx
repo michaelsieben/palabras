@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { ApiError } from '../api/client'
 import { getDayStatus, skipDay } from '../api/learn'
 import type { DayStatus } from '../api/learn'
@@ -19,28 +19,35 @@ export function DayStatusPanel({ completionQueue }: { completionQueue: ReturnTyp
   const [online, setOnline] = useState(navigator.onLine)
   const [skipping, setSkipping] = useState(false)
   const [notice, setNotice] = useState('')
-  const refresh = useCallback((signal?: AbortSignal) => getDayStatus(signal).then(status => {
-      if (!signal?.aborted) { setDay(status); setError(false) }
-    }).catch(() => { if (!signal?.aborted) setError(true) })
-    .finally(() => { if (!signal?.aborted) setLoading(false) }), [])
+  const requestId = useRef(0)
+  const refresh = useCallback((signal?: AbortSignal) => {
+    const id = ++requestId.current
+    const current = () => !signal?.aborted && id === requestId.current
+    return getDayStatus(signal).then(status => {
+      if (current()) { setDay(status); setError(false) }
+    }).catch(() => { if (current()) setError(true) })
+      .finally(() => { if (current()) setLoading(false) })
+  }, [])
   useEffect(() => {
     const controller = new AbortController()
     void refresh(controller.signal)
     const update = () => { setOnline(navigator.onLine); if (navigator.onLine) { setLoading(true); void refresh(controller.signal) } }
     const visible = () => { if (document.visibilityState === 'visible') update() }
+    const timer = window.setInterval(visible, 60_000)
     window.addEventListener('online', update); window.addEventListener('offline', update)
     window.addEventListener('focus', update); document.addEventListener('visibilitychange', visible)
     return () => {
-      controller.abort(); window.removeEventListener('online', update); window.removeEventListener('offline', update)
+      controller.abort(); window.clearInterval(timer); window.removeEventListener('online', update); window.removeEventListener('offline', update)
       window.removeEventListener('focus', update); document.removeEventListener('visibilitychange', visible)
     }
   }, [refresh, completion.last]) // Done's payload can be yesterday: always refetch today.
   async function skip() {
     if (!day || skipping) return
+    ++requestId.current // An older status read must not overwrite this mutation.
     setSkipping(true); setNotice('')
     try {
       const result = await skipDay(day.localDate)
-      if (result.kind === 'skipped') { setDay(result.day); setNotice('Salto guardado. Puedes practicar igualmente; al completar el día recuperas el salto.') }
+      if (result.kind === 'skipped') { setDay(result.day); setNotice('Salto guardado. Puedes practicar igualmente; al completar el día recuperas el salto.'); await refresh() }
       else if (result.kind === 'already_done') {
         setDay({ ...day, status: 'done' }); setNotice('Ya has completado hoy. Puedes seguir practicando.'); await refresh()
       } else {

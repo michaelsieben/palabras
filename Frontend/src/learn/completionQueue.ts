@@ -1,7 +1,7 @@
 import { ApiError } from '../api/client.ts'
 import { completeDay } from '../api/learn.ts'
 import type { DayCompletion, DayStatus } from '../api/learn.ts'
-import type { Attempt } from '../api/learn.ts'
+import type { Attempt, SessionPlan } from '../api/learn.ts'
 import type { getAttemptQueue } from './attemptQueue.ts'
 
 export type CompletionRow = { localDate: string; body: DayCompletion; state: 'pending' | 'sent' | 'rejected' }
@@ -11,12 +11,17 @@ export interface CompletionStore {
 }
 export type CompletionSnapshot = { pending: number; rejected: number; error: boolean; last: DayStatus | null }
 
-// The API exposes no zone setting yet: all current learners use its Europe/Madrid default.
-// Capture at completion, never at flush (or from an old cached plan / UTC date).
-export function completionLocalDate(now: Date = new Date(), timeZone = 'Europe/Madrid'): string {
-  const parts = new Intl.DateTimeFormat('en', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
-  const part = (type: string) => parts.find(item => item.type === type)!.value
-  return `${part('year')}-${part('month')}-${part('day')}`
+// Echo the server's session day, including cached plans and sessions crossing midnight.
+// Never infer the learner's zone or substitute the receipt day for an expired plan.
+export function sessionDayCompletion(plan: SessionPlan, attempts: readonly Attempt[]): DayCompletion {
+  const practiced = new Set(attempts.map(attempt => attempt.cardId))
+  const cards = plan.items.filter(card => practiced.has(card.cardId))
+  return {
+    localDate: plan.localDate,
+    durationS: Math.round(attempts.reduce((sum, attempt) => sum + attempt.durationMs, 0) / 1000),
+    newCount: cards.filter(card => card.isNew).length,
+    reviewCount: cards.filter(card => !card.isNew).length,
+  }
 }
 export function countsAsCompletedDay(stopping: boolean, attempts: readonly Pick<Attempt, 'durationMs'>[]): boolean {
   // Full composed session always counts. For an early stop use measured answer time,

@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { ApiError } from '../src/api/client.ts'
-import { completeDay, getDayStatus, parseDayStatus, skipDay } from '../src/api/learn.ts'
-import { completionLocalDate, countsAsCompletedDay, createCompletionQueue } from '../src/learn/completionQueue.ts'
+import { completeDay, getDayStatus, parseDayStatus, parseSessionPlan, skipDay } from '../src/api/learn.ts'
+import { sessionDayCompletion, countsAsCompletedDay, createCompletionQueue } from '../src/learn/completionQueue.ts'
 import { createAttemptQueue } from '../src/learn/attemptQueue.ts'
 
 const day = { localDate: '2026-10-18', status: 'done', streak: 4, skipAvailable: true, skipNextAvailable: null }
@@ -14,11 +14,17 @@ function store() {
 }
 const answers = { flush: async () => {}, getSnapshot: () => ({ pending: 0, error: false }) }
 
-test('completion date is learner local, not UTC/browser zone, across midnight and DST', () => {
-  assert.equal(completionLocalDate(new Date('2026-10-18T22:01:00Z')), '2026-10-19')
-  assert.equal(completionLocalDate(new Date('2026-10-18T21:59:00Z')), '2026-10-18')
-  assert.equal(completionLocalDate(new Date('2026-10-25T23:01:00Z')), '2026-10-26')
-  assert.equal(completionLocalDate(new Date('2026-10-18T02:00:00Z'), 'America/New_York'), '2026-10-17')
+test('completion echoes server session day across midnight, DST and arbitrary learner zones', () => {
+  for (const localDate of ['2026-10-18', '2026-10-25', '2026-03-29', '2026-10-17']) {
+    const plan = { localDate, items: [{ cardId: 1, isNew: true }, { cardId: 2, isNew: false }, { cardId: 3, isNew: false }] }
+    const attempts = [{ cardId: 1, durationMs: 1200 }, { cardId: 1, durationMs: 800 }, { cardId: 2, durationMs: 3000 }]
+    assert.deepEqual(sessionDayCompletion(plan, attempts), { localDate, durationS: 5, newCount: 1, reviewCount: 1 })
+  }
+})
+test('invalid server plan date cannot be cached or sent as a completion date', () => {
+  const plan = { sessionId: 'session', generatedAtUtc: '2026-10-18T12:00:00Z', localDate: '2026-10-18', items: [], counts: { due: 0, newOffered: 0, backlog: 0 }, warnings: [] }
+  assert.deepEqual(parseSessionPlan(plan), plan)
+  for (const localDate of ['2026-02-30', '2026-10-18T12:00:00Z', '', null]) assert.throws(() => parseSessionPlan({ ...plan, localDate }), /invalid-response/)
 })
 test('only full sessions or an early stop with at least 300s measured active time count', () => {
   assert.equal(countsAsCompletedDay(false, [{ durationMs: 1 }]), true)

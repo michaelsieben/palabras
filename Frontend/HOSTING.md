@@ -39,6 +39,8 @@ On app load, focus, visible `visibilitychange`, and every visible minute, fetch 
 
 ## Device acceptance still required
 
+M7 day wiring: Hoy and `/sesion` show server day/streak and explicit "Saltar hoy" availability. Skip is online-only and never changes cards; finishing a nonempty session queues `done` with the **server plan's `localDate`**, after durable answers. The queue survives reconnect/reload and never substitutes today for an expired date. Today's status is refetched separately after an old-day completion. `npm run test:day:browser` runs targeted mocked Chromium coverage (build first); it is not device/backend-ledger evidence. Operator must confirm status/action usability visually on Android Chrome and deployment before considering rollover enablement. `M7:DayRolloverEnabled` stays OFF by default. Timezone-change-from-next-day acceptance cannot be exercised until a zone-setting API exists.
+
 Run dev server with explicit network binding, e.g. `npm run dev -- --host 0.0.0.0`, only on trusted LAN. Open `/debug/viewport` on OnePlus 15 and Tab 3 in both orientations; return CSS dimensions, DPR, orientation and visual viewport numbers. Record those through repo owner. Debug module is compiled out of production; SW disabled in dev. Installation, standalone and offline acceptance require HTTPS production app (or localhost), not unsecured LAN dev server.
 
 Confirm intended phone action reachability, 200% text usability, light/dark contrast, keyboard/focus flow, alternatives sheet vs tablet drawer and install screenshots visually. Headless geometry does not establish visual quality or actual device CSS dimensions.

@@ -12,7 +12,7 @@ import { FeedbackPanel } from './FeedbackPanel'
 import { SessionSummary } from './SessionSummary'
 import { EmptyQueue } from './EmptyQueue'
 import { CopyText } from './CopyText'
-import { completionLocalDate, countsAsCompletedDay, getCompletionQueue } from './completionQueue'
+import { sessionDayCompletion, countsAsCompletedDay, getCompletionQueue } from './completionQueue'
 import type { DayCompletion } from '../api/learn'
 import { DayStatusPanel } from './DayStatusPanel'
 
@@ -80,13 +80,8 @@ export function LearnSession({ username, attemptQueue, onComplete, enqueue: inje
   useEffect(() => { if (state.phase === 'summary') attemptQueue.trigger() }, [state.phase, attemptQueue])
   useEffect(() => {
     if (state.phase !== 'summary' || !state.plan || !state.attempts.length || !countsAsCompletedDay(state.stopping, state.attempts)) return
-    // Capture before waiting for storage/network: a late flush must never choose its receipt day.
-    const practiced = new Set(state.attempts.map(attempt => attempt.cardId))
-    const cards = state.plan.items.filter(card => practiced.has(card.cardId))
-    completionBody.current ??= {
-      localDate: completionLocalDate(), durationS: Math.round(state.attempts.reduce((sum, attempt) => sum + attempt.durationMs, 0) / 1000),
-      newCount: cards.filter(card => card.isNew).length, reviewCount: cards.filter(card => !card.isNew).length,
-    }
+    // Capture the server's session date before waiting for storage/network.
+    completionBody.current ??= sessionDayCompletion(state.plan, state.attempts)
     const body = completionBody.current
     void attemptQueue.persisted().then(() => completionQueue.enqueue(body))
       .then(() => { setCompletionSaveError(false); setCompletionDate(body.localDate) }).catch(() => setCompletionSaveError(true))

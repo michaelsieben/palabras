@@ -157,7 +157,7 @@ export async function runDayBrowser(browser) {
       }
       if (path.endsWith('/day/done')) {
         events.push('done'); completions.push(request.postDataJSON())
-        day = { ...day, status: 'done', streak: 4, skipAvailable: true, skipNextAvailable: null }
+        day = { ...day, status: request.postDataJSON().localDate === day.localDate ? 'done' : null, streak: 4, skipAvailable: true, skipNextAvailable: null }
         return route.fulfill({ json: { ...day, localDate: request.postDataJSON().localDate } })
       }
       if (path.endsWith('/attempts')) events.push('answers')
@@ -178,6 +178,8 @@ export async function runDayBrowser(browser) {
     await page.getByRole('button', { name: 'Saltar hoy', exact: true }).click()
     await page.getByText('Hoy saltado', { exact: true }).waitFor()
     offline = true; await context.setOffline(true)
+    // Even completion after midnight uses the server plan's day, not browser time.
+    await page.clock.setFixedTime(new Date('2026-10-18T22:01:00Z'))
     await page.getByLabel('Tu respuesta', { exact: true }).fill('cafe')
     await page.getByRole('button', { name: 'Comprobar', exact: true }).click()
     await page.getByRole('button', { name: 'Continuar · Good', exact: true }).click()
@@ -195,12 +197,113 @@ export async function runDayBrowser(browser) {
     day = { ...day, localDate: '2026-10-19', status: null }
     await page.goto('http://127.0.0.1:4173/')
     await page.getByText('19 de octubre de 2026 · Racha: 4 días', { exact: true }).waitFor()
+    await page.getByText('Hoy, por completar', { exact: true }).waitFor()
+    assert.equal(await page.getByRole('button', { name: 'Saltar hoy', exact: true }).isEnabled(), true)
+    assert.equal(await page.getByText(/Próximo salto:/).count(), 0) // Refunded token follows the server's today payload.
     assert.deepEqual(events, ['answers', 'done']); assert.equal(completions.length, 1)
     assert.equal(completions[0].localDate, '2026-10-18')
     await page.reload(); await page.getByLabel('Tu respuesta', { exact: true }).waitFor()
     assert.equal(completions.length, 1)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
     assert.deepEqual(errors, [])
-    console.log('M7 browser: mobile status/streak; camelCase 409 explains next skip date without blocking practice; successful skip; offline completion durably stored; close/reopen after Madrid midnight drains answers then original-day completion once; today refetched, reload dedupe; no horizontal overflow/page errors. Mock API, user visual confirmation still needed.')
+    console.log('M7 browser: mobile status/streak; camelCase 409 explains next skip date without blocking practice; successful skip; completion after midnight preserves server plan date; offline completion durably stored; close/reopen drains answers then original-day completion once; today refetched, reload dedupe; no horizontal overflow/page errors. Mock API, user visual confirmation still needed.')
+  } finally { await context.close() }
+}
+
+export async function runDayAcceptanceBrowser(browser) {
+  // Client consumes authoritative statuses; these mocks do not prove server ledger rules.
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: 'America/Los_Angeles', serviceWorkers: 'block' })
+  try {
+    let day = { localDate: '2026-10-25', status: 'missed', streak: 0, skipAvailable: true, skipNextAvailable: null }
+    let skipResponse = 'success'; let skips = 0; let attempts = 0; let completions = 0
+    let delayRead = false; let releaseRead; let readStarted
+    await context.route('**/api/**', async route => {
+      const request = route.request(); const path = new URL(request.url()).pathname
+      if (path.endsWith('/me')) return route.fulfill({ json: { username: 'm7-acceptance', role: 'owner' } })
+      if (path.endsWith('/day/status')) {
+        const snapshot = { ...day }
+        if (delayRead) {
+          delayRead = false
+          await new Promise(resolve => { releaseRead = resolve; readStarted() })
+        }
+        return route.fulfill({ json: snapshot })
+      }
+      if (path.endsWith('/day/skip')) {
+        skips++
+        assert.deepEqual(request.postDataJSON(), { localDate: day.localDate, source: 'app' })
+        assert.equal(request.headers()['x-palabras'], '1')
+        if (skipResponse === 'already_done') {
+          day = { ...day, status: 'done', streak: 6 }
+          return route.fulfill({ status: 409, json: { reason: 'already_done' } })
+        }
+        if (skipResponse === 'stale') {
+          day = { ...day, localDate: '2026-10-26' }
+          return route.fulfill({ status: 400, json: { error: 'bad_request' } })
+        }
+        day = { ...day, status: 'skipped', skipAvailable: false, skipNextAvailable: '2026-11-01' }
+        return route.fulfill({ json: day })
+      }
+      if (path.endsWith('/attempts')) attempts++
+      if (path.endsWith('/day/done')) completions++
+      return fulfillLearn(route, true)
+    })
+    const page = await context.newPage()
+    const errors = []; page.on('pageerror', error => errors.push(error.message))
+    await page.clock.install({ time: new Date('2026-10-25T12:00:00Z') })
+    await page.goto('http://127.0.0.1:4173/')
+    await page.getByText('Hoy puedes empezar otra racha', { exact: true }).waitFor()
+    await page.getByText('25 de octubre de 2026 · Racha: 0 días', { exact: true }).waitFor()
+    assert.equal(skips, 0); assert.equal(attempts, 0); assert.equal(completions, 0)
+
+    // Day N+7 in a DST week is available only because the server says so.
+    day = { ...day, status: null, streak: 5 }
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await page.getByText('25 de octubre de 2026 · Racha: 5 días', { exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Saltar hoy', exact: true }).click()
+    await page.getByText('Hoy saltado', { exact: true }).waitFor()
+    await page.getByText('Próximo salto: 1 de noviembre de 2026.', { exact: true }).waitFor()
+    assert.equal(skips, 1); assert.equal(attempts, 0); assert.equal(completions, 0)
+    assert.equal(await page.getByText('25 de octubre de 2026 · Racha: 5 días', { exact: true }).count(), 1)
+    assert.equal(await page.getByLabel('Tu respuesta', { exact: true }).isVisible(), true)
+
+    day = { ...day, status: null, skipAvailable: true, skipNextAvailable: null }; skipResponse = 'already_done'
+    await page.reload()
+    await page.getByRole('button', { name: 'Saltar hoy', exact: true }).click()
+    await page.getByText('Ya has completado hoy. Puedes seguir practicando.', { exact: true }).waitFor()
+    await page.getByText('Día completado', { exact: true }).waitFor()
+    assert.equal(await page.getByRole('button', { name: 'Saltar hoy', exact: true }).count(), 0)
+
+    day = { ...day, status: null }; skipResponse = 'stale'
+    await page.reload()
+    await page.getByRole('button', { name: 'Saltar hoy', exact: true }).click()
+    await page.getByText('Ha cambiado el día. Actualizamos la fecha; vuelve a intentarlo.', { exact: true }).waitFor()
+    await page.getByText('26 de octubre de 2026 · Racha: 6 días', { exact: true }).waitFor()
+    assert.equal(skips, 3) // A stale tap never retries automatically for the new day.
+    await context.setOffline(true)
+    await page.getByText(/Sin conexión: día y racha sin actualizar/).waitFor()
+    assert.equal(await page.getByRole('button', { name: 'Saltar hoy', exact: true }).isDisabled(), true)
+    await context.setOffline(false)
+    await page.getByRole('button', { name: 'Saltar hoy', exact: true }).waitFor({ state: 'visible' })
+
+    // Periodic refresh notices midnight without a navigation/focus event.
+    day = { ...day, localDate: '2026-10-27' }
+    await page.clock.runFor(60_000)
+    await page.getByText('27 de octubre de 2026 · Racha: 6 días', { exact: true }).waitFor()
+
+    // A slow old response cannot replace a newer server date/status.
+    const started = new Promise(resolve => { readStarted = resolve })
+    delayRead = true
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await started
+    day = { ...day, localDate: '2026-10-28', status: 'done', streak: 7 }
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await page.getByText('28 de octubre de 2026 · Racha: 7 días', { exact: true }).waitFor()
+    const oldResponse = page.waitForResponse(response => response.url().endsWith('/day/status'))
+    releaseRead(); await oldResponse
+    // Next animation frames allow the old fetch/React state update to settle.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    assert.equal(await page.getByText('28 de octubre de 2026 · Racha: 7 días', { exact: true }).count(), 1)
+    assert.deepEqual(errors, [])
+    console.log('M7 delta-D client: missed/zero streak consumes no skip; server N+7/DST availability, skip preserves streak and writes no attempts/done; already_done conflict; stale-date rejection refresh without auto-spend; offline skip disabled; visible-minute day refresh; old response cannot overwrite newer date. Zone-setting endpoint remains absent; no claim of server-rule/device verification.')
   } finally { await context.close() }
 }

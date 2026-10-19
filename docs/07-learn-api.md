@@ -314,8 +314,8 @@ by design: it only triggers a footnote and changes no other figure.
 ## Day status, streak and skip (M7)
 
 Backend shipped in T-20261018-2005 (`83d29a5`); rollover gate, backfill guard and `localDate` on `done` added in
-T-20261018-2105 (`3a6b4c9`); durable cutover (`c7262f8`) and owner-only history (`c3ce543`) in the same run. No
-frontend caller yet. Spec: `design-amendment.md` ΔD (skip, refund,
+T-20261018-2105 (`3a6b4c9`); durable cutover (`c7262f8`) and owner-only history (`c3ce543`) in the same run.
+Frontend callers shipped in `0303a87`, with server-date and status-refresh corrections in T-20261019-1508. Spec: `design-amendment.md` ΔD (skip, refund,
 rollover) and ΔF (schema). Code: `Backend/Palabras/Learn/DayEndpoints.cs`, `DayContracts.cs`, `LearnDayStatus.cs`,
 `DayRollover.cs`, `DayRolloverService.cs`, `DayRolloverSettings.cs`; migrations `20261018183151_DayStatusAndSkips`
 (tables `day_status`, `day_skips`, `practice_sessions`) and `20261018201418_RolloverCutoverMarker` (table
@@ -406,6 +406,7 @@ today or yesterday, and not before the account's local creation date (O-M7-9, `3
 
 What this means for a caller:
 
+- The frontend echoes the session plan's server `localDate` in `done`, never a date inferred from the browser clock or an assumed timezone. The account-scoped IndexedDB completion queue retains that target across reconnect/reload, sends after answer acknowledgements, and retains a visible rejection when the target expires. A cached plan keeps its original day; it never silently completes today. Full nonempty composed sessions count; an early stop counts only with at least 300 s of measured answer time. The today strip refetches after completion, reconnect, focus/visibility and each visible minute; it never treats yesterday's `done` response as today's status.
 - An offline completion flushed after local midnight with `localDate` set to the session's day is attributed to that
   day, not the new one, as long as it arrives by the end of the next local day.
 - A `done` that arrives after midnight marks the **target** day. Without `localDate` the target is the receipt day, so
@@ -471,12 +472,11 @@ It is idempotent (existence check plus primary key); a failed tick is logged and
 ### Not covered yet
 
 - ΔD test "timezone change applies from the next day": no endpoint sets `users.timezone`, so it is untested.
-- M7 frontend (status strip, "Saltar hoy" button, `done` call from the session summary) and the M8 notification
-  action are not built.
+- M7 frontend is wired: status strip, explicit online-only "Saltar hoy", 409/400 explanations, and durable session-summary `done` delivery. Client tests cover server-led rolling-window/DST statuses, streak preservation, missed/reset and refund presentation, plus original-date offline delivery. These mocked checks do not prove backend ledger rules or actual Android Chrome behavior. M8 notification action is not built.
 - The rollover is not enabled (gate above). Of its enablement preconditions: C4's backend part is implemented
   (owner-only eligibility and a durable cutover, `c7262f8`/`c3ce543`), but enablement still waits for an
   M7-capable client deployed to the owner; C6 is partial (success is logged only after the commit, `c3ce543`, but no
   committed-tick or failure signal is exposed and `/healthz` stays green on job errors); C5's backend part
-  (`localDate` on `done`) is implemented, its client is not built.
+  (`localDate` on `done`) and its client are implemented; deployment and owner-device evidence remain outstanding. No enablement is authorized by this wiring change.
 - A cutover marker deleted while the gate is on is not re-read by the running process until a restart (review 17
   F4, informational; `.opencode/runs/T-20261018-2105/18-rollover-fixes.md` §6).
