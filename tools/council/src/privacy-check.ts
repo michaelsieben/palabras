@@ -5,17 +5,9 @@ import { REPO_ROOT, TOOL_ROOT } from './config.js';
 import { describePrivacyHit, loadPrivacyPolicy, PrivacyConfigError, scanForPrivateTerms } from './privacy.js';
 import type { PrivacyScanInput } from './privacy.js';
 
-export class PrivacyNotConfiguredError extends Error {
-  constructor() {
-    super('privacy hash guard NOT CONFIGURED: valid hash document has 0 terms (no terms yet); owner must export hashes before CI can protect content');
-    this.name = 'PrivacyNotConfiguredError';
-  }
-}
-
-/** Hash-only CI boundary. Never loads a local exclusion file. Empty is not a successful scan. */
+/** Hash-only CI boundary. Never loads a local exclusion file. A valid empty list is allowed. */
 export function checkPrivacyHashes(hashFile: string, inputs: PrivacyScanInput[]): number {
   const policy = loadPrivacyPolicy({ hashFile, requireHashes: true });
-  if (policy.hashedTerms.length === 0) throw new PrivacyNotConfiguredError();
   const hits = scanForPrivateTerms(policy, inputs);
   if (hits.length) throw new PrivacyConfigError(hits.map(describePrivacyHit).join('\n'));
   return policy.hashedTerms.length;
@@ -38,9 +30,13 @@ if (entry !== undefined && path.resolve(entry) === fileURLToPath(import.meta.url
     checkPrivacyHashes(hashFile, []);
     const inputs = [...textFiles(path.join(REPO_ROOT, 'content')), ...textFiles(path.join(TOOL_ROOT, 'prompts'))];
     const count = checkPrivacyHashes(hashFile, inputs);
-    console.log(`privacy hash guard OK: hashed_terms=${count} files=${inputs.length}`);
+    if (count === 0) {
+      console.log('privacy hash guard NOTICE: committed hash list is empty — defence-in-depth only; a real run still requires non-empty privacy.local.json');
+    } else {
+      console.log(`privacy hash guard OK: hashed_terms=${count} files=${inputs.length}`);
+    }
   } catch (error) {
-    const message = error instanceof PrivacyNotConfiguredError || error instanceof PrivacyConfigError
+    const message = error instanceof PrivacyConfigError
       ? error.message : 'privacy hash guard failed: content scan could not complete';
     console.error(message);
     process.exitCode = 1;

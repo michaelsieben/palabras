@@ -5,7 +5,7 @@ import test from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { runPipeline } from '../dist/pipeline.js';
 import { replayAdapter } from '../dist/providers/replay.js';
-import { checkPrivacyHashes, PrivacyNotConfiguredError } from '../dist/privacy-check.js';
+import { checkPrivacyHashes } from '../dist/privacy-check.js';
 import { privacyHashDocument, PrivacyConfigError } from '../dist/privacy.js';
 import { proposal, script, workspace, writingAdapter, MODELS } from './helpers.mjs';
 
@@ -42,14 +42,14 @@ test('invalid and count-limited proposals have model/index diagnostics without r
   } finally { w.cleanup(); }
 });
 
-test('hash guard fails distinctively on deliberate empty policy versus missing/broken config', () => {
+test('hash guard accepts deliberate empty policy but still rejects missing/broken config', () => {
   const w = workspace();
   try {
-    assert.throws(() => checkPrivacyHashes(w.config.paths.privacyHashes, []), PrivacyNotConfiguredError);
+    assert.equal(checkPrivacyHashes(w.config.paths.privacyHashes, []), 0);
     assert.throws(() => checkPrivacyHashes(path.join(w.dir, 'missing.json'), []), PrivacyConfigError);
     writeFileSync(w.config.paths.privacyHashes, '{broken');
     assert.throws(() => checkPrivacyHashes(w.config.paths.privacyHashes, []), PrivacyConfigError);
-    console.log('empty hash probe: PrivacyNotConfiguredError; missing/malformed: PrivacyConfigError');
+    console.log('empty hash probe: count=0; missing/malformed: PrivacyConfigError');
   } finally { w.cleanup(); }
 });
 

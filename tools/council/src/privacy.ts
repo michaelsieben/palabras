@@ -147,6 +147,10 @@ function readHashedTerms(file: string): HashedTerm[] {
   }
   const terms: HashedTerm[] = [];
   for (const [index, value] of document.terms.entries()) {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)
+      || Object.keys(value).some((key) => key !== 'tokens' && key !== 'sha256')) {
+      throw new PrivacyConfigError(`${file}: terms[${index}] must contain only tokens and sha256; plaintext terms are forbidden`);
+    }
     const entry = value as { tokens?: unknown; sha256?: unknown } | null;
     const tokens = entry?.tokens;
     const sha256 = entry?.sha256;
