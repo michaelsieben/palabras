@@ -404,8 +404,8 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
       if (result.dir) io.out(`bundle=${displayPath(result.dir)}`);
       if (dryRun) {
         for (const candidate of result.candidates) io.out(`candidate: key=${candidate.key} lemma=${candidate.lemma} pos=${candidate.pos}`);
-        for (const drop of result.dropped) io.out(`dropped: reason=${drop.reason}${drop.lemma ? ` lemma=${drop.lemma} pos=${drop.pos}` : ` key=${drop.key}`}`);
       }
+      for (const drop of result.dropped) io.out(`dropped: ${JSON.stringify(drop)}`);
       if (result.manifest.status === 'failed') io.err(`Error: ${result.manifest.error}`);
       return result.manifest.status === 'ok' ? 0 : 1;
     }).catch((error: unknown) => {

@@ -87,10 +87,10 @@ export function fineTokens(normalisedText: string): string[] {
 
 export function privacyHashDocument(localFile: string): object {
   const terms = new Map<string, HashedTerm>();
-  for (const term of readLocalTerms(localFile)) {
+  for (const [index, term] of readLocalTerms(localFile).entries()) {
     const words = /[@.]/.test(term) ? tokenise(term) : fineTokens(term);
     if (words.length < 1 || words.length > MAX_HASHED_TOKENS) {
-      throw new PrivacyConfigError('privacy term token count must be 1-8');
+      throw new PrivacyConfigError(`privacy term #${index + 1} has ${words.length} tokens; hash export supports 1-${MAX_HASHED_TOKENS} tokens; no hash document was exported`);
     }
     const sha256 = termHash(words.join(' '));
     terms.set(sha256, { tokens: words.length, sha256 });

@@ -23,7 +23,7 @@ import { validateBundle } from './validate.js';
 const require = createRequire(import.meta.url);
 const { validate } = require('../../content-lint/validate.js') as { validate: (schema: unknown, data: unknown, root: unknown, at: string, errors: string[]) => void };
 
-export interface Dropped { reason: string; key?: string; lemma?: string; pos?: string }
+export interface Dropped { reason: string; key?: string; lemma?: string; pos?: string; model?: string; proposal_index?: number }
 export interface PipelineOptions {
   config: CouncilConfig; request: CouncilRequest; policy: PrivacyPolicy; dryRun?: boolean;
   adapter?: ProviderAdapter; lexicon?: CorpusLexicon; runId?: string; sleep?: (ms: number) => Promise<unknown>;
@@ -122,14 +122,18 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
     try { data = JSON.parse(text); } catch { throw new ProviderError('invalid'); }
     if (!Array.isArray(data?.candidates)) throw new ProviderError('invalid');
     const valid: ModelProposal[] = [];
-    for (const item of data.candidates.slice(0, request.count ?? 500)) {
+    for (const [index, item] of data.candidates.entries()) {
+      const identity = { model: model.id, proposal_index: index + 1 };
+      if (index >= (request.count ?? 500)) { dropped.push({ ...identity, reason: 'request_count_limit' }); continue; }
       // Normalisation before schema checks permits POS aliases/article-prefixed nouns.
       let candidate: Proposal;
-      try { candidate = normaliseProposal(item); } catch { model.invalid_count!++; continue; }
+      try { candidate = normaliseProposal(item); } catch {
+        model.invalid_count!++; dropped.push({ ...identity, reason: 'invalid_proposal' }); continue;
+      }
       const errors: string[] = [];
       validate(schema, candidate, schema, 'candidate', errors);
       if (errors.length || candidate.alternatives.some((alt) => !validAlternative(alt, schema, candidate.senses.length, lexicon.keys))) {
-        model.invalid_count!++; continue;
+        model.invalid_count!++; dropped.push({ ...identity, reason: 'invalid_proposal' }); continue;
       }
       valid.push({ model: model.id, candidate });
     }
@@ -177,7 +181,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
         }
         const kept = [];
         for (const candidate of candidates) {
-          if (!score(candidate)) { dropped.push({ key: candidate.key, reason: 'low_agreement' }); continue; }
+          if (!score(candidate)) { dropped.push({ key: candidate.key, lemma: candidate.lemma, pos: candidate.pos, reason: 'low_agreement' }); continue; }
           candidate.alternatives = mergeAlternatives(candidate.alternatives, config.models);
           lint(candidate);
           if (!enoughAlternatives(candidate)) {
@@ -195,7 +199,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
           }
           capAlternatives(candidate);
           candidate.council.lint_warnings = [...new Set(candidate.council.lint_warnings)];
-          if (!enoughAlternatives(candidate)) dropped.push({ key: candidate.key, reason: 'insufficient_alternatives' });
+          if (!enoughAlternatives(candidate)) dropped.push({ key: candidate.key, lemma: candidate.lemma, pos: candidate.pos, reason: 'insufficient_alternatives' });
           else kept.push(candidate);
           if (fatal) break;
         }

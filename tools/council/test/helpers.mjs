@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { loadConfig } from '../dist/config.js';
-import { loadPrivacyPolicy } from '../dist/privacy.js';
+import { loadPrivacyPolicy, PRIVACY_SCHEMA, PRIVACY_NORMALISATION } from '../dist/privacy.js';
 
 export const MODELS = ['anthropic:fixture', 'openai:fixture', 'google:fixture'];
 export function proposal(lemma = 'zorzal', pos = 'noun', alternatives = true) {
@@ -23,8 +23,10 @@ export function script(words, keys) {
 export function workspace(overrides = {}) {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'palabras-c7-'));
   const privacy = path.join(dir, 'privacy.local.json');
+  const privacyHashes = path.join(dir, 'privacy.sha256.json');
   writeFileSync(privacy, JSON.stringify({ terms: ['synthetic forbidden sentinel'] }));
-  const config = loadConfig({ env: {}, envFile: path.join(dir, 'missing.env'), outDir: path.join(dir, 'bundles'), privacy, models: MODELS, ...overrides });
+  writeFileSync(privacyHashes, JSON.stringify({ schema: PRIVACY_SCHEMA, algorithm: 'sha256', normalisation: PRIVACY_NORMALISATION, terms: [] }));
+  const config = loadConfig({ env: {}, envFile: path.join(dir, 'missing.env'), outDir: path.join(dir, 'bundles'), privacy, privacyHashes, models: MODELS, ...overrides });
   const policy = loadPrivacyPolicy({ localFile: privacy, hashFile: config.paths.privacyHashes, requireLocal: true });
   return { dir, config, policy, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }

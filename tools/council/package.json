@@ -13,6 +13,7 @@
     "type:check": "tsc -p tsconfig.json --noEmit",
     "pretest": "npm run build",
     "test": "node --test test/*.test.mjs",
+    "privacy:check": "node dist/privacy-check.js",
     "dry-run": "node dist/cli.js propose --dry-run"
   },
   "devDependencies": {

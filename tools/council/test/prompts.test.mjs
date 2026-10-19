@@ -40,7 +40,9 @@ test('CLI leftover-placeholder prompt fails loudly without printing prompt conte
     writeFileSync(guide, 'Inserted {{REQUEST}} remains literal.');
     writeFileSync(path.join(dir, 'propose.v1.md'), 'Guide {{STYLE_GUIDE}}');
     const out = [], err = [];
-    const code = await runCli(['propose', '--dry-run', '--prompts', dir, '--style-guide', guide], { out: (line) => out.push(line), err: (line) => err.push(line) }, {});
+    const code = await runCli(['propose', '--dry-run', '--prompts', dir, '--style-guide', guide,
+      '--privacy', w.config.paths.privacy, '--privacy-hashes', w.config.paths.privacyHashes,
+      '--env-file', path.join(w.dir, 'missing.env')], { out: (line) => out.push(line), err: (line) => err.push(line) }, {});
     assert.equal(code, 1);
     assert.match(err.join('\n'), /leftover prompt placeholder/);
     assert.equal(out.length, 0);

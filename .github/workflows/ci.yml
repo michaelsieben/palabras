@@ -65,6 +65,10 @@ jobs:
         run: |
           npm ci
           npm test
+      # Fail closed until owner exports a non-empty hash-only policy. Never read local terms.
+      - name: Council committed privacy hash guard
+        working-directory: tools/council
+        run: npm run privacy:check
       # E.0 source half: no provider hostname or SDK marker may be reachable from the app's own
       # source. The offline council CLI lives under tools/ and is never copied into the image.
       - name: E.0 no LLM in the app source

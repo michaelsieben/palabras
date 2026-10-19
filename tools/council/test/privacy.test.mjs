@@ -31,6 +31,11 @@ function capture() {
 }
 
 function runWithSpy(args) {
+  const temp = mkdtempSync(path.join(os.tmpdir(), 'palabras-privacy-isolated-'));
+  const privacy = path.join(temp, 'privacy.local.json');
+  const hashes = path.join(temp, 'privacy.sha256.json');
+  writeFileSync(privacy, JSON.stringify({ terms: [] }));
+  writeFileSync(hashes, JSON.stringify({ schema: PRIVACY_SCHEMA, algorithm: 'sha256', normalisation: PRIVACY_NORMALISATION, terms: [] }));
   const original = globalThis.fetch;
   let calls = 0;
   globalThis.fetch = async () => {
@@ -40,9 +45,10 @@ function runWithSpy(args) {
   const captured = capture();
   let exitCode;
   try {
-    exitCode = runCli(args, captured.io, {});
+    exitCode = runCli([args[0], '--privacy', privacy, '--privacy-hashes', hashes, '--env-file', path.join(temp, 'missing.env'), ...args.slice(1)], captured.io, {});
   } finally {
     globalThis.fetch = original;
+    rmSync(temp, { recursive: true, force: true });
   }
   return { exitCode, stdout: captured.stdout(), stderr: captured.stderr(), fetchCalls: calls };
 }
