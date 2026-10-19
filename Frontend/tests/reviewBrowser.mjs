@@ -47,17 +47,19 @@ try {
       assert.equal(stored[0].action.action, 'approve_alt'); assert.equal(stored[0].word.headword, 'palabra-1')
       fixture.failRequests = true; fixture.failQueue = true
       await context.setOffline(false)
-      await expect(outbox).toContainText('Envío sin confirmar')
+      // 5xx now persists the row as pending (retryable), so the copy is the pending-with-error banner, not the failed one.
+      await expect(outbox.getByRole('article').filter({ hasText: 'palabra-1' }).locator('.review-row-status p')).toHaveText('Guardada aquí, envío sin confirmar. Se reintentará al conectar.')
       await page.reload()
       await expect(page.getByText(/Sin conexión: cola guardada/)).toBeVisible()
       await expect(page.getByRole('region', { name: 'Decisiones de este dispositivo' })).toContainText('palabra-1')
       setUsername('reviewer-b'); await page.reload()
       await expect(page.getByText(/No se ha podido cargar la cola/)).toBeVisible()
       assert.equal(await page.getByRole('region', { name: 'Decisiones de este dispositivo' }).count(), 0)
-      setUsername('reviewer-a'); await page.reload()
-      fixture.failRequests = false; fixture.failQueue = false
-      await page.getByRole('button', { name: 'Reintentar envío' }).click()
-      await expect(page.getByRole('region', { name: 'Decisiones de este dispositivo' })).toContainText('Decisión confirmada.')
+      setUsername('reviewer-a'); fixture.failRequests = false; fixture.failQueue = false
+      await page.reload()
+      // A pending row replays automatically on mount once the API is healthy; the queued UUID is preserved and the drained row leaves the outbox.
+      await expect.poll(() => fixture.results.size).toBe(1)
+      await expect(page.getByRole('region', { name: 'Decisiones de este dispositivo' })).toHaveCount(0)
       assert.equal(fixture.results.size, 1)
       assert.ok(fixture.sent.every(batch => batch[0].clientReviewId === stored[0].action.clientReviewId))
       assert.deepEqual(errors, [])
@@ -116,6 +118,10 @@ try {
       await page.getByLabel('Nota (opcional)').fill('Reescribir')
       await page.getByRole('button', { name: 'Marcar para cambiar ⚑', exact: true }).click()
       await expect(outbox).toContainText('needs_change')
+      // Failed (non-retryable) rows stay put until the reviewer retries them by hand.
+      const failedRow = outbox.getByRole('article').filter({ hasText: 'palabra-3' })
+      await failedRow.getByRole('button', { name: 'Reintentar envío' }).click()
+      await expect(failedRow).toContainText('Decisión confirmada.')
       assert.deepEqual(errors, [])
     } finally { await context.close() }
   }
@@ -156,12 +162,17 @@ try {
       await page.getByLabel('Buscar aprobadas').fill('aprobada-101')
       await page.getByRole('button', { name: 'Buscar', exact: true }).click()
       await expect(page.getByRole('article')).toHaveCount(1)
+      const beforeStale = fixture.sent.length
       fixture.outcome = () => 'stale_version'
       await page.getByRole('button', { name: 'Revisar otra vez', exact: true }).click()
-      await expect(page.getByRole('article')).toContainText('La palabra ha cambiado')
+      await expect.poll(() => fixture.sent.length).toBeGreaterThan(beforeStale)
       assert.equal(fixture.sent.at(-1)[0].wordVersion, 7)
+      // A stale demote whose word is still fetched on page 1 is repaired automatically; the failed row is discarded.
+      await expect(page.getByRole('button', { name: 'Revisar otra vez', exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Actualizar palabra', exact: true })).toHaveCount(0)
       fixture.approved[0] = approvedWord(101, { version: 8 }); fixture.outcome = undefined
-      await page.getByRole('button', { name: 'Actualizar palabra', exact: true }).click()
+      await page.getByRole('button', { name: 'Actualizar aprobadas', exact: true }).click()
+      await expect(page.getByRole('article')).toContainText('versión 8')
       await page.getByRole('button', { name: 'Revisar otra vez', exact: true }).click()
       await expect(page.getByRole('article')).toContainText('Decisión confirmada')
       assert.equal(fixture.sent.at(-1)[0].wordVersion, 8)
