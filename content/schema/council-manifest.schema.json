@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://palabras.siebentower.nl/schema/council-manifest.schema.json",
+  "title": "Palabras council run manifest",
+  "description": "manifest.json of one council bundle (content/council/<run_id>/). Written offline by tools/council, consumed by the C# council importer. The manifest is the audit record of a run: which models were asked, which failed, and the exact hash of candidates.jsonl. Schema keywords stay inside the subset supported by tools/content-lint/validate.js so the CLI and the image agree on the contract without a second JSON Schema library.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "run_id",
+    "mode",
+    "prompt_version",
+    "style_guide_sha256",
+    "request",
+    "models",
+    "models_requested",
+    "models_succeeded",
+    "reduced_confidence",
+    "counts",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "schema": {
+      "const": "palabras.council.manifest.v1",
+      "description": "Format marker. A future v2 is a new const, never a silent reinterpretation."
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z._-]*$",
+      "description": "Run identifier, also the bundle directory name. By convention a ULID, and deliberately not pinned to one alphabet: the value must stay path-safe (no slash, no dot-dot, no spaces)."
+    },
+    "mode": {
+      "enum": ["propose", "rework"],
+      "description": "propose adds new keys only; rework may version an existing word."
+    },
+    "prompt_version": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["propose", "critique"],
+      "properties": {
+        "propose": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "critique": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
+        }
+      },
+      "description": "Prompt file versions used for this run. Prompts change by new file, never by edit, so these values are the A/B key."
+    },
+    "style_guide_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lower-case hex SHA-256 of content/style-guide.md at run time; ties prompt output to the rules it was given."
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "topic": {
+          "enum": [
+            "household",
+            "food",
+            "weather",
+            "city",
+            "transport",
+            "small-talk",
+            "family",
+            "shopping",
+            "clothing",
+            "health",
+            "time",
+            "daily-routine",
+            "technology",
+            "leisure",
+            "navarre-culture"
+          ]
+        },
+        "cefr": {
+          "enum": ["A1", "A2", "B1", "B2", "C1", "C2"]
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        }
+      },
+      "description": "What was asked for. All fields are optional because a rework run is driven by feedback rows, not by a topic request."
+    },
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/model" },
+      "description": "One entry per requested model, including models that failed: a run with reduced confidence must still name what was lost."
+    },
+    "models_requested": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8
+    },
+    "models_succeeded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["propose", "critique"],
+      "properties": {
+        "propose": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "critique": { "type": "integer", "minimum": 0, "maximum": 8 }
+      }
+    },
+    "reduced_confidence": {
+      "type": "boolean",
+      "description": "True when either phase completed with fewer models than requested; the reviewer UI shows it and the importer stores it on every word."
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidates", "dropped"],
+      "properties": {
+        "candidates": { "type": "integer", "minimum": 0 },
+        "dropped": { "type": "integer", "minimum": 0 }
+      },
+      "description": "candidates must equal the candidates.jsonl line count; dropped is audit only."
+    },
+    "candidates_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lower-case hex SHA-256 of the raw candidates.jsonl bytes, including the trailing newline. Required for status ok; verified before any write."
+    },
+    "status": {
+      "enum": ["ok", "failed"],
+      "description": "failed = the run did not reach the bundle contract (for example COUNCIL_MIN_MODELS was not met). A failed bundle carries no importable candidates."
+    },
+    "error": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "Optional operator-facing reason for status=failed or reduced_confidence."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Run creation instant. The importer compares it with the newest reviewer revision, so a rework older than her edit is refused."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["status"],
+        "properties": { "status": { "const": "ok" } }
+      },
+      "then": {
+        "required": ["candidates_sha256"]
+      }
+    }
+  ],
+  "$defs": {
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "phases"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 120,
+          "pattern": "^[a-z0-9][a-z0-9-]*:[A-Za-z0-9][A-Za-z0-9._:/-]*$",
+          "description": "provider:model, e.g. anthropic:claude-sonnet-5-5 or openrouter:vendor/model. Lower-case provider keeps the roster greppable; the model part keeps the provider's own casing."
+        },
+        "phases": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["propose", "critique"],
+          "properties": {
+            "propose": { "$ref": "#/$defs/phase_status" },
+            "critique": { "$ref": "#/$defs/phase_status" }
+          }
+        },
+        "latency_ms": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "propose": { "type": "integer", "minimum": 0 },
+            "critique": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "tokens": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "in": { "type": "integer", "minimum": 0 },
+            "out": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "cost_usd_est": {
+          "type": "number",
+          "minimum": 0
+        },
+        "invalid_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Structured-output lines that failed schema validation. Counted, never imported."
+        },
+        "error": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Failure detail for the losing phase. Never contains prompt or key material."
+        }
+      }
+    },
+    "phase_status": {
+      "enum": ["ok", "failed", "timeout", "invalid"],
+      "description": "Matches council_model_results.status."
+    }
+  }
+}

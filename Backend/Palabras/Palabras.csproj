@@ -34,6 +34,9 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="../../content/schema/word.schema.json" Link="content/schema/word.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- The council bundle contract is committed once and validated by both the CLI and the importer. -->
+    <Content Include="../../content/schema/council-manifest.schema.json" Link="content/schema/council-manifest.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../content/schema/council-candidate.schema.json" Link="content/schema/council-candidate.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- Local dotnet run and the test project keep the development settings; a published image must not ship them. -->
     <Content Update="appsettings.Development.json">
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>

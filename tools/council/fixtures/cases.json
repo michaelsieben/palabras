@@ -1,0 +1,83 @@
+{
+  "description": "Shared council bundle fixtures for M3b C2 (C#) and the M3 CLI validator. Both languages must agree on valid/invalid; code names the semantic rule, not a message.",
+  "cases": [
+    {
+      "dir": "valid-propose",
+      "valid": true
+    },
+    {
+      "dir": "valid-rework",
+      "valid": true
+    },
+    {
+      "dir": "bad-manifest",
+      "valid": false,
+      "code": "manifest_schema"
+    },
+    {
+      "dir": "hash-mismatch",
+      "valid": false,
+      "code": "candidates_sha256"
+    },
+    {
+      "dir": "too-few-gloss-alternatives",
+      "valid": false,
+      "code": "sense_alternative_counts"
+    },
+    {
+      "dir": "too-many-gloss-alternatives",
+      "valid": false,
+      "code": "sense_alternative_counts"
+    },
+    {
+      "dir": "missing-run-id-on-candidate",
+      "valid": false,
+      "code": "candidate_schema"
+    },
+    {
+      "dir": "duplicate-key",
+      "valid": false,
+      "code": "duplicate_key"
+    },
+    {
+      "dir": "band-agreement-mismatch",
+      "valid": false,
+      "code": "band_agreement"
+    },
+    {
+      "dir": "dangling-alternative-reference",
+      "valid": false,
+      "code": "dangling_reference"
+    },
+    {
+      "dir": "unknown-model-id",
+      "valid": false,
+      "code": "model_unknown"
+    },
+    {
+      "dir": "invalid-alternative-field",
+      "valid": false,
+      "code": "alternative_field"
+    },
+    {
+      "dir": "candidate-carries-source",
+      "valid": false,
+      "code": "candidate_schema"
+    },
+    {
+      "dir": "missing-required-field",
+      "valid": false,
+      "code": "candidate_schema"
+    },
+    {
+      "dir": "zero-candidates",
+      "valid": false,
+      "code": "zero_candidates"
+    },
+    {
+      "dir": "failed-run",
+      "valid": false,
+      "code": "failed_status"
+    }
+  ]
+}
