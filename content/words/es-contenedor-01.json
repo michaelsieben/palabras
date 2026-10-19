@@ -6,6 +6,7 @@
   "gender": "masculine",
   "partOfSpeech": "noun",
   "cefr": "B1",
+  "difficulty": 4930,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["city", "household"],

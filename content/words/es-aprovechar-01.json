@@ -3,6 +3,7 @@
   "headword": "aprovechar",
   "partOfSpeech": "verb",
   "cefr": "B1",
+  "difficulty": 5050,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["time", "shopping"],

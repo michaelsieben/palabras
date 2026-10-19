@@ -3,6 +3,7 @@
   "headword": "ordenar",
   "partOfSpeech": "verb",
   "cefr": "A2",
+  "difficulty": 4160,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["household", "daily-routine"],

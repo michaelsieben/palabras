@@ -3,6 +3,7 @@
   "headword": "tardar",
   "partOfSpeech": "verb",
   "cefr": "B1",
+  "difficulty": 4970,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["time", "transport"],

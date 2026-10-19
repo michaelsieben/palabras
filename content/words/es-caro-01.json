@@ -3,6 +3,7 @@
   "headword": "caro",
   "partOfSpeech": "adjective",
   "cefr": "A1",
+  "difficulty": 1090,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["shopping"],

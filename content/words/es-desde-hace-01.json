@@ -3,6 +3,7 @@
   "headword": "desde hace",
   "partOfSpeech": "phrase",
   "cefr": "B1",
+  "difficulty": 830,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["time"],

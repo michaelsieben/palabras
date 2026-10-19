@@ -3,6 +3,7 @@
   "headword": "buenos días",
   "partOfSpeech": "phrase",
   "cefr": "A1",
+  "difficulty": 70,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["small-talk"],

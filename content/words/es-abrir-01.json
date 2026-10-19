@@ -3,6 +3,7 @@
   "headword": "abrir",
   "partOfSpeech": "verb",
   "cefr": "A1",
+  "difficulty": 480,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["household", "daily-routine"],

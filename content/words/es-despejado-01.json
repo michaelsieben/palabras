@@ -3,6 +3,7 @@
   "headword": "despejado",
   "partOfSpeech": "adjective",
   "cefr": "A2",
+  "difficulty": 4360,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["weather"],

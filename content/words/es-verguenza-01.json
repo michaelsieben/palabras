@@ -5,6 +5,7 @@
   "gender": "feminine",
   "partOfSpeech": "noun",
   "cefr": "B1",
+  "difficulty": 5020,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["small-talk"],

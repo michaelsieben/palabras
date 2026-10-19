@@ -3,6 +3,7 @@
   "headword": "mal",
   "partOfSpeech": "adverb",
   "cefr": "A1",
+  "difficulty": 160,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["small-talk", "health"],

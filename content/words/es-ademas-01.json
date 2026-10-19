@@ -3,6 +3,7 @@
   "headword": "además",
   "partOfSpeech": "adverb",
   "cefr": "B1",
+  "difficulty": 720,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["small-talk"],

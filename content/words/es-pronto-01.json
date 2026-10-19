@@ -3,6 +3,7 @@
   "headword": "pronto",
   "partOfSpeech": "adverb",
   "cefr": "A2",
+  "difficulty": 2130,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["time"],

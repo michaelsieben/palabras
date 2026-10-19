@@ -6,6 +6,7 @@
   "gender": "masculine",
   "partOfSpeech": "noun",
   "cefr": "A2",
+  "difficulty": 2160,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["family"],

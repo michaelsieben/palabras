@@ -3,6 +3,7 @@
   "headword": "buenas noches",
   "partOfSpeech": "phrase",
   "cefr": "A1",
+  "difficulty": 90,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["small-talk"],

@@ -3,6 +3,7 @@
   "headword": "nevar",
   "partOfSpeech": "verb",
   "cefr": "A2",
+  "difficulty": 4350,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["weather"],

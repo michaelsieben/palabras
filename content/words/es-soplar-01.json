@@ -3,6 +3,7 @@
   "headword": "soplar",
   "partOfSpeech": "verb",
   "cefr": "A2",
+  "difficulty": 4370,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["weather"],

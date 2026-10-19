@@ -6,6 +6,7 @@
   "gender": "masculine",
   "partOfSpeech": "noun",
   "cefr": "B1",
+  "difficulty": 2420,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["daily-routine"],

@@ -3,6 +3,7 @@
   "headword": "vender",
   "partOfSpeech": "verb",
   "cefr": "A1",
+  "difficulty": 3200,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["shopping"],

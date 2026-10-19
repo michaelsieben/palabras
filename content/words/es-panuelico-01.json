@@ -6,6 +6,7 @@
   "gender": "masculine",
   "partOfSpeech": "noun",
   "cefr": "A2",
+  "difficulty": 4760,
   "region": { "variant": "es-ES", "scope": "pamplona" },
   "register": "neutral",
   "topics": ["navarre-culture", "clothing"],

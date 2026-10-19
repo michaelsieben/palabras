@@ -3,6 +3,7 @@
   "headword": "enfermo",
   "partOfSpeech": "adjective",
   "cefr": "A1",
+  "difficulty": 1070,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["health"],

@@ -3,6 +3,7 @@
   "headword": "hasta pronto",
   "partOfSpeech": "phrase",
   "cefr": "A1",
+  "difficulty": 1010,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["small-talk"],

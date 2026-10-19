@@ -3,6 +3,7 @@
   "headword": "llegar",
   "partOfSpeech": "verb",
   "cefr": "A1",
+  "difficulty": 530,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["transport","daily-routine"],

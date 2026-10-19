@@ -3,6 +3,7 @@
   "headword": "conducir",
   "partOfSpeech": "verb",
   "cefr": "A2",
+  "difficulty": 2240,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["transport"],

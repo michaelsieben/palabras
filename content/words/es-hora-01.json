@@ -6,6 +6,7 @@
   "gender": "feminine",
   "partOfSpeech": "noun",
   "cefr": "A1",
+  "difficulty": 360,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["time"],

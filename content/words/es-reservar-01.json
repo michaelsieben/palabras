@@ -3,6 +3,7 @@
   "headword": "reservar",
   "partOfSpeech": "verb",
   "cefr": "B1",
+  "difficulty": 2360,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["transport", "leisure"],

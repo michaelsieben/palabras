@@ -6,6 +6,7 @@
   "gender": "feminine",
   "partOfSpeech": "noun",
   "cefr": "A2",
+  "difficulty": 2220,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["technology"],

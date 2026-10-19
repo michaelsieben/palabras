@@ -3,6 +3,7 @@
   "headword": "adiós",
   "partOfSpeech": "interjection",
   "cefr": "A1",
+  "difficulty": 40,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["small-talk"],

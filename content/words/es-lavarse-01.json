@@ -3,6 +3,7 @@
   "headword": "lavarse",
   "partOfSpeech": "verb",
   "cefr": "A1",
+  "difficulty": 3120,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["daily-routine", "household"],

@@ -3,6 +3,7 @@
   "headword": "perder",
   "partOfSpeech": "verb",
   "cefr": "A2",
+  "difficulty": 2250,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["leisure", "transport"],

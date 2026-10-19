@@ -3,6 +3,7 @@
   "headword": "bien",
   "partOfSpeech": "adverb",
   "cefr": "A1",
+  "difficulty": 150,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["small-talk"],

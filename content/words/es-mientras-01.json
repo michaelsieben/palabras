@@ -3,6 +3,7 @@
   "headword": "mientras",
   "partOfSpeech": "conjunction",
   "cefr": "B1",
+  "difficulty": 770,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["time", "daily-routine"],

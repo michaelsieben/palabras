@@ -3,6 +3,7 @@
   "headword": "probar",
   "partOfSpeech": "verb",
   "cefr": "B1",
+  "difficulty": 2580,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["shopping", "clothing"],

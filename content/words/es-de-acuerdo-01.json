@@ -3,6 +3,7 @@
   "headword": "de acuerdo",
   "partOfSpeech": "phrase",
   "cefr": "A2",
+  "difficulty": 2100,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["small-talk"],

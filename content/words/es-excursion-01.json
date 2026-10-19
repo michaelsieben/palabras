@@ -6,6 +6,7 @@
   "gender": "feminine",
   "partOfSpeech": "noun",
   "cefr": "B1",
+  "difficulty": 2500,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["leisure", "transport"],

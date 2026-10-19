@@ -5,6 +5,7 @@
   "gender": "feminine",
   "partOfSpeech": "noun",
   "cefr": "A1",
+  "difficulty": 1030,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["food"],

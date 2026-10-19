@@ -61,6 +61,12 @@
       "enum": ["A1", "A2", "B1", "B2", "C1", "C2"],
       "description": "CEFR level of this sense as taught. Seed batches stay at A1/A2."
     },
+    "difficulty": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9999,
+      "description": "Intra-band authoring rank; lower = taught earlier; leave gaps of 10."
+    },
     "region": {
       "type": "object",
       "additionalProperties": false,

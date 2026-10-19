@@ -3,6 +3,7 @@
   "headword": "merendar",
   "partOfSpeech": "verb",
   "cefr": "A2",
+  "difficulty": 4240,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["food", "daily-routine"],

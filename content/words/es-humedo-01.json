@@ -3,6 +3,7 @@
   "headword": "húmedo",
   "partOfSpeech": "adjective",
   "cefr": "B1",
+  "difficulty": 5160,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["weather"],

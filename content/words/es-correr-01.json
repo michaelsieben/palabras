@@ -3,6 +3,7 @@
   "headword": "correr",
   "partOfSpeech": "verb",
   "cefr": "A1",
+  "difficulty": 1820,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["leisure"],

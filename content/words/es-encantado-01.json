@@ -3,6 +3,7 @@
   "headword": "encantado",
   "partOfSpeech": "interjection",
   "cefr": "A1",
+  "difficulty": 990,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["small-talk"],

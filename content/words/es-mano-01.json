@@ -6,6 +6,7 @@
   "gender": "feminine",
   "partOfSpeech": "noun",
   "cefr": "A1",
+  "difficulty": 1530,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["health","daily-routine"],

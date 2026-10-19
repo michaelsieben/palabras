@@ -3,6 +3,7 @@
   "headword": "más o menos",
   "partOfSpeech": "phrase",
   "cefr": "A2",
+  "difficulty": 2110,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["small-talk"],

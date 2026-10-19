@@ -3,6 +3,7 @@
   "headword": "comprar",
   "partOfSpeech": "verb",
   "cefr": "A1",
+  "difficulty": 390,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["shopping"],

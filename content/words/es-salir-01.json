@@ -3,6 +3,7 @@
   "headword": "salir",
   "partOfSpeech": "verb",
   "cefr": "A1",
+  "difficulty": 510,
   "region": { "variant": "es-ES", "scope": "peninsular-generic" },
   "register": "neutral",
   "topics": ["daily-routine","leisure"],
