@@ -16,7 +16,7 @@ using Palabras.Review;
 using Palabras.Srs;
 using Palabras.Backup;
 
-if (args.Length > 0 && args[0] is "user" or "import" or "content" or "restore-progress")
+if (args.Length > 0 && args[0] is "user" or "import" or "content" or "learn" or "restore-progress")
 {
     var cliConfiguration = new ConfigurationBuilder().SetBasePath(AppContext.BaseDirectory)
         .AddJsonFile("appsettings.json", optional: true).AddEnvironmentVariables().Build();
@@ -31,6 +31,8 @@ if (args.Length > 0 && args[0] is "user" or "import" or "content" or "restore-pr
             ? await ContentImportCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
             : args[0] == "content"
             ? await ContentCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
+            : args[0] == "learn"
+            ? await LearnCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
             : await UserCli.RunAsync(args, cliSettings, Console.In,
                 Console.Out, Console.Error, cliCancellation.Token, Console.IsInputRedirected ? null : UserCli.ReadHiddenPassword);
     }

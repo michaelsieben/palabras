@@ -24,6 +24,11 @@ public sealed class ContentCliTests : IDisposable
     [InlineData("content", "approve")]
     [InlineData("content", "approve", "--unknown")]
     [InlineData("content", "approve", "--all-pending", "es-nevera-01")]
+    [InlineData("content", "approve", "--top")]
+    [InlineData("content", "approve", "--top", "0")]
+    [InlineData("content", "approve", "--top", "abc")]
+    [InlineData("content", "approve", "--top", "5", "--all-pending")]
+    [InlineData("content", "approve", "--top", "5", "es-nevera-01")]
     [InlineData("content", "status", "extra")]
     [InlineData("content", "retire")]
     public async Task InvalidArgumentsFailBeforeDatabaseAccess(params string[] args)
@@ -152,6 +157,95 @@ public sealed class ContentCliTests : IDisposable
         await using var database = _settings.CreateContext();
         Assert.Equal(corpusSize, await database.WordRevisions.CountAsync(revision => revision.Action == "approve"));
     }
+
+    [Fact]
+    public async Task ApproveTopSelectsLowestRankedPendingWordsAndCreatesCardsForLearnersOnly()
+    {
+        await SeedAccountsAsync();
+        await ImportSyntheticAsync();
+        var result = await Run(["content", "approve", "--top", "2"]);
+        Assert.Equal(0, result.Exit);
+        Assert.Contains("approved=2 unchanged=0", result.Output);
+        await using var database = _settings.CreateContext();
+        var ownerId = await database.Users.Where(user => user.Username == "owner").Select(user => user.Id).SingleAsync();
+        var reviewerId = await database.Users.Where(user => user.Username == "reviewer").Select(user => user.Id).SingleAsync();
+        // (cefr, difficulty, id): beta 10, gamma 20, alfa 30, epsilon NULL, delta A2 despite rank 5.
+        Assert.Equal(new[] { "es-beta-01", "es-gamma-01" }, await KeysAsync(database, "approved"));
+        Assert.Equal(4, await database.Cards.CountAsync(card => card.UserId == ownerId));
+        Assert.Equal(0, await database.Cards.CountAsync(card => card.UserId == reviewerId));
+        Assert.Equal(2, await database.WordRevisions.CountAsync(revision => revision.Action == "approve"));
+        Assert.Equal(3, await database.Words.CountAsync(word => word.Status == "pending_review"));
+
+        // Re-running approves no duplicate: it moves to the next pending words in rank order.
+        var repeat = await Run(["content", "approve", "--top", "2"]);
+        Assert.Equal(0, repeat.Exit);
+        Assert.Contains("approved=2 unchanged=0", repeat.Output);
+        Assert.Equal(new[] { "es-alfa-01", "es-beta-01", "es-epsilon-01", "es-gamma-01" },
+            await KeysAsync(database, "approved"));
+        Assert.Equal(8, await database.Cards.CountAsync(card => card.UserId == ownerId));
+        Assert.Equal(4, await database.WordRevisions.CountAsync(revision => revision.Action == "approve"));
+
+        // Fewer pending words than N: approves the remainder and invents nothing.
+        var rest = await Run(["content", "approve", "--top", "10"]);
+        Assert.Equal(0, rest.Exit);
+        Assert.Contains("approved=1 unchanged=0", rest.Output);
+        Assert.Equal(new[] { "es-alfa-01", "es-beta-01", "es-delta-01", "es-epsilon-01", "es-gamma-01" },
+            await KeysAsync(database, "approved"));
+        Assert.Equal(10, await database.Cards.CountAsync(card => card.UserId == ownerId));
+        Assert.Equal(0, await database.Cards.CountAsync(card => card.UserId == reviewerId));
+
+        // Zero pending is the boundary at the other end: report nothing approved, write nothing.
+        var none = await Run(["content", "approve", "--top", "5"]);
+        Assert.Equal(0, none.Exit);
+        Assert.Contains("approved=0 unchanged=0", none.Output);
+        Assert.Equal(10, await database.Cards.CountAsync(card => card.UserId == ownerId));
+    }
+
+    [Fact]
+    public async Task ApproveTopDryRunPrintsRankedKeysAndWritesNothing()
+    {
+        await SeedAccountsAsync();
+        await ImportSyntheticAsync();
+        await using var database = _settings.CreateContext();
+        var revisionsBefore = await database.WordRevisions.CountAsync();
+        var result = await Run(["content", "approve", "--top", "2", "--dry-run"]);
+        Assert.Equal(0, result.Exit);
+        Assert.Equal(new[] { "es-beta-01", "es-gamma-01", "dry-run=2" }, Lines(result.Output));
+        Assert.Equal(5, await database.Words.CountAsync(word => word.Status == "pending_review"));
+        Assert.Equal(revisionsBefore, await database.WordRevisions.CountAsync());
+        Assert.Equal(0, await database.Cards.CountAsync());
+    }
+
+    // Synthetic ranks rather than the real corpus: a rank assertion must not drift when a batch lands.
+    private async Task ImportSyntheticAsync()
+    {
+        var corpus = await SyntheticCorpus.WriteAsync(Path.Combine(_directory, "corpus"),
+            new SyntheticCorpus.Entry("es-alfa-01", "alfa", "A1", 30),
+            new SyntheticCorpus.Entry("es-beta-01", "beta", "A1", 10),
+            new SyntheticCorpus.Entry("es-gamma-01", "gamma", "A1", 20),
+            new SyntheticCorpus.Entry("es-delta-01", "delta", "A2", 5),
+            new SyntheticCorpus.Entry("es-epsilon-01", "epsilon", "A1", null));
+        var imported = await new ContentImporter(_settings).ImportAsync(corpus, false, CancellationToken.None);
+        Assert.Equal(5, imported.Created);
+        Assert.Empty(imported.Rejected);
+    }
+
+    private async Task SeedAccountsAsync()
+    {
+        await DatabaseLifecycle.InitializeAsync(_settings, CancellationToken.None);
+        await using var database = _settings.CreateContext();
+        database.Users.AddRange(
+            new User { Username = "owner", Role = "owner", PasswordHash = "hash" },
+            new User { Username = "reviewer", Role = "reviewer", PasswordHash = "hash" });
+        await database.SaveChangesAsync(CancellationToken.None);
+    }
+
+    private static async Task<string[]> KeysAsync(PalabrasDbContext database, string status) => await database.Words
+        .AsNoTracking().Where(word => word.Status == status).OrderBy(word => word.Key)
+        .Select(word => word.Key).ToArrayAsync();
+
+    private static string[] Lines(string output) => output
+        .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     // `content status` prints `status=count` lines plus `total=count`; parsing them lets a test assert that the
     // numbers agree with each other instead of pinning the size of a corpus that grows every batch.

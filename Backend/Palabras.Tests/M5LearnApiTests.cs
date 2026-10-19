@@ -1087,9 +1087,10 @@ public sealed class M5LearnApiTests
     [Fact]
     public async Task AbsentSettingsRowUsesLockedDefaultsInMemory()
     {
-        // No code path writes users.timezone or a user_settings row yet, so every learner runs on
-        // the in-memory defaults of UserSettings plus the Europe/Madrid fallback. Pin the locked
-        // numbers here so a drift between those defaults and the migration defaults is visible.
+        // No HTTP code path writes users.timezone or a user_settings row; only the operator CLI
+        // (`learn settings`) does, so a learner without one still runs on the in-memory defaults of
+        // UserSettings plus the Europe/Madrid fallback. Pin the locked numbers here so a drift
+        // between those defaults and the migration defaults is visible.
         var defaults = new UserSettings();
         Assert.Equal(0.90, defaults.DesiredRetention);
         Assert.Equal(12, defaults.NewPerDay);
