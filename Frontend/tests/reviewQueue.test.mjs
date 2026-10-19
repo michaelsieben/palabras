@@ -1,8 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { runInNewContext } from 'node:vm'
+import ts from 'typescript'
 import { ApiError } from '../src/api/client.ts'
 import { createReviewQueue } from '../src/review/reviewQueue.ts'
-import { reviewDatabaseName } from '../src/review/storage.ts'
+import { createReviewStorage, reviewDatabaseName } from '../src/review/storage.ts'
 import { reviewWord, reviewAction, memoryReviewStore, appliedReviews } from './reviewFixtures.mjs'
 const tick = () => new Promise(resolve => setImmediate(resolve))
 const row = n => ({ action: reviewAction(n), word: reviewWord(n), state: 'pending' })
@@ -34,13 +37,16 @@ test('all failed per-item outcomes persist per row; explicit retry reuses UUID, 
   await queue.retry(reviewAction(3).clientReviewId); await queue.flush(); assert.equal(calls, 2)
   assert.equal(queue.getSnapshot().rows[2].action.clientReviewId, reviewAction(3).clientReviewId)
 })
-test('corrupt HTTP500 batch isolated into singles with same UUIDs; successful rows survive and failed row remains', async () => {
+test('corrupt HTTP500 batch isolated into singles; pending row replays with same UUID after recovery', async () => {
   const store = memoryReviewStore(); for (let n = 1; n <= 3; n++) await store.put(row(n))
-  const sent = []
-  const queue = createReviewQueue(store, { online: () => true, send: async b => { sent.push(b); if (b.length > 1 || b[0].wordId === 2) throw new ApiError('http', 500); return appliedReviews(b) } }); queue.start(); await queue.flush(); await queue.flush()
+  const sent = []; let corrupt = true
+  const queue = createReviewQueue(store, { online: () => true, send: async b => { sent.push(b); if (corrupt && (b.length > 1 || b[0].wordId === 2)) throw new ApiError('http', 500); return appliedReviews(b) } }); queue.start(); await queue.flush()
   assert.deepEqual(sent.map(b => b.map(a => a.wordId)), [[1, 2, 3], [1], [2], [3]])
-  assert.deepEqual(queue.getSnapshot().rows.map(r => r.state), ['applied', 'failed', 'applied'])
+  assert.deepEqual(queue.getSnapshot().rows.map(r => r.state), ['applied', 'pending', 'applied'])
   assert.deepEqual(sent[0].map(a => a.clientReviewId), sent.slice(1).flat().map(a => a.clientReviewId))
+  corrupt = false; await queue.flush()
+  assert.deepEqual(sent[4], [reviewAction(2)])
+  assert.ok(queue.getSnapshot().rows.every(r => r.state === 'applied'))
 })
 test('missing/duplicate acknowledgements fail actionable row without treating it as success', async () => {
   for (const duplicate of [false, true]) {
@@ -49,8 +55,8 @@ test('missing/duplicate acknowledgements fail actionable row without treating it
     assert.equal(queue.getSnapshot().rows[0].state, 'failed'); assert.equal(queue.getSnapshot().rows[0].error, 'missing-acknowledgement')
   }
 })
-test('network failure stays pending for reconnect; HTTP403 never automatically retries', async () => {
-  for (const [error, state] of [[new ApiError('network'), 'pending'], [new ApiError('forbidden', 403), 'failed']]) {
+test('network and HTTP502/503 stay pending for replay; HTTP400/403 stay actionable failures', async () => {
+  for (const [error, state] of [[new ApiError('network'), 'pending'], [new ApiError('http', 502), 'pending'], [new ApiError('http', 503), 'pending'], [new ApiError('http', 400), 'failed'], [new ApiError('forbidden', 403), 'failed']]) {
     const store = memoryReviewStore(); await store.put(row(1)); let calls = 0
     const queue = createReviewQueue(store, { online: () => true, send: async () => { calls++; throw error } }); queue.start(); await queue.flush()
     assert.equal(calls, 1); assert.equal(queue.getSnapshot().rows[0].state, state)
@@ -62,7 +68,7 @@ test('storage failure rejects enqueue with no false saved verdict; duplicate wor
   const good = createReviewQueue(store, { online: () => false }); await good.enqueue(reviewAction(), reviewWord())
   await assert.rejects(good.enqueue(reviewAction(2, { wordId: 1 }), reviewWord()), /already queued/)
 })
-test('cross-tab lock, overlapping writes and stop cannot deadlock or submit other account queue', async () => {
+test('cross-tab lock, overlapping writes and stop cannot deadlock or duplicate submission', async () => {
   const store = memoryReviewStore(); let tail = Promise.resolve(); const sent = []
   const lock = work => { const p = tail.then(work); tail = p.catch(() => undefined); return p }
   let release; const gate = new Promise(r => { release = r })
@@ -72,10 +78,56 @@ test('cross-tab lock, overlapping writes and stop cannot deadlock or submit othe
   const write = one.enqueue(reviewAction(2), reviewWord(2)); one.stop(); release(); await write
   await Promise.all([one.flush(), two.flush()]); await tick()
   assert.equal(sent.flat().filter(a => a.wordId === 1).length, 1)
-  assert.notEqual(reviewDatabaseName('alice'), reviewDatabaseName('bob'))
-  assert.notEqual(reviewDatabaseName('a:b'), reviewDatabaseName('a%3Ab'))
-  const otherStore = memoryReviewStore(); const other = createReviewQueue(otherStore, { online: () => false }); await other.enqueue(reviewAction(3), reviewWord(3))
-  assert.equal((await store.list()).some(r => r.word.wordId === 3), false)
+})
+test('production account switch hides and never replays account A actions from shared IndexedDB factory', async () => {
+  const databases = new Map(); const opened = []; const sent = []; let online = false
+  // One shared factory: production DB name and queue cache select the account, not separate test stores.
+  const factory = { open(name) {
+    opened.push(name)
+    const request = {}
+    queueMicrotask(() => {
+      const fresh = !databases.has(name)
+      if (fresh) databases.set(name, new Map())
+      const tables = databases.get(name)
+      request.result = {
+        createObjectStore(table) { tables.set(table, new Map()) },
+        transaction(table) {
+          const rows = tables.get(table)
+          const tx = { objectStore: () => ({
+            put(value) { rows.set(value.action.clientReviewId, structuredClone(value)) },
+            getAll() { return { result: structuredClone([...rows.values()]) } },
+            delete(id) { rows.delete(id) },
+          }) }
+          queueMicrotask(() => tx.oncomplete())
+          return tx
+        },
+        close() {},
+      }
+      if (fresh) request.onupgradeneeded()
+      request.onsuccess()
+    })
+    return request
+  } }
+  const exports = {}
+  const source = ts.transpileModule(readFileSync(new URL('../src/review/reviewQueue.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
+  runInNewContext(source, { exports, navigator: { get onLine() { return online }, locks: { request: async (_name, work) => work() } }, require: name => ({
+    '../api/client.ts': { ApiError }, '../api/review.ts': { postReviewActions: async actions => { sent.push(actions); return appliedReviews(actions) } },
+    './storage.ts': { reviewDatabaseName, createReviewStorage: name => createReviewStorage(name, factory) },
+  })[name] })
+  const accountA = exports.getReviewQueueStore('a:b'); accountA.start()
+  await accountA.enqueue(reviewAction(1), reviewWord(1)); await accountA.flush(); accountA.stop()
+  online = true
+  const accountB = exports.getReviewQueueStore('a%3Ab'); accountB.start(); await accountB.flush()
+  assert.deepEqual([...accountB.getSnapshot().rows], [])
+  assert.deepEqual(sent, [])
+  await accountB.enqueue(reviewAction(2), reviewWord(2)); await accountB.flush(); accountB.stop()
+  assert.deepEqual(sent.flat().map(a => a.clientReviewId), [reviewAction(2).clientReviewId])
+  assert.deepEqual(accountB.getSnapshot().rows.map(r => r.word.wordId), [2])
+  assert.deepEqual(opened, [reviewDatabaseName('a:b'), reviewDatabaseName('a%3Ab')])
+  assert.equal(accountA.getSnapshot().rows[0].state, 'pending')
+  assert.equal(exports.getReviewQueueStore('a:b'), accountA)
+  accountA.start(); await accountA.flush(); accountA.stop()
+  assert.deepEqual(sent.flat().map(a => a.clientReviewId), [reviewAction(2).clientReviewId, reviewAction(1).clientReviewId])
 })
 test('viaBatch request cap25 and overall cap50; 26-entry user batch rejected', async () => {
   const store = memoryReviewStore(); for (let n = 1; n <= 61; n++) await store.put({ ...row(n), action: reviewAction(n, { viaBatch: true }) })

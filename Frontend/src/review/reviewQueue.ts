@@ -24,7 +24,8 @@ export function createReviewQueue(store: ReviewStore, options: { send?: typeof p
         for (const row of batch) { if (!active || !online()) break; await submit([row]) }
         return
       }
-      for (const row of batch) await store.put({ ...row, state: error instanceof ApiError && error.kind === 'network' ? 'pending' : 'failed', error: error instanceof ApiError ? error.kind : 'request' })
+      const retryable = error instanceof ApiError && (error.kind === 'network' || (error.status !== undefined && error.status >= 500))
+      for (const row of batch) await store.put({ ...row, state: retryable ? 'pending' : 'failed', error: error instanceof ApiError ? error.kind : 'request' })
       return
     }
     for (const row of batch) {

@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto'
 import ts from 'typescript'
 import { ApiError } from '../src/api/client.ts'
 import * as model from '../src/review/reviewModel.ts'
-import { reviewWord, approvedWord } from './reviewFixtures.mjs'
+import { reviewWord, approvedWord, reviewAction } from './reviewFixtures.mjs'
 
 // Existing SpeakButton harness pattern: real TSX handlers/virtual tree, not a browser or visual proof.
 function component(file, modules = {}) {
@@ -20,7 +20,7 @@ function component(file, modules = {}) {
   const source = ts.transpileModule(readFileSync(new URL(file, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
   const exports = {}
   runInNewContext(source, { exports, require: name => ({ react, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'fragment' }, ...modules })[name], queueMicrotask, AbortController, crypto: { randomUUID }, localStorage: { getItem: () => null, setItem() {} }, requestAnimationFrame: () => {}, document: { getElementById: () => null }, Map, Set, Intl })
-  return { exports, render(fn) { si = 0; ri = 0; effects = []; return fn(exports) }, hydrate: () => effects[0]() }
+  return { exports, render(fn) { si = 0; ri = 0; effects = []; return fn(exports) }, hydrate: () => effects[0](), effect: i => effects[i]() }
 }
 function nodes(tree) {
   if (Array.isArray(tree)) return tree.flatMap(nodes)
@@ -79,4 +79,38 @@ test('real alternatives handlers render variants read-only without headword chan
   await alternative.props.onClick(); await tick()
   assert.equal(saved[0].action.action, 'approve_alt'); assert.equal(saved[0].action.wordVersion, 3); assert.equal(saved[0].action.alternativeId, 10)
   assert.equal(saved[0].original.headword, 'palabra-1')
+})
+for (const found of [true, false]) test(`stale demote automatically fetches approved page1; ${found ? 'fresh version enables new UUID' : 'missing word preserves actionable decision'}`, async () => {
+  const calls = []; const actions = []; const discarded = []; let rows = []; let stale = false
+  const oldAction = reviewAction(2, { action: 'demote', wordVersion: 7 })
+  const queue = { ...emptyQueue(), getSnapshot: () => ({ rows, storageError: false }), enqueue: async a => { actions.push(a) }, discard: async id => { discarded.push(id); rows = rows.filter(r => r.action.clientReviewId !== id) } }
+  const h = component('../src/review/ApprovedPanel.tsx', {
+    '../api/client': { ApiError }, '../api/review': { getApprovedWords: async (q, after) => {
+      calls.push({ q, after })
+      return { items: after ? [approvedWord(2)] : stale && found ? [approvedWord(2, { version: 8 })] : [approvedWord(1)], nextCursor: 'page2' }
+    } }, './ReviewRowStatus': { ReviewRowStatus: 'RowStatus' },
+  })
+  const render = () => h.render(e => e.ApprovedPanel({ queue }))
+  render(); h.hydrate(); await tick()
+  button(render(), 'Siguiente').props.onClick(); render(); h.hydrate(); await tick()
+  assert.match(text(render()), /Página 2/)
+  stale = true; rows = [{ action: oldAction, word: approvedWord(2), state: 'failed', result: 'stale_version' }]
+  render(); const cleanup = h.effect(1); cleanup(); h.effect(1); await tick()
+  const tree = render()
+  assert.deepEqual(calls.map(c => c.after), [undefined, 'page2', undefined])
+  assert.match(text(tree), /Página 1/)
+  if (found) {
+    assert.deepEqual(discarded, [oldAction.clientReviewId])
+    assert.match(text(tree), /versión 8/)
+    await button(tree, 'Revisar otra vez').props.onClick(); await tick()
+    assert.equal(actions[0].wordVersion, 8)
+    assert.notEqual(actions[0].clientReviewId, oldAction.clientReviewId)
+  } else {
+    assert.deepEqual(discarded, [])
+    assert.equal(rows[0].result, 'stale_version')
+    assert.match(text(tree), /Palabra no encontrada/)
+    assert.ok(nodes(tree).some(n => n.type === 'RowStatus' && n.props.row === rows[0]))
+    render(); h.effect(1); await tick()
+    assert.equal(calls.length, 3, 'same stale result must not trigger a refresh loop')
+  }
 })
