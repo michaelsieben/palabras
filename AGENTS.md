@@ -3,7 +3,7 @@
 Private Peninsular Spanish vocabulary PWA. Shipped: M0–M2, M5, M10; M7 backend. M6 in progress. Status: `docs/00-handoff.md` §7.
 
 - React 19, strict TypeScript, Vite; .NET 10 minimal API; one Linux container.
-- SQLite + EF Core (migrations `InitialAccounts`, `ContentSchema`, `SrsCards`, `DayStatusAndSkips`) and cookie auth exist. Council CLI lands in M3, reviewer UI in M4, push in M8.
+- SQLite + EF Core (migrations `InitialAccounts`, `ContentSchema`, `SrsCards`, `DayStatusAndSkips`, `RolloverCutoverMarker`, `ReviewGate`) and cookie auth exist. Council CLI lands in M3, reviewer UI in M4, push in M8.
 - Run backend: `dotnet run --project Backend/Palabras --urls http://localhost:5080`.
 - Run frontend: `cd Frontend && npm ci && npm run dev` (API proxy to :5080).
 - Verify from root: `dotnet build Backend/Palabras.slnx`, `dotnet test Backend/Palabras.slnx`, `npm --prefix Frontend ci`, `npm --prefix Frontend run lint`, `npm --prefix Frontend run build`, `node tools/content-lint/index.js`, `docker build -t palabras:local .`.

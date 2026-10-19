@@ -213,7 +213,7 @@ Exercise types:
   - After that, the env passwords are ignored. A startup log warns if they are still set.
   - Password change happens in-app. Reset uses the CLI `docker exec palabras dotnet Palabras.dll set-password <user>` (reads from stdin).
 - **Roles → views:** claim `role`. Policies:
-  - `Learner` = owner; `Reviewer` = reviewer or owner (the owner can preview her view); `Admin` = owner.
+  - `Learner` = owner; `Admin` = owner. ~~`Reviewer` = reviewer or owner (the owner can preview her view);~~ Superseded (T-20261019-1647): the owner is refused on `/api/review/*`, there is no preview. Roles are fixed to `owner`/`reviewer`, and the claims map owner → Learner + Admin, reviewer → Reviewer (`03-auth-bootstrap.md:65-66`). Only a `reviewer` account reaches the review routes, and that account is created by CLI: `docker exec -it palabras /app/Palabras user create reviewer --username <name>` (`04-accounts.md:9`).
   - API groups: `/api/learn/*` (Learner), `/api/review/*` (Reviewer), `/api/admin/*` (Admin: import, export, apply-feedback).
   - SPA routes: `/` learner home, `/revisar` reviewer queue. After login, each role is redirected to its home, and the reviewer never sees learner screens.
 - **Security minimums:**

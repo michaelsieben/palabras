@@ -9,9 +9,12 @@ Migration and rollback: `08-upgrade-rollback.md` section G.
 
 ## Common rules
 
-- Every route requires policy `reviewer` (role `reviewer`). The owner account has no reviewer role, so the owner →
-  403 `{"error":"forbidden"}`; anonymous → 401 `{"error":"unauthorized"}`. The reviewer gets 403 on `/api/learn/*`
-  (`07-learn-api.md`).
+- Every route requires policy `reviewer` (role `reviewer`). A `reviewer` account exists only if one was created with
+  `docker exec -it palabras /app/Palabras user create reviewer --username <name>` (`04-accounts.md:9`); nothing seeds
+  it, and one cookie session cannot hold both roles, so learner and reviewer are two accounts. The owner account is
+  refused by design — it has no reviewer role, so the owner → 403 `{"error":"forbidden"}`; anonymous → 401
+  `{"error":"unauthorized"}` (`Review/ReviewEndpoints.cs:12-13`, `M4ReviewApiTests.cs:948-953`). The reviewer gets
+  403 on `/api/learn/*` (`07-learn-api.md`).
 - `POST /api/review/actions` needs `X-Palabras: 1`, else 400 `{"error":"missing_x_palabras"}`. The two GET routes do
   not. A body that does not bind → 400 `{"error":"bad_request"}`.
 - The reviewer is always the cookie's user id; no body field names a reviewer.
