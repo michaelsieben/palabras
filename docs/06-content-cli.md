@@ -9,8 +9,8 @@ commands are in `04-accounts.md`; the learner HTTP API is in `07-learn-api.md`; 
 
 ## How the CLI runs
 
-The same binary is the web app and the CLI. When the first argument is `user`, `import`, `content` or
-`restore-progress`, `Program.cs:17-41` runs that verb and exits; no web host starts. Configuration comes from
+The same binary is the web app and the CLI. When the first argument is `user`, `import`, `content`, `learn` or
+`restore-progress`, `Program.cs` runs that verb and exits; no web host starts. Configuration comes from
 `appsettings.json` and environment variables only, so `DATA_DIR` (default `/data`, database `palabras.db`) and
 `ConnectionStrings__Default=Data Source=...` select the database exactly as for the app (`04-accounts.md`).
 
@@ -34,7 +34,9 @@ Common behaviour:
 - These verbs have no HTTP equivalent. Anyone who can run them has full content and progress control.
 
 Migrations in order: `InitialAccounts` (M1), `ContentSchema` (M2, `20261017234822`), `SrsCards` (M5,
-`20261018000241`), in `Backend/Palabras/Persistence/Migrations/`.
+`20261018000241`), `DayStatusAndSkips`, `RolloverCutoverMarker` (M7), `ReviewGate` (M4, `20261019140735`),
+`CouncilImport` (`20261019182611`), `WordDifficulty` (`20261019192721`), in
+`Backend/Palabras/Persistence/Migrations/`.
 
 ## Verbs
 
@@ -44,6 +46,9 @@ Migrations in order: `InitialAccounts` (M1), `ContentSchema` (M2, `2026101723482
 | `import <dir> [--dry-run]` | `words`, `senses`, `word_alternatives`, `word_topics`, `word_revisions`, card epochs/suspension | yes: re-run with the same files → all `unchanged` | `created=N updated=N unchanged=N rejected=N` |
 | `content approve <key…>` | `words.status`, `word_revisions`, `cards` | yes: already approved → `unchanged` | `approved=N unchanged=N` |
 | `content approve --all-pending` | same | yes | `approved=N unchanged=N` |
+| `content approve --top N [--dry-run]` | same | row-level only: a re-run approves the **next** N pending words | `approved=N unchanged=N`; dry run: one key per line, then `dry-run=N` |
+| `learn settings --username <u> [--new-per-day N] [--max-reviews-per-day N] [--backlog-threshold N]` | `user_settings` (upsert) | yes | `user=…`, then one `<knob>=<old> -> <new>` line per knob (no `->` without flags) |
+| `learn seed-known --username <u> --top N [--due-days N] [--dry-run] [--reset]` | that user's `cards` of the top N approved words | yes | `seeded_words=N seeded_cards=M` / `reset_words=N reset_cards=M`; dry run: keys, then `dry-run=N` |
 | `content status` | no content rows; still applies pending migrations first, like every `content` verb, so stop it with the app during an upgrade (`08-upgrade-rollback.md`) | yes | one `<status>=<count>` line per status, then `total=N` |
 | `content retire <key…>` | `words.status`, `word_revisions`, `cards` | yes: already retired is skipped | `retired=N` |
 | `restore-progress <file.json>` | `cards`, `review_log` of one user | yes: identical rows are skipped | `Restored N cards and M reviews for user U.` |
@@ -55,7 +60,8 @@ start with `-`; duplicates in a key list are collapsed.
 
 Loads every `*.json` file directly in `<dir>` (not recursive) into the content tables. The argument is a path as
 the process sees it; inside the container that is a container path. The image ships only
-`content/schema/word.schema.json` (`Dockerfile:13`), not `content/words/`.
+`content/schema/word.schema.json` (`Dockerfile:18`), not `content/words/`; copy them in with `docker cp`
+(`10-bring-up.md` §4).
 
 1. **Validate the whole batch before any write.** Each file must parse, contain no duplicate JSON property, pass
    `content/schema/word.schema.json` (JSON Schema, format validation on), have a file name equal to `<id>.json`, and
@@ -150,6 +156,14 @@ cards are kept: a card suspended as `word_not_approved` is released, and cards o
 `epoch` + 1, so answers queued offline against the old content come back as `stale_epoch`
 (`07-learn-api.md`). Their FSRS state is preserved. `en_es` cards stay out of sessions until the `es_en` sibling has
 reached Review and been answered correctly on an earlier local day.
+
+### `content approve --top N` and `learn …`
+
+Added in T-20261019-2100 (`5b818d1`). `--top N` selects the N lowest `(cefr, difficulty, id)` words with status
+`pending_review` (unranked words last) and passes them to the same approval as `<key…>`; it cannot be combined with
+keys or `--all-pending`. `learn settings` is the only writer of `user_settings`; `learn seed-known` moves the top N
+approved words of one user to Review. Arguments are validated before the database is opened. Operator sequence,
+semantics and cautions: `10-bring-up.md` §4–§5.
 
 ### `content status`
 
