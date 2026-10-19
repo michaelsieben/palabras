@@ -623,6 +623,10 @@ namespace Palabras.Persistence.Migrations
                         .HasColumnType("INTEGER")
                         .HasColumnName("id");
 
+                    b.Property<int?>("ApprovedVersion")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("approved_version");
+
                     b.Property<string>("Article")
                         .HasColumnType("TEXT")
                         .HasColumnName("article");
@@ -636,6 +640,14 @@ namespace Palabras.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT")
                         .HasColumnName("content_hash");
+
+                    b.Property<double?>("CouncilAgreement")
+                        .HasColumnType("REAL")
+                        .HasColumnName("council_agreement");
+
+                    b.Property<string>("CouncilBand")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("council_band");
 
                     b.Property<long>("CreatedAt")
                         .HasColumnType("INTEGER")
@@ -654,6 +666,10 @@ namespace Palabras.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT")
                         .HasColumnName("key");
+
+                    b.Property<string>("LintWarnings")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("lint_warnings");
 
                     b.Property<string>("Notes")
                         .HasColumnType("TEXT")
@@ -676,6 +692,12 @@ namespace Palabras.Persistence.Migrations
                     b.Property<string>("ProvenanceRun")
                         .HasColumnType("TEXT")
                         .HasColumnName("provenance_run");
+
+                    b.Property<int>("ReducedConfidence")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("reduced_confidence");
 
                     b.Property<string>("RegionNotes")
                         .HasColumnType("TEXT")
@@ -700,6 +722,10 @@ namespace Palabras.Persistence.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("status");
 
+                    b.Property<long?>("StatusChangedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("status_changed_at");
+
                     b.Property<long>("UpdatedAt")
                         .HasColumnType("INTEGER")
                         .HasColumnName("updated_at");
@@ -720,6 +746,8 @@ namespace Palabras.Persistence.Migrations
                     b.ToTable("words", null, t =>
                         {
                             t.HasCheckConstraint("ck_words_article", "article IN ('el', 'la', 'los', 'las')");
+
+                            t.HasCheckConstraint("ck_words_council_band", "council_band IN ('alta', 'media')");
 
                             t.HasCheckConstraint("ck_words_gender", "gender IN ('masculine', 'feminine', 'common', 'not_applicable')");
 
@@ -776,6 +804,96 @@ namespace Palabras.Persistence.Migrations
                     b.ToTable("word_alternatives", (string)null);
                 });
 
+            modelBuilder.Entity("Palabras.Persistence.WordReview", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("action");
+
+                    b.Property<double?>("AgreementAtReview")
+                        .HasColumnType("REAL")
+                        .HasColumnName("agreement_at_review");
+
+                    b.Property<int?>("ChosenAlternativeId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("chosen_alternative_id");
+
+                    b.Property<string>("ClientReviewId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("client_review_id");
+
+                    b.Property<int?>("CouncilRunId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("council_run_id");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<int?>("DecisionMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("decision_ms");
+
+                    b.Property<string>("EditDiff")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("edit_diff");
+
+                    b.Property<string>("Field")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("field");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("note");
+
+                    b.Property<int>("ReviewerId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("reviewer_id");
+
+                    b.Property<int?>("SenseOrder")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("sense_order");
+
+                    b.Property<int>("ViaBatch")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("via_batch");
+
+                    b.Property<int>("WordId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("word_id");
+
+                    b.Property<int>("WordVersion")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("word_version");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChosenAlternativeId");
+
+                    b.HasIndex("ClientReviewId")
+                        .IsUnique();
+
+                    b.HasIndex("ReviewerId");
+
+                    b.HasIndex("WordId", "WordVersion");
+
+                    b.ToTable("word_reviews", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_word_reviews_action", "action IN ('approve', 'approve_alt', 'approve_edit', 'reject', 'needs_change', 'demote')");
+
+                            t.HasCheckConstraint("ck_word_reviews_field", "field IN ('lemma', 'gloss', 'example', 'regional_note', 'regional_variant', 'register_variant', 'article', 'gender', 'accepted', 'whole')");
+                        });
+                });
+
             modelBuilder.Entity("Palabras.Persistence.WordRevision", b =>
                 {
                     b.Property<int>("Id")
@@ -817,7 +935,7 @@ namespace Palabras.Persistence.Migrations
 
                     b.ToTable("word_revisions", null, t =>
                         {
-                            t.HasCheckConstraint("ck_word_revisions_action", "action IN ('import', 'approve', 'reject', 'needs_change', 'edit', 'retire')");
+                            t.HasCheckConstraint("ck_word_revisions_action", "action IN ('import', 'approve', 'reject', 'needs_change', 'edit', 'retire', 'demote')");
                         });
                 });
 
@@ -924,6 +1042,26 @@ namespace Palabras.Persistence.Migrations
 
             modelBuilder.Entity("Palabras.Persistence.WordAlternative", b =>
                 {
+                    b.HasOne("Palabras.Persistence.Word", null)
+                        .WithMany()
+                        .HasForeignKey("WordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.WordReview", b =>
+                {
+                    b.HasOne("Palabras.Persistence.WordAlternative", null)
+                        .WithMany()
+                        .HasForeignKey("ChosenAlternativeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Palabras.Persistence.User", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewerId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
                     b.HasOne("Palabras.Persistence.Word", null)
                         .WithMany()
                         .HasForeignKey("WordId")

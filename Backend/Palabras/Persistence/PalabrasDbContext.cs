@@ -19,6 +19,7 @@ internal sealed class PalabrasDbContext : DbContext
     public DbSet<DaySkip> DaySkips => Set<DaySkip>();
     public DbSet<PracticeSession> PracticeSessions => Set<PracticeSession>();
     public DbSet<AppMeta> AppMetas => Set<AppMeta>();
+    public DbSet<WordReview> WordReviews => Set<WordReview>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,6 +48,8 @@ internal sealed class PalabrasDbContext : DbContext
             table.HasCheckConstraint("ck_words_article", "article IN ('el', 'la', 'los', 'las')");
             table.HasCheckConstraint("ck_words_gender", "gender IN ('masculine', 'feminine', 'common', 'not_applicable')");
             table.HasCheckConstraint("ck_words_status", "status IN ('draft', 'pending_review', 'approved', 'needs_change', 'rejected', 'retired')");
+            // M4: NULL for every hand-authored word; only a council import sets a band (ΔF:563).
+            table.HasCheckConstraint("ck_words_council_band", "council_band IN ('alta', 'media')");
         });
         word.HasKey(value => value.Id);
         word.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
@@ -69,6 +72,12 @@ internal sealed class PalabrasDbContext : DbContext
         word.Property(value => value.ContentHash).HasColumnName("content_hash").IsRequired();
         word.Property(value => value.ProvenanceMethod).HasColumnName("provenance_method").IsRequired();
         word.Property(value => value.ProvenanceRun).HasColumnName("provenance_run");
+        word.Property(value => value.CouncilAgreement).HasColumnName("council_agreement");
+        word.Property(value => value.CouncilBand).HasColumnName("council_band");
+        word.Property(value => value.ReducedConfidence).HasColumnName("reduced_confidence").HasDefaultValue(0);
+        word.Property(value => value.LintWarnings).HasColumnName("lint_warnings");
+        word.Property(value => value.StatusChangedAt).HasColumnName("status_changed_at");
+        word.Property(value => value.ApprovedVersion).HasColumnName("approved_version");
         word.Property(value => value.CreatedAt).HasColumnName("created_at");
         word.Property(value => value.UpdatedAt).HasColumnName("updated_at");
 
@@ -112,7 +121,7 @@ internal sealed class PalabrasDbContext : DbContext
         var revision = modelBuilder.Entity<WordRevision>();
         revision.ToTable("word_revisions", table =>
         {
-            table.HasCheckConstraint("ck_word_revisions_action", "action IN ('import', 'approve', 'reject', 'needs_change', 'edit', 'retire')");
+            table.HasCheckConstraint("ck_word_revisions_action", "action IN ('import', 'approve', 'reject', 'needs_change', 'edit', 'retire', 'demote')");
         });
         revision.HasKey(value => value.Id);
         revision.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
@@ -124,9 +133,51 @@ internal sealed class PalabrasDbContext : DbContext
         revision.Property(value => value.Action).HasColumnName("action").IsRequired();
         revision.Property(value => value.SnapshotJson).HasColumnName("snapshot_json").IsRequired();
         revision.Property(value => value.CreatedAt).HasColumnName("created_at");
+        ConfigureReview(modelBuilder);
         ConfigureSrs(modelBuilder);
         ConfigureDayTracking(modelBuilder);
         ConfigureAppMeta(modelBuilder);
+    }
+
+    // M4: word_reviews, the append-only reviewer verdict log (ΔF:609-618). No FK to council_runs in
+    // M4 — that table arrives with M3b, which rebuilds this one to add the constraint.
+    private static void ConfigureReview(ModelBuilder modelBuilder)
+    {
+        var review = modelBuilder.Entity<WordReview>();
+        review.ToTable("word_reviews", table =>
+        {
+            table.HasCheckConstraint("ck_word_reviews_action",
+                "action IN ('approve', 'approve_alt', 'approve_edit', 'reject', 'needs_change', 'demote')");
+            // NULL passes a SQLite CHECK, so a verdict that names no field is still valid.
+            table.HasCheckConstraint("ck_word_reviews_field",
+                "field IN ('lemma', 'gloss', 'example', 'regional_note', 'regional_variant', 'register_variant', 'article', 'gender', 'accepted', 'whole')");
+        });
+        review.HasKey(value => value.Id);
+        review.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
+        review.Property(value => value.WordId).HasColumnName("word_id");
+        review.HasOne<Word>().WithMany().HasForeignKey(value => value.WordId).OnDelete(DeleteBehavior.Cascade);
+        review.Property(value => value.WordVersion).HasColumnName("word_version");
+        review.Property(value => value.SenseOrder).HasColumnName("sense_order");
+        review.Property(value => value.ReviewerId).HasColumnName("reviewer_id");
+        review.HasOne<User>().WithMany().HasForeignKey(value => value.ReviewerId).OnDelete(DeleteBehavior.NoAction);
+        review.Property(value => value.Action).HasColumnName("action").IsRequired();
+        review.Property(value => value.Field).HasColumnName("field");
+        review.Property(value => value.ChosenAlternativeId).HasColumnName("chosen_alternative_id");
+        // SET NULL, not NO ACTION: deleting a word cascades through word_alternatives, and a plain
+        // constraint would make that cascade abort. The verdict itself must survive either way.
+        review.HasOne<WordAlternative>().WithMany().HasForeignKey(value => value.ChosenAlternativeId)
+            .OnDelete(DeleteBehavior.SetNull);
+        review.Property(value => value.EditDiff).HasColumnName("edit_diff");
+        review.Property(value => value.Note).HasColumnName("note");
+        review.Property(value => value.ClientReviewId).HasColumnName("client_review_id").IsRequired();
+        // Offline replay key: a retried action is a duplicate row, never a second verdict.
+        review.HasIndex(value => value.ClientReviewId).IsUnique();
+        review.Property(value => value.ViaBatch).HasColumnName("via_batch").HasDefaultValue(0);
+        review.Property(value => value.CouncilRunId).HasColumnName("council_run_id");
+        review.Property(value => value.AgreementAtReview).HasColumnName("agreement_at_review");
+        review.Property(value => value.DecisionMs).HasColumnName("decision_ms");
+        review.Property(value => value.CreatedAt).HasColumnName("created_at");
+        review.HasIndex(value => new { value.WordId, value.WordVersion });
     }
 
     // M7: day_status, day_skips and practice_sessions (design.md:103-120, design-amendment.md

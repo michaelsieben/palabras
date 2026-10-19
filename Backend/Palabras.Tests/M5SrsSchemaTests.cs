@@ -23,10 +23,11 @@ public sealed class M5SrsSchemaTests
         using var response = await client.GetAsync("/healthz", CancellationToken.None);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         await using var database = new DatabaseSettings(factory.DatabasePath).CreateContext();
-        Assert.Equal(5, (await database.Database.GetAppliedMigrationsAsync(CancellationToken.None)).Count());
+        Assert.Equal(6, (await database.Database.GetAppliedMigrationsAsync(CancellationToken.None)).Count());
         Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_SrsCards", StringComparison.Ordinal));
         Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_DayStatusAndSkips", StringComparison.Ordinal));
         Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_RolloverCutoverMarker", StringComparison.Ordinal));
+        Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_ReviewGate", StringComparison.Ordinal));
         Assert.Empty(await database.Database.GetPendingMigrationsAsync(CancellationToken.None));
         await database.Database.OpenConnectionAsync(CancellationToken.None);
         DbConnection connection = database.Database.GetDbConnection();
@@ -97,8 +98,12 @@ public sealed class M5SrsSchemaTests
         await SeedAsync(database);
         DbConnection connection = database.Database.GetDbConnection();
         string[] before = await ReadAsync(connection, "SELECT sql FROM sqlite_master WHERE type='table' AND name IN ('words','senses','word_alternatives','word_topics','word_revisions') ORDER BY name;", "");
-        await migrator.MigrateAsync(cancellationToken: CancellationToken.None);
+        // Scope: the SRS/day migrations must not touch content tables. ReviewGate later rebuilds
+        // `words` and `word_revisions` on purpose (new columns + a new CHECK value), so the assertion
+        // stops at the last migration before it.
+        await migrator.MigrateAsync("RolloverCutoverMarker", CancellationToken.None);
         Assert.Equal(before, await ReadAsync(connection, "SELECT sql FROM sqlite_master WHERE type='table' AND name IN ('words','senses','word_alternatives','word_topics','word_revisions') ORDER BY name;", ""));
+        await migrator.MigrateAsync(cancellationToken: CancellationToken.None);
         Assert.Equal("owner", (await database.Users.AsNoTracking().SingleAsync(CancellationToken.None)).Username);
         Assert.Null((await database.Users.AsNoTracking().SingleAsync(CancellationToken.None)).Timezone);
         Assert.Equal("es-coger-01", (await database.Words.SingleAsync(CancellationToken.None)).Key);
@@ -192,11 +197,11 @@ public sealed class M5SrsSchemaTests
 
     private static async Task SeedAsync(PalabrasDbContext database)
     {
-        // Raw SQL permits seeding the pre-SrsCards users table during the additive-upgrade test.
+        // Raw SQL permits seeding the pre-SrsCards users table during the additive-upgrade test, and
+        // keeps working after later migrations add columns the entity model already maps.
         await database.Database.ExecuteSqlRawAsync("INSERT INTO users (id,username,role,password_hash,created_at,updated_at) VALUES (1,'owner','owner','hash','2026-10-18','2026-10-18');", CancellationToken.None);
-        database.Words.Add(new Word { Id = 1, Key = "es-coger-01", Headword = "coger", Pos = "verb", Cefr = "A1", RegionScope = "ES", Register = "neutral", ContentHash = "hash", ProvenanceMethod = "manual" });
-        database.Senses.Add(new Sense { Id = 1, WordId = 1, SenseOrder = 1, EnGloss = "take", ExampleEs = "Lo cojo.", ExampleEn = "I take it." });
-        await database.SaveChangesAsync(CancellationToken.None);
+        await database.Database.ExecuteSqlRawAsync("INSERT INTO words (id,key,headword,pos,cefr,region_scope,register,status,content_hash,provenance_method,created_at,updated_at) VALUES (1,'es-coger-01','coger','verb','A1','ES','neutral','pending_review','hash','manual',1,1);", CancellationToken.None);
+        await database.Database.ExecuteSqlRawAsync("INSERT INTO senses (id,word_id,sense_order,en_gloss,example_es,example_en) VALUES (1,1,1,'take','Lo cojo.','I take it.');", CancellationToken.None);
     }
 
     private static async Task ConstraintFailsAsync(PalabrasDbContext database, string sql)

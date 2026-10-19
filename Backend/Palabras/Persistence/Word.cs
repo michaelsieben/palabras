@@ -20,6 +20,14 @@ internal sealed class Word
     public string ContentHash { get; set; } = "";
     public string ProvenanceMethod { get; set; } = "";
     public string? ProvenanceRun { get; set; }
+    // M4 reviewer gate (ΔF:556-583): the M4 UI reads these. They stay empty for the hand-authored
+    // corpus; M3b's council import is what fills them.
+    public double? CouncilAgreement { get; set; }
+    public string? CouncilBand { get; set; }
+    public int ReducedConfidence { get; set; }
+    public string? LintWarnings { get; set; }
+    public long? StatusChangedAt { get; set; }
+    public int? ApprovedVersion { get; set; }
     public long CreatedAt { get; set; }
     public long UpdatedAt { get; set; }
 }

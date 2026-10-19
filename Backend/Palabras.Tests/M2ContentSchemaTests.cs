@@ -27,15 +27,19 @@ public sealed class M2ContentSchemaTests
         DbConnection connection = database.Database.GetDbConnection();
 
         // Each entry is name:type:not-null:default:primary-key-order, from the actual migrated DB.
+        // ReviewGate rebuilds `words` in SQLite to add its CHECK constraint, and the rebuild lists
+        // columns alphabetically (id first as the primary key); the field set is what matters.
         var expectedColumns = new Dictionary<string, string[]>
         {
             ["words"] = [
-                "id:INTEGER:1::1", "key:TEXT:1::0", "headword:TEXT:1::0", "article:TEXT:0::0",
-                "gender:TEXT:0::0", "pos:TEXT:1::0", "cefr:TEXT:1::0", "region_scope:TEXT:1::0",
-                "register:TEXT:1::0", "register_notes:TEXT:0::0", "region_notes:TEXT:0::0",
-                "notes:TEXT:0::0", "plural:TEXT:0::0", "status:TEXT:1::0", "version:INTEGER:1:1:0",
-                "content_hash:TEXT:1::0", "provenance_method:TEXT:1::0", "provenance_run:TEXT:0::0",
-                "created_at:INTEGER:1::0", "updated_at:INTEGER:1::0"],
+                "id:INTEGER:1::1", "approved_version:INTEGER:0::0", "article:TEXT:0::0", "cefr:TEXT:1::0",
+                "content_hash:TEXT:1::0", "council_agreement:REAL:0::0", "council_band:TEXT:0::0",
+                "created_at:INTEGER:1::0", "gender:TEXT:0::0", "headword:TEXT:1::0", "key:TEXT:1::0",
+                "lint_warnings:TEXT:0::0", "notes:TEXT:0::0", "plural:TEXT:0::0", "pos:TEXT:1::0",
+                "provenance_method:TEXT:1::0", "provenance_run:TEXT:0::0", "reduced_confidence:INTEGER:1:0:0",
+                "region_notes:TEXT:0::0", "region_scope:TEXT:1::0", "register:TEXT:1::0",
+                "register_notes:TEXT:0::0", "status:TEXT:1::0", "status_changed_at:INTEGER:0::0",
+                "updated_at:INTEGER:1::0", "version:INTEGER:1:1:0"],
             ["senses"] = [
                 "id:INTEGER:1::1", "word_id:INTEGER:1::0", "sense_order:INTEGER:1::0", "en_gloss:TEXT:1::0",
                 "en_accepted:TEXT:1:'[]':0", "es_accepted:TEXT:1:'[]':0", "example_es:TEXT:1::0",
@@ -46,8 +50,8 @@ public sealed class M2ContentSchemaTests
                 "rank:INTEGER:1::0"],
             ["word_topics"] = ["word_id:INTEGER:1::1", "topic:TEXT:1::2"],
             ["word_revisions"] = [
-                "id:INTEGER:1::1", "word_id:INTEGER:1::0", "version:INTEGER:1::0", "actor_user_id:INTEGER:0::0",
-                "action:TEXT:1::0", "snapshot_json:TEXT:1::0", "created_at:INTEGER:1::0"]
+                "id:INTEGER:1::1", "action:TEXT:1::0", "actor_user_id:INTEGER:0::0", "created_at:INTEGER:1::0",
+                "snapshot_json:TEXT:1::0", "version:INTEGER:1::0", "word_id:INTEGER:1::0"]
         };
         foreach (KeyValuePair<string, string[]> table in expectedColumns)
         {
@@ -61,9 +65,10 @@ public sealed class M2ContentSchemaTests
         Assert.Contains("CHECK (article IN ('el', 'la', 'los', 'las'))", wordsSql);
         Assert.Contains("CHECK (gender IN ('masculine', 'feminine', 'common', 'not_applicable'))", wordsSql);
         Assert.Contains("CHECK (status IN ('draft', 'pending_review', 'approved', 'needs_change', 'rejected', 'retired'))", wordsSql);
+        Assert.Contains("CHECK (council_band IN ('alta', 'media'))", wordsSql);
         string revisionsSql = Assert.Single(await ReadStringsAsync(connection,
             "SELECT sql FROM sqlite_master WHERE type='table' AND name=$name;", "word_revisions", CancellationToken.None));
-        Assert.Contains("CHECK (action IN ('import', 'approve', 'reject', 'needs_change', 'edit', 'retire'))", revisionsSql);
+        Assert.Contains("CHECK (action IN ('import', 'approve', 'reject', 'needs_change', 'edit', 'retire', 'demote'))", revisionsSql);
 
         Assert.Equal(["CREATE UNIQUE INDEX \"IX_words_key\" ON \"words\" (\"key\")"],
             await ReadStringsAsync(connection, "SELECT sql FROM sqlite_master WHERE type='index' AND name=$name;", "IX_words_key", CancellationToken.None));
