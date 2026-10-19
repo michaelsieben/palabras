@@ -604,7 +604,9 @@ public sealed partial class M4ReviewApiTests
         Assert.Empty(imported.Rejected);
 
         using var client = await LoginAsync(factory, "reviewer");
-        using var body = await JsonAsync(await client.GetAsync("/api/review/queue", CancellationToken.None));
+        // The import approved the word, so the pending default does not list it; ask for the
+        // approved scope explicitly to get its id.
+        using var body = await JsonAsync(await client.GetAsync("/api/review/queue?status=approved", CancellationToken.None));
         var casa = body.RootElement.GetProperty("items").EnumerateArray()
             .Single(item => item.GetProperty("key").GetString() == "es-casa-01");
         using (var edit = await PostAsync(client, "/api/review/actions", new

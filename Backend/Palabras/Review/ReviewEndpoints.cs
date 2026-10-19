@@ -35,9 +35,10 @@ internal static class ReviewEndpoints
     // then key. The corpus is hundreds of words, so the ordering is computed from loaded rows rather
     // than pushed into SQLite (no proposal_support/frequency_rank column exists in M4).
     //
-    // Trust-by-default (T-20261019-2100): the queue still leads with pending rows, then exposes
-    // approved rows so a reviewer can object to them. `status=all` is the default; `status=pending`
-    // preserves the pre-change page exactly for a caller that has not adopted the new field yet.
+    // Trust-by-default (T-20261019-2100): `pending` is the default scope, so a caller that has not
+    // adopted the new field gets exactly the pre-change page. The objection UI opts into approved
+    // rows explicitly with `status=all` (or `status=approved`); rendering an approved row as a
+    // pending card would offer "approve" for a word that is already approved.
     // Approved rows are keyset-paged with `after`/`nextAfter` (the cursor is a word id), matching
     // /api/review/approved.
     private static async Task<IResult> QueueAsync(DatabaseSettings settings, string? limit, string? status,
@@ -554,7 +555,7 @@ internal static class ReviewEndpoints
     private static bool TryQueueScope(string? raw, out bool includePending, out bool includeApproved)
     {
         includePending = true;
-        includeApproved = true;
+        includeApproved = false;
         if (string.IsNullOrWhiteSpace(raw))
         {
             return true;
@@ -566,8 +567,10 @@ internal static class ReviewEndpoints
                 return true;
             case "approved":
                 includePending = false;
+                includeApproved = true;
                 return true;
             case "all":
+                includeApproved = true;
                 return true;
             default:
                 return false;

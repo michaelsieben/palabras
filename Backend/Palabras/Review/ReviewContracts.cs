@@ -60,7 +60,7 @@ internal sealed record ReviewItem(
 internal sealed record ReviewTopicCount(string Topic, int Pending);
 
 // `approvedTotal` and `nextAfter` are additive: a caller that ignored them before keeps working,
-// and `status=pending` still returns exactly the pre-trust-by-default page.
+// and the default scope (`status=pending`) is exactly the pre-trust-by-default page.
 internal sealed record ReviewQueueResponse(
     IReadOnlyList<ReviewItem> Items,
     int PendingTotal,

@@ -44,18 +44,32 @@ public sealed partial class M4ReviewApiTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var body = await JsonAsync(response);
         var items = body.RootElement.GetProperty("items").EnumerateArray().ToArray();
-        // family (two pending) first, agreement DESC NULLS LAST then key; food next. The approved
-        // word is reachable after the pending page so a reviewer can object to it.
-        Assert.Equal(new[] { "es-abuela-01", "es-tia-02", "es-pan-03", "es-mesa-04" },
+        // family (two pending) first, agreement DESC NULLS LAST then key; food next. The default
+        // scope is pending-only, exactly like the pre-trust-by-default page, so the approved word is
+        // not here: rendering it as a pending card would offer "approve" on an approved row.
+        Assert.Equal(new[] { "es-abuela-01", "es-tia-02", "es-pan-03" },
             items.Select(item => item.GetProperty("key").GetString()).ToArray());
-        Assert.Equal(new[] { "pending_review", "pending_review", "pending_review", "approved" },
-            items.Select(item => item.GetProperty("status").GetString()).ToArray());
+        Assert.All(items, item => Assert.Equal("pending_review", item.GetProperty("status").GetString()));
         Assert.Equal(3, body.RootElement.GetProperty("pendingTotal").GetInt32());
-        Assert.Equal(1, body.RootElement.GetProperty("approvedTotal").GetInt32());
+        Assert.Equal(0, body.RootElement.GetProperty("approvedTotal").GetInt32());
         Assert.False(body.RootElement.TryGetProperty("nextAfter", out _));
         var topics = body.RootElement.GetProperty("topics").EnumerateArray().ToArray();
         Assert.Equal(new[] { "family", "food" }, topics.Select(topic => topic.GetProperty("topic").GetString()).ToArray());
         Assert.Equal(new[] { 2, 1 }, topics.Select(topic => topic.GetProperty("pending").GetInt32()).ToArray());
+
+        // The objection UI must ask for approved rows explicitly; `status=all` appends them after the
+        // pending page so a reviewer can object to an already-approved word.
+        using (var all = await JsonAsync(await client.GetAsync("/api/review/queue?status=all")))
+        {
+            var allItems = all.RootElement.GetProperty("items").EnumerateArray().ToArray();
+            Assert.Equal(new[] { "es-abuela-01", "es-tia-02", "es-pan-03", "es-mesa-04" },
+                allItems.Select(item => item.GetProperty("key").GetString()).ToArray());
+            Assert.Equal(new[] { "pending_review", "pending_review", "pending_review", "approved" },
+                allItems.Select(item => item.GetProperty("status").GetString()).ToArray());
+            Assert.Equal(3, all.RootElement.GetProperty("pendingTotal").GetInt32());
+            Assert.Equal(1, all.RootElement.GetProperty("approvedTotal").GetInt32());
+            Assert.False(all.RootElement.TryGetProperty("nextAfter", out _));
+        }
 
         var abuela = items[0];
         Assert.Equal(1, abuela.GetProperty("wordId").GetInt32());

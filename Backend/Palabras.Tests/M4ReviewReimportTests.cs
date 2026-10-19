@@ -62,7 +62,7 @@ public sealed partial class M4ReviewApiTests
     [Theory]
     [InlineData("approve_edit")]
     [InlineData("approve_alt")]
-    public async Task ChangedSourceWinsAndReturnsToReviewWithoutLosingHistoricalVerdicts(string action)
+    public async Task ChangedSourceWithReviewerEditReturnsToReviewWithoutLosingHistoricalVerdicts(string action)
     {
         using var factory = new ReviewApplicationFactory(Now);
         await WriteSourceAsync(factory);
@@ -100,17 +100,19 @@ public sealed partial class M4ReviewApiTests
             Assert.Equal("abuela", word.Headword);
             Assert.NotEqual(originalHash, word.ContentHash);
             Assert.Equal(3, word.Version);
-            // Trust-by-default: the changed source re-approves at the new version instead of
-            // silently emptying the learner's queue for a word that was already accepted.
-            Assert.Equal("approved", word.Status);
+            // Trust-by-default, except for a reviewer edit: the changed source may not silently
+            // overwrite what she wrote, so the word goes back to the queue for re-review instead of
+            // being re-approved at the new source version.
+            Assert.Equal("pending_review", word.Status);
             Assert.NotNull(word.StatusChangedAt);
-            Assert.Equal(3, word.ApprovedVersion);
+            Assert.Equal(2, word.ApprovedVersion); // Last version a human actually accepted.
             Assert.Equal("grandmother from changed source", (await database.Senses.SingleAsync()).EnGloss);
             Assert.Equal(2, await database.WordAlternatives.CountAsync());
             Assert.Single(await database.WordTopics.ToListAsync());
             var revisions = await database.WordRevisions.OrderBy(row => row.Id).ToListAsync();
             Assert.Equal(new[] { 1, 2, 2, 3 }, revisions.Select(row => row.Version).ToArray());
             Assert.Equal("abuelita", JsonNode.Parse(revisions[2].SnapshotJson)!["headword"]!.GetValue<string>());
+            Assert.Contains(revisions, row => row.Action == "edit" && row.Version == 2);
             var verdict = await database.WordReviews.SingleAsync();
             Assert.Equal(clientReviewId, verdict.ClientReviewId);
             Assert.Equal(1, verdict.WordVersion); // Version the reviewer saw, still preserved in revisions.
@@ -120,10 +122,10 @@ public sealed partial class M4ReviewApiTests
             Assert.Null(verdict.ChosenAlternativeId); // ON DELETE SET NULL; diff/snapshots preserve chosen content.
             Assert.All(await database.Cards.ToListAsync(), card =>
             {
-                // edit (+1) and changed-source import (+1); the word never leaves the approved queue,
-                // so no card is suspended.
+                // edit (+1) and the demoting changed-source import (+1); the word left the approved
+                // queue, so the cards stay suspended until a reviewer re-approves it.
                 Assert.Equal(2, card.Epoch);
-                Assert.Null(card.SuspendedReason);
+                Assert.Equal("word_not_approved", card.SuspendedReason);
             });
         }
         // The opposite ordering: queued edit for v2 cannot approve newly imported v3.
@@ -146,9 +148,64 @@ public sealed partial class M4ReviewApiTests
             Assert.Equal("duplicate", Assert.Single(body.RootElement.GetProperty("results").EnumerateArray())
                 .GetProperty("result").GetString());
         }
-        using var queue = await reviewer.GetAsync("/api/review/queue");
-        using var queueBody = await JsonAsync(queue);
-        Assert.Equal(3, Assert.Single(queueBody.RootElement.GetProperty("items").EnumerateArray()).GetProperty("version").GetInt32());
+        // The default queue scope is pending: the returned word is listed there, at its new version.
+        using (var queue = await reviewer.GetAsync("/api/review/queue"))
+        {
+            using var queueBody = await JsonAsync(queue);
+            var item = Assert.Single(queueBody.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal(3, item.GetProperty("version").GetInt32());
+            Assert.Equal("pending_review", item.GetProperty("status").GetString());
+            Assert.Equal(1, queueBody.RootElement.GetProperty("pendingTotal").GetInt32());
+        }
+        // ... and the approved scope no longer offers it, because it is back in review.
+        using (var approved = await reviewer.GetAsync("/api/review/queue?status=approved"))
+        {
+            using var approvedBody = await JsonAsync(approved);
+            Assert.Empty(approvedBody.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal(0, approvedBody.RootElement.GetProperty("approvedTotal").GetInt32());
+        }
+    }
+
+    [Fact]
+    public async Task ChangedSourceWithoutReviewerEditStaysApproved()
+    {
+        using var factory = new ReviewApplicationFactory(Now);
+        await WriteSourceAsync(factory);
+        AssertImport(await ImportSourceAsync(factory), 1, 0, 0);
+        await WriteSourceAsync(factory, "grandmother from changed source");
+        AssertImport(await ImportSourceAsync(factory), 0, 1, 0);
+        AssertImport(await ImportSourceAsync(factory), 0, 0, 1);
+        await using (var database = factory.OpenDatabase())
+        {
+            var word = await database.Words.SingleAsync();
+            // No reviewer edit exists, so trust-by-default applies: the changed source is accepted
+            // and the word never leaves the learner's queue.
+            Assert.Equal("approved", word.Status);
+            Assert.Equal(2, word.Version);
+            Assert.Equal(2, word.ApprovedVersion);
+            Assert.Equal("grandmother from changed source", (await database.Senses.SingleAsync()).EnGloss);
+            Assert.Empty(await database.WordReviews.ToListAsync());
+            Assert.Empty(await database.WordRevisions.Where(row => row.Action == "edit").ToListAsync());
+            Assert.Equal(new[] { 1, 2 },
+                (await database.WordRevisions.OrderBy(row => row.Id).ToListAsync()).Select(row => row.Version).ToArray());
+            Assert.All(await database.Cards.ToListAsync(), card =>
+            {
+                Assert.Equal(1, card.Epoch);
+                Assert.Null(card.SuspendedReason);
+            });
+        }
+        using var reviewer = await LoginAsync(factory, "reviewer");
+        using (var queue = await reviewer.GetAsync("/api/review/queue"))
+        {
+            using var queueBody = await JsonAsync(queue);
+            Assert.Empty(queueBody.RootElement.GetProperty("items").EnumerateArray());
+        }
+        using (var approved = await reviewer.GetAsync("/api/review/queue?status=approved"))
+        {
+            using var approvedBody = await JsonAsync(approved);
+            Assert.Equal(2, Assert.Single(approvedBody.RootElement.GetProperty("items").EnumerateArray())
+                .GetProperty("version").GetInt32());
+        }
     }
 
     [Theory]

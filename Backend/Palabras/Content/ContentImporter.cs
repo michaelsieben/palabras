@@ -125,6 +125,14 @@ internal sealed class ContentImporter
         // changed-content epoch bump stays inside this same transaction.
         var approvedWordIds = new List<int>();
         var changedApprovedWordIds = new HashSet<int>();
+        // A changed source must not silently discard a reviewer's edit. approve_edit/approve_alt
+        // commit an `edit` revision (the accompanying `approve` revision is only their verdict), so
+        // any such revision keeps the word in review instead of re-approving it. Words the reviewer
+        // never edited keep the trust-by-default behaviour below.
+        var reviewerEditedWordIds = await (from revision in database.WordRevisions.AsNoTracking()
+            join word in database.Words.AsNoTracking() on revision.WordId equals word.Id
+            where revision.Action == "edit" && keys.Contains(word.Key)
+            select revision.WordId).Distinct().ToHashSetAsync(cancellationToken);
         foreach (var entry in entries)
         {
             var word = await database.Words.SingleOrDefaultAsync(word => word.Key == entry.Key, cancellationToken);
@@ -153,7 +161,7 @@ internal sealed class ContentImporter
                 database.Words.Add(word);
                 created++;
             }
-            else if (word.Status == "approved")
+            else if (word.Status == "approved" && !reviewerEditedWordIds.Contains(word.Id))
             {
                 // Q-M4-3 changed-source behaviour, amended for trust-by-default: bump and accept the
                 // new content, but stay approved. Demoting here would silently empty the learner's
@@ -168,6 +176,9 @@ internal sealed class ContentImporter
             {
                 // Any other current status (pending_review, rejected, needs_change, draft) keeps the
                 // shipped re-review behaviour: the changed source returns it to the reviewer.
+                // An approved word with a reviewer edit lands here too: the source must not overwrite
+                // her edit unseen, so it goes back to pending. The edit revision and its snapshot stay
+                // in history, and approved_version keeps the last version a human accepted.
                 await ContentCardLifecycle.DemoteAsync(database, word.Id, cancellationToken);
                 word.Version = checked(word.Version + 1);
                 word.Status = "pending_review";
