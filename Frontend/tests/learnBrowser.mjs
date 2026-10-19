@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { testBaseUrl } from './browserConfig.mjs'
+import { reviewBrowserFixture } from './reviewBrowserFixture.mjs'
 
 export const browserPlan = (typed = false) => ({
   sessionId: 'b0cd98f1-dd5c-49ab-9ced-987865dd2100', generatedAtUtc: '2026-10-18T12:00:00Z', localDate: '2026-10-18',
@@ -52,6 +53,11 @@ export async function runLearnerBrowser(browser) {
       }
       return fulfillLearn(route, true)
     })
+    // Reviewer login below mounts the review UI, which fetches GET /api/review/queue. Answer it explicitly instead of
+    // falling through to fulfillLearn's attempts-POST shape. Playwright matches the most recently registered route
+    // first, so this must stay after the catch-all.
+    const review = reviewBrowserFixture()
+    await context.route('**/api/review/**', route => offline ? route.abort('internetdisconnected') : review.fulfill(route))
     let page = await context.newPage()
     page.on('pageerror', error => errors.push(error.message))
     await page.goto(`${testBaseUrl}/sesion`)
