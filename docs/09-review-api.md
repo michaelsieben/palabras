@@ -9,6 +9,17 @@ Shipped in T-20261019-1606: the reviewer gate over `word_reviews` (`3565e75` sch
 Migration and rollback: `08-upgrade-rollback.md` section G (`ReviewGate`) and section H (`CouncilImport`,
 `WordDifficulty`).
 
+## Review policy: trust by default
+
+Since run `T-20261019-2100` (`7234a15`, `37e1371`, `675a968`, `be76f20`) a corpus import (`import`) lands every word
+`approved` with its cards created in the same transaction, unless the source file says `status: "draft"`. The
+reviewer queue is where the reviewer **objects**: `reject` withdraws an approved word, `approve` lifts the objection,
+`approve_edit`/`approve_alt` correct an approved word in place, and `demote` sends it back to `pending_review`. The
+`pending` scope still exists for words that need a decision: council proposals (`import-council` writes
+`pending_review`, or `draft` with `--hold`), changed-source re-imports of words the reviewer edited (below), demoted
+words and rows from before this policy. No migration was added; existing `pending_review` rows are not flipped by the
+upgrade (operator step: `06-content-cli.md`, "content approve").
+
 ## Common rules
 
 - Every route requires policy `reviewer` (role `reviewer`). A `reviewer` account exists only if one was created with
@@ -26,7 +37,7 @@ Migration and rollback: `08-upgrade-rollback.md` section G (`ReviewGate`) and se
 
 | Method + route | Success | Errors |
 | --- | --- | --- |
-| `GET /api/review/queue?limit=` | 200 queue page | 400 `bad_request` (`limit` not an integer in 1–30) |
+| `GET /api/review/queue?status=&limit=&after=` | 200 queue page | 400 `bad_request` (`limit` not an integer in 1–30, unknown `status`, bad or stale `after`) |
 | `POST /api/review/actions` | 200 per-item results | 400 `bad_request` (batch shape), 500 (corrupt word, see limitations) |
 | `GET /api/review/approved?q=&after=&limit=` | 200 page | 400 `bad_request` (`limit` not 1–50, bad or stale `after`) |
 
@@ -34,11 +45,26 @@ All rows also return the 401/403 above.
 
 ### `GET /api/review/queue`
 
-Returns the first `limit` (default 30, maximum 30) `pending_review` words. There is no cursor: after acting, fetch
-again.
+Returns one page (`limit` default 30, maximum 30) of the review queue. Query parameters:
+
+| `status` | Rows | Paging |
+| --- | --- | --- |
+| absent or `pending` | `pending_review` only | first `limit` rows; `after` is parsed but ignored; no `nextAfter` |
+| `approved` | `approved` only | decided-list cursor |
+| `rejected` | `rejected` only | decided-list cursor |
+| `all` | union of the three | pending block, then decided list (below) |
+
+Any other value, including `ALL` or `draft`, is 400 `bad_request`. The scopes are mutually exclusive; `all` is their
+union. `needs_change`, `draft` and `retired` words are in no scope.
+
+**No `status` means pending only** (`ReviewEndpoints.TryQueueScope`, `37e1371`). Between `7234a15` and `37e1371` the
+default was `all`; a client written against that interim default now silently receives fewer rows and must send
+`status=all` (or `approved`/`rejected`) explicitly. The shipped reviewer UI sends an explicit `status` on every queue
+request (`Frontend/src/api/review.ts`).
 
 ```ts
-{ items: ReviewItem[]; pendingTotal: number; topics: { topic: string; pending: number }[] }
+{ items: ReviewItem[]; pendingTotal: number; topics: { topic: string; pending: number }[];
+  approvedTotal: number; nextAfter?: number; rejectedTotal: number }
 
 ReviewItem = {
   wordId: number; key: string; version: number; headword: string; article?: string; gender?: string;
@@ -50,14 +76,47 @@ ReviewItem = {
   alternatives: { id: number; field: string; text: string; translation?: string; reason: string;
                   support?: string /* "<support>/<models_requested>", e.g. "2/4" */ }[];
   lastFlag?: { action: "needs_change"; note?: string; at: string };
+  status: "pending_review" | "approved" | "rejected";
 }
 ```
 
-- `pendingTotal` counts every pending word, not only the page. `topics` lists pending counts per topic, largest first,
-  then by name; words without a topic are not listed there.
-- Order: the topic with the most pending words first; inside a topic `agreement` descending with missing values last;
-  then `key` (ordinal). A word's topic is `topics[0]` of its current-version snapshot, else the alphabetically first
-  `word_topics` row.
+- `pendingTotal` counts every pending word, not only the page, and is 0 for `status=approved`/`rejected`. `topics`
+  lists pending counts per topic, largest first, then by name; words without a topic are not listed there; it is
+  empty for scopes without pending rows.
+- `approvedTotal` and `rejectedTotal` count every approved / rejected word **in the selected scope** (0 when the scope
+  excludes that status), not only the page.
+- `status` on every item tells a pending row from a decided one. Render only `pending_review` rows as pending cards:
+  `approve` on an `approved` row is `invalid_transition`.
+- Pending order: the topic with the most pending words first; inside a topic `agreement` descending with missing
+  values last; then `key` (ordinal). A word's topic is `topics[0]` of its current-version snapshot, else the
+  alphabetically first `word_topics` row.
+- Decided order (`approved` and `rejected` rows, one shared list): decision time descending, then `wordId`
+  descending. Decision time is `status_changed_at`, else the newest `approve` or `reject` revision, else
+  `words.updated_at`, else `created_at` — the `approvedAt` rule of `GET /api/review/approved`, extended to `reject`.
+
+#### Queue cursor
+
+`nextAfter` is the `wordId` of the last row on the page, present only while rows remain. Send it back as `after` with
+the same `status`. Walking `after=nextAfter` until `nextAfter` is absent returns every row of the scope exactly once
+for a corpus that does not change during the walk (`M4ReviewApiTests.QueueAllScope*`).
+
+- `approved` / `rejected`: `after` must name a word in that scope's decided list; the page continues after it.
+- `all`: one sequence — the pending block, then the decided list. The server tells the cursor kind from the id
+  alone: an id that is currently pending resumes the pending block after it (only needed when pending exceeds
+  `limit`), and the decided list then starts from its head with the remaining budget; any other id is looked up in
+  the decided list, which skips the pending block. When the pending block fills the page exactly, page one still
+  carries a cursor (its last pending id), so decided rows stay reachable.
+- Stale cursor: an `after` that is in neither list (for example the word became `needs_change`) is 400
+  `bad_request`; restart at page one without `after`. `after` that is not a positive integer is 400 in every scope.
+- **Cursor row decided between pages (`all` only).** If the row named by `nextAfter` was pending and is approved or
+  rejected before the next request, the id now resolves in the decided list: no 400, the page continues from the
+  decided list, and the pending rows after the old cursor are skipped silently. A client that decides rows while
+  walking `status=all` must restart at page one after acting, not follow the old `nextAfter`. A typed cursor that
+  distinguishes the two kinds is open work (`.opencode/runs/T-20261019-2100/42-pagination-recheck.md` finding 1);
+  it has not landed at `199768e`.
+- Pending order is recomputed per request from the current pending set (topic counts), so deciding a pending row can
+  reorder the rest; a pending cursor can then repeat or skip a row when pending exceeds `limit`. Same remedy:
+  restart after acting.
 - `senses` are the active senses of the current version (`sense_order` below the snapshot's sense count).
 - `alternatives` is the chip list. A stored `word_alternatives.field` (council rows since M3b) wins over the legacy
   `kind` vocabulary; `kind` resolves as `synonym`, `near-synonym`, `different-sense` → `lemma`; `regional` →
@@ -98,20 +157,40 @@ lower-case `D` form, so case variants of one GUID are the same key.
 
 #### State machine
 
-Each action is legal from exactly one status. Any other pair is `invalid_transition` and writes nothing.
+Any (action, status) pair outside this matrix is `invalid_transition` and writes nothing
+(`ReviewTransitions.StrictFrom`).
 
 | Action | Allowed from | Effect when applied |
 | --- | --- | --- |
-| `approve` | `pending_review` | status `approved`; `approve` revision at the same version; `status_changed_at` and `approved_version` stamped; missing cards created, `word_not_approved` suspensions released; FSRS state untouched |
-| `approve_alt` | `pending_review` | chip value replaces the current value; version + 1; `edit` and `approve` revisions at the new version; old value kept as a `previous_<field>` alternative; then as `approve`, plus `epoch` + 1 on existing cards. An `example` chip also replaces `example_en` with the chip's `gloss` |
-| `approve_edit` | `pending_review` | 1–10 edits applied; otherwise as `approve_alt`. An `example` edit clears `example_en`/`exampleGloss` (the wire form carries no English) and keeps the old English on the undo row |
-| `reject` | `pending_review` | status `rejected`; `reject` revision; version unchanged |
+| `approve` | `pending_review`, `rejected` | status `approved`; `approve` revision at the same version; `status_changed_at` and `approved_version` stamped; missing cards created, `word_not_approved` suspensions released; FSRS state untouched — except from `rejected` (undo of an objection, below) |
+| `approve_alt` | `pending_review`, `approved` | chip value replaces the current value; version + 1; `edit` and `approve` revisions at the new version; old value kept as a `previous_<field>` alternative; then as `approve`, plus `epoch` + 1 on existing cards. An `example` chip also replaces `example_en` with the chip's `gloss` |
+| `approve_edit` | `pending_review`, `approved` | 1–10 edits applied; otherwise as `approve_alt`. An `example` edit clears `example_en`/`exampleGloss` (the wire form carries no English) and keeps the old English on the undo row |
+| `reject` | `pending_review`, `approved` | status `rejected`; `reject` revision; version unchanged; cards suspended (below) |
 | `needs_change` | `pending_review` | status `needs_change`; `needs_change` revision; optional `field` stored on the verdict |
 | `demote` | `approved` | status `pending_review`; `demote` revision; cards `epoch` + 1 and `suspended_reason` set to `word_not_approved` where empty; FSRS state, due, reps, lapses untouched; `approved_version` kept |
 
-From `draft`, `needs_change`, `rejected` or `retired` every action is `invalid_transition`; from `approved` every
-action except `demote` is. The CLI (`content approve`) uses the same code with an "any status" rule
+From `draft`, `needs_change` or `retired` every action is `invalid_transition`; from `rejected` only `approve` is
+legal. The CLI (`content approve`, `content reject`) uses the same code with its own allowed-from sets
 (`06-content-cli.md`).
+
+#### Objection and its undo
+
+- **`reject` on an approved word suspends, never deletes.** Every card of the word gets `epoch` + 1 and
+  `suspended_reason = 'word_not_approved'` where no reason was set; a `manual` or `leech` pause keeps its reason.
+  `review_log.card_id` is `ON DELETE NO ACTION`, so cards and learner history stay; the `reject` revision and the
+  `word_reviews` verdict are appended. The word leaves `/api/learn/*` sessions because only approved words with
+  unsuspended cards are offered (`07-learn-api.md`).
+- A rejected word stays reachable: `GET /api/review/queue?status=rejected` (or `status=all`) lists it with `wordId`,
+  `version` and `status`, which is everything `approve` needs.
+- **`approve` from `rejected` restarts the suspended cards fresh at a new epoch.** Only cards whose reason is
+  `word_not_approved` are reset (`ContentCardLifecycle.ResetAfterRejectionAsync`): `epoch` + 1, state New, step,
+  stability, difficulty, last review, buried/introduced dates cleared, reps and lapses 0, leech flag cleared, due now,
+  suspension cleared. The pre-objection FSRS schedule is not resumed. `manual` and `leech` cards are not touched.
+  Missing direction cards are created. No `review_log`, `word_reviews` or `word_revisions` row is deleted; an
+  `approve` revision is appended at the same version. The reset runs on the CLI path too (`content approve <key>`).
+- Retrying an objection: a second `reject` with a **new** `clientReviewId` on an already rejected word is a per-item
+  `invalid_transition`; a resend of an applied `clientReviewId` is `duplicate` (checked first). Neither writes
+  anything, and the batch still answers 200.
 
 #### Per-item results
 
@@ -164,7 +243,9 @@ Every `applied` item inserts one `word_reviews` row in the same transaction: `wo
 field; `chosen_alternative_id`; `edit_diff` = JSON array of `{field, sense, before, after}` for `approve_edit` /
 `approve_alt`; `note`; `client_review_id` (unique); `via_batch` 0/1; `agreement_at_review` = `words.council_agreement`
 at decision time; `decision_ms`; `created_at`. `council_run_id` stays NULL: M3b added the column, but no writer fills
-it (the queue reads `words.council_run_id` only, to compute chip `support`). CLI approvals write no verdict row.
+it (the queue reads `words.council_run_id` only, to compute chip `support`). CLI approvals and rejections, and the
+approval an import grants on arrival, write no verdict row (`reviewer_id` is NOT NULL); their audit record is the
+`word_revisions` row.
 
 ### `GET /api/review/approved`
 
@@ -180,7 +261,8 @@ it (the queue reads `words.council_run_id` only, to compute chip `support`). CLI
 - Order: `approvedAt` descending, then `wordId` descending. `limit` default 20, maximum 50.
 - Paging: there is no `next` field. To get the next page, send `after` = the `wordId` of the last item received,
   with the same `q`. A page shorter than `limit` is the last one.
-- **Stale cursor.** `after` must name a word that is still in the approved list for that `q`. If it was demoted (or
+- **Stale cursor.** `after` must name a word that is still in the approved list for that `q`. If it was demoted or
+  rejected (or
   changed so it no longer matches `q`) between pages, the server answers 400 `bad_request`. The client must restart
   at page 1 (no `after`). `after` that is not a positive integer is also 400.
 
@@ -235,11 +317,13 @@ No export endpoint reads `word_reviews` yet (plan step 5). A future export must 
   changed-source re-import.
 - `chosen_alternative_id` becomes NULL when a re-import replaces the word's alternatives (FK `SET NULL`); the verdict
   row and `edit_diff` survive. `previous_*` undo alternatives are also replaced by a re-import.
-- CLI approvals appear only as `word_revisions` rows with `actor_user_id` NULL, never in `word_reviews`.
+- CLI approvals and rejections appear only as `word_revisions` rows with `actor_user_id` NULL, never in
+  `word_reviews`. An import-time approval appears only as the `import` revision (snapshot `status: "approved"`).
 
 ## Re-import after a reviewer decision (Q-M4-3)
 
-Shipped in `89657e4` (run `T-20261019-2013`, plan step 4). Tests: `M4ReviewReimportTests.cs` (15 cases). CLI behaviour
+Shipped in `89657e4` (run `T-20261019-2013`, plan step 4; 15 cases then), amended for trust-by-default in `7234a15`
+and `37e1371`. Tests: `M4ReviewReimportTests.cs`. CLI behaviour
 and the hash definition: `06-content-cli.md`. This section covers only how a re-import interacts with verdicts and
 versions.
 
@@ -247,12 +331,24 @@ versions.
 - **Source unchanged since the last import** → the import is `unchanged` and performs no write at all: the reviewer's
   content, `approved` status, `version`, hash, verdict row, alternatives and card epochs all survive. Both orderings
   are covered (reviewer action → import, and repeated imports after it).
-- **Source changed** → the import wins: content replaced, `version` + 1, status `pending_review`, cards demoted
-  (`epoch` + 1, `suspended_reason` set to `word_not_approved` where it was empty). The reviewer's `edit`/`approve`
-  snapshots stay at their old versions, her `word_reviews` row still names the version she saw, and `approved_version`
-  stays the last approved version — an audit fact, not approval of the new version. No revision is deleted or
-  renumbered, so no verdict points at a vanished version. A queued action for the old version returns `stale_version`;
-  the queue exposes the new version.
+- **Source changed** → the import wins the content: content replaced, `version` + 1. The resulting status depends on
+  the word (`ContentImporter`, `37e1371`):
+  - `approved` and **no** reviewer `edit` revision → stays `approved`, `approved_version` = the new version, cards
+    `epoch` + 1 but not suspended. Trust-by-default: a source refresh never silently drops an accepted word from the
+    learner's sessions.
+  - `approved` **with** at least one `edit` revision (written by `approve_edit` and `approve_alt`) → `pending_review`,
+    cards demoted (`epoch` + 1, `suspended_reason` set to `word_not_approved` where it was empty), so a reviewer edit
+    is never overwritten unseen.
+  - any other status (`pending_review`, `rejected`, `needs_change`, `draft`) → `pending_review` and cards demoted, as
+    before. A rejected word with changed source returns to the pending scope.
+- In the demoting cases the reviewer's `edit`/`approve` snapshots stay at their old versions, her `word_reviews` row
+  still names the version she saw, and `approved_version` stays the last approved version — an audit fact, not
+  approval of the new version. No revision is deleted or renumbered, so no verdict points at a vanished version. A
+  queued action for the old version returns `stale_version` in every case; the queue exposes the new version.
+- **The edit marker is permanent.** The check is "an `edit` revision exists for this word", not "an edit not yet
+  superseded". After a demote, if the reviewer accepts the new source with a plain `approve`, the old `edit` revision
+  remains and every later changed-source import demotes the word again. Conservative by choice
+  (`.opencode/runs/T-20261019-2100/37-queue-default-review.md` finding 3).
 - Replaying the original action after the import returns `duplicate`, not `stale_version`: the duplicate check runs
   first.
 - A changed-source import replaces the word's alternatives, so `chosen_alternative_id` becomes NULL (`ON DELETE SET
@@ -282,7 +378,11 @@ Peninsular/register regression, and `lintWarnings` is not recomputed.
   valid: each edit is validated against the pre-edit article. Editing the article first works. Rejects valid input
   only.
 - Reordering the `topics` array in the source file changes the import hash though the meaning is unchanged; the next
-  import bumps the version, demotes cards and returns the word to `pending_review`. A reviewer edit is never lost.
+  import bumps the version and epoch-bumps the cards. An approved word without a reviewer edit stays approved; one
+  with an edit, or any non-approved word, returns to `pending_review` with suspended cards. A reviewer edit is never
+  lost.
+- Under `status=all` the cursor kind is inferred from the id, so deciding the cursor row between pages skips the rest
+  of the pending block without an error (see "Queue cursor").
 - Import-then-edit at the new version is not asserted end to end: after a changed-source import the tests check
   `stale_version` for the old version and the queue's new version, not a fresh `approve_edit` at that version (same
   transition code, already covered elsewhere).

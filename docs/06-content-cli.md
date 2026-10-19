@@ -47,6 +47,7 @@ Migrations in order: `InitialAccounts` (M1), `ContentSchema` (M2, `2026101723482
 | `import <dir> [--dry-run]` | `words`, `senses`, `word_alternatives`, `word_topics`, `word_revisions`, card epochs/suspension | yes: re-run with the same files → all `unchanged` | `created=N updated=N unchanged=N rejected=N` |
 | `import-council <dir> [--dry-run] [--force] [--hold]` | `council_runs`, `council_model_results`, `word_provenance`, and the same content tables as `import` | yes: a recorded `run_id` is a strict no-op; a rework whose content hash is unchanged writes nothing | per-bundle lines, then `bundles=N imported=N created=N skipped=N failed=N` |
 | `content approve <key…>` | `words.status`, `word_revisions`, `cards` | yes: already approved → `unchanged` | `approved=N unchanged=N` |
+| `content reject <key…>` | `words.status`, `word_revisions`, `cards` | yes: already rejected → `unchanged` | `rejected=N unchanged=N` |
 | `content approve --all-pending` | same | yes | `approved=N unchanged=N` |
 | `content approve --top N [--dry-run]` | same | row-level only: a re-run approves the **next** N pending words | `approved=N unchanged=N`; dry run: one key per line, then `dry-run=N` |
 | `learn settings --username <u> [--new-per-day N] [--max-reviews-per-day N] [--backlog-threshold N]` | `user_settings` (upsert) | yes | `user=…`, then one `<knob>=<old> -> <new>` line per knob (no `->` without flags) |
@@ -74,12 +75,18 @@ and council schemas), not `content/words/` (`Dockerfile:18`); copy them in with 
    `status`, `review` and `updatedAt` excluded. So a status-only or timestamp-only edit is `unchanged`.
    - Same hash → `unchanged`. Nothing is touched; an approved word stays approved, and a reviewer edit survives
      (section below).
-   - New key → `created`, `version` 1, one `word_revisions` row with `action='import'`.
-   - Different hash → `updated`: `version` + 1, a new `import` revision, status reset to `pending_review`, and every
-     card of the word is invalidated (`epoch` + 1, `suspended_reason='word_not_approved'` unless a reason is already
-     set). FSRS state is kept. The word needs `content approve` again.
-3. **File `status` is advisory.** On creation only `draft` is honoured; every other value, including `approved`,
-   lands as `pending_review`. An updated word always becomes `pending_review`, whatever the file says.
+   - New key → `created`, `version` 1, status `approved` with `approved_version` 1, one `word_revisions` row with
+     `action='import'` whose snapshot says `approved`, and the learner cards are created in the same transaction
+     (trust-by-default, `7234a15`). No `content approve` is needed; a reviewer objects afterwards
+     (`09-review-api.md`, "Review policy").
+   - Different hash → `updated`: `version` + 1 and a new `import` revision. An `approved` word without a reviewer
+     `edit` revision stays `approved` (`approved_version` follows, card `epoch` + 1, no suspension). Every other word —
+     approved with a reviewer edit, or `pending_review`, `rejected`, `needs_change`, `draft` — goes to
+     `pending_review` and every card of the word is invalidated (`epoch` + 1, `suspended_reason='word_not_approved'`
+     unless a reason is already set). FSRS state is kept.
+3. **File `status` is advisory.** On creation only `draft` is honoured (the word lands `draft`, no cards); every other
+   value, including `pending_review`, `needs_change` and `rejected`, lands as `approved`. On update the file status is
+   ignored; the rule above decides.
 4. **Senses keep their ids by position.** A sense that disappears from the file is deleted only if it has no cards;
    otherwise the row stays (review history references it) and its cards get `suspended_reason='sense_removed'`
    unless they are already `manual` or `leech`. Alternatives are replaced; topics are synchronised.
@@ -94,11 +101,15 @@ the file changed:
 - **Source unchanged** → `unchanged`, and the importer writes nothing at all: the reviewer's edit, the approved status,
   `version`, `content_hash`, her verdict row, the alternatives and the card epochs stay exactly as they were.
   Re-running the import changes nothing else.
-- **Source changed** → `updated`, and the source wins: current content is replaced, `version` + 1, status back to
+- **Source changed, word carries a reviewer edit** (an `edit` revision from `approve_edit`/`approve_alt`) →
+  `updated`, and the source wins the content: current content is replaced, `version` + 1, status back to
   `pending_review`, cards demoted (`epoch` + 1). Nothing historical is deleted or rewritten — the reviewer's edit
   snapshot stays at its old version, her `word_reviews` verdict still names the version she saw, and `approved_version`
-  stays the last approved version (an audit fact, not approval of the new version). A reviewer action still queued
-  against the old version returns `stale_version`; the queue shows the new version (`09-review-api.md`).
+  stays the last approved version (an audit fact, not approval of the new version). The edit marker is permanent: once
+  a word has an `edit` revision, every later changed-source import demotes it (`09-review-api.md`).
+- **Source changed, approved word, no reviewer edit** → `updated`, content replaced, `version` + 1, stays `approved`.
+- In both cases a reviewer action still queued against the old version returns `stale_version`; the queue shows the
+  new version.
 - **Repeating an import** is idempotent in both states: unchanged repeats stay `unchanged`, and a second run after a
   changed import changes nothing further.
 
@@ -121,7 +132,8 @@ Known caveats of the import side (the reviewer-side ones — multi-edit rejectio
 `lintWarnings` — are in `09-review-api.md` Known limitations):
 
 - Reordering the `topics` array changes the hash without changing meaning, so a topics-only re-export bumps the version
-  and sends the word back to `pending_review`. The safe direction — a reviewer edit is never lost — still holds.
+  (and, for a reviewer-edited or non-approved word, sends it back to `pending_review`). The safe direction — a reviewer
+  edit is never lost — still holds.
 - The importer loads senses, alternatives and topics one word at a time inside the write lock (N+1); fine at this
   corpus size, worth batching only if it grows.
 - `content approve` (`Content/ContentApproval.cs:17`) still opens its transaction deferred, so a CLI approval racing an
@@ -236,20 +248,44 @@ bundles yet, so today this is the no-op path.
 
 ### `content approve <key…>` / `content approve --all-pending`
 
-The owner's approval path ahead of the M4 reviewer UI (locked 2026-10-18, plan O-2). Without it every imported word
-stays `pending_review`, no cards exist, and the learner queue is empty.
+Originally the owner's approval path ahead of the M4 reviewer UI (locked 2026-10-18, plan O-2). Since trust-by-default
+(`7234a15`) a fresh `import` approves its words and creates their cards itself, so `content approve` is **not part of
+loading content**. It stays as a repair and legacy tool:
+
+- **One-time step on an existing deployment.** Rows that were `pending_review` before the upgrade stay pending: no
+  migration or startup code flips them, because the code cannot tell whether the operator meant them to wait. To apply
+  the new policy to them, run once after deploying the build:
+
+  ```sh
+  docker exec palabras /app/Palabras content approve --all-pending
+  ```
+
+  It approves every `pending_review` word, including council proposals and words demoted by a re-import or a
+  reviewer — check `content status` and the reviewer's `/revisar` queue first if any of those should keep waiting.
+- **Card repair** after the owner account was created later than the import (cards exist only for learner accounts
+  present at approval or import time): `content approve <key…>` (below).
+- **Lifting a CLI or reviewer rejection** by key: approving a `rejected` word restarts its suspended cards fresh, as
+  the reviewer API's undo does (`09-review-api.md`, "Objection and its undo").
 
 - `<key…>` approves the named words, whatever their current status. One unknown key fails the whole command:
-  `Unknown word key(s): … No words approved.`, exit `1`.
+  `Unknown word key(s): … No words approved.`, exit `1`. Already approved words count as `unchanged` but still get the
+  card pass.
 - `--all-pending` approves every `pending_review` word. `draft` words are not included. It also re-runs card
-  creation for all already-approved words, which back-fills cards for words approved before `SrsCards` existed.
+  creation for all already-approved words, which back-fills cards for words approved before `SrsCards` existed or
+  before the owner account existed.
 - Per approved word it writes a `word_revisions` row with `action='approve'`, the current `version`, and the
   current-version snapshot with `status` and `updatedAt` updated. `version` and `content_hash` do not change. Since
   `ReviewGate` it also sets `words.status_changed_at` and `words.approved_version`. This is the same revision row the
   M4 reviewer API writes (same code, `09-review-api.md`); the CLI sets `actor_user_id` to NULL because it has no
-  authenticated user, and writes no `word_reviews` verdict row.
+  authenticated user.
 
-**Card creation happens on approval, not on import.** For every active sense of the word and every account that has
+**What it does not audit.** No `word_reviews` verdict row is written (`reviewer_id` is NOT NULL), so a CLI approval
+is invisible to verdict queries and exports; the `word_revisions` row with a NULL actor is its only trace. The same
+holds for `content reject` and for the approval an import grants on arrival (the `import` revision). Keep the key
+list you passed if the decision must be explainable later.
+
+**Card creation happens on approval**, which since trust-by-default includes the approval an import grants on arrival.
+For every active sense of the word and every account that has
 the `learner` role (today only the owner), two cards are created: `es_en` and `en_es`, state New, due now. Existing
 cards are kept: a card suspended as `word_not_approved` is released, and cards of a word approved in this run get
 `epoch` + 1, so answers queued offline against the old content come back as `stale_epoch`
@@ -263,6 +299,19 @@ Added in T-20261019-2100 (`5b818d1`). `--top N` selects the N lowest `(cefr, dif
 keys or `--all-pending`. `learn settings` is the only writer of `user_settings`; `learn seed-known` moves the top N
 approved words of one user to Review. Arguments are validated before the database is opened. Operator sequence,
 semantics and cautions: `10-bring-up.md` §4–§5.
+
+Under trust-by-default a fresh import leaves no `pending_review` words, so `--top N` selects nothing there
+(`approved=0`); it only matters for a database that still holds pending rows (legacy, council proposals, demotions).
+`learn seed-known` is unaffected: it selects approved words, which now includes every freshly imported word.
+
+### `content reject <key…>`
+
+Added in `7234a15`. The operator's objection path, sharing the reviewer API's `reject` transition and card effect
+(`09-review-api.md`, "Objection and its undo"): status `rejected`, a `reject` revision with a NULL actor, cards
+`epoch` + 1 and suspended as `word_not_approved` unless already `manual`/`leech`; no card or `review_log` row is
+deleted and no `word_reviews` row is written. Allowed from `pending_review`, `approved` and `needs_change`; an already
+rejected word counts as `unchanged`. A `draft` or `retired` word, or one unknown key, fails the whole command with
+nothing written. Undo: `content approve <key>` or the reviewer's **Volver a incluir**.
 
 ### `content status`
 

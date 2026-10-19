@@ -11,6 +11,10 @@ command line below parses and runs. **Nothing here has been run against producti
 facts (poll state, `deploy.log`, `$DEPLOY/backups`) were not readable from the repo container
 (`03-prod-preflight.md` §4).
 
+Policy change after that verification: from `7234a15` (trust-by-default) the import approves words and creates cards
+itself, so §4 no longer has an approval step. The §4 import outputs (`approved=<file count>`) follow from the code and
+the step-31 throwaway E2E (`31-trust-by-default.md`, 3 words); they were not re-run in the 48-command shape check.
+
 Related docs, not repeated here: accounts `04-accounts.md`; content CLI `06-content-cli.md`; learner API
 `07-learn-api.md`; upgrade, rollback and the `ReviewGate` rebuild `08-upgrade-rollback.md` (§A, §F, §G); reviewer API
 `09-review-api.md`; poll settings `../README.md` ("Automatic updates, pause and rollback").
@@ -204,8 +208,9 @@ not need them: remove them from the host `.env` after the accounts exist, and do
 anywhere. The container keeps them until it is recreated; if they were exposed beyond the Docker administrators,
 rotate the account passwords with `user set-password` and recreate the container deliberately.
 
-**The owner must exist before any approval.** Cards are created only for learner accounts that exist at approval time;
-there is no automatic backfill (§7, "No cards appear").
+**The owner must exist before the import.** Since trust-by-default (`7234a15`) the import approves each word and
+creates its cards in the same transaction, only for learner accounts that exist at that moment; there is no automatic
+backfill (§7, "Owner sees no cards").
 
 ## 4. Content load
 
@@ -215,66 +220,55 @@ The image ships only `content/schema/` (`Dockerfile:18`), so the word files are 
 docker cp "$REPO/content/words" palabras:/tmp/words
 docker exec palabras /app/Palabras import /tmp/words --dry-run   # Dry run: created=<file count> ... rejected=0
 docker exec palabras /app/Palabras import /tmp/words             # created=<file count> updated=0 unchanged=0 rejected=0
-docker exec palabras /app/Palabras content status                # pending_review=<file count>
+docker exec palabras /app/Palabras content status                # approved=<file count> pending_review=0
 ```
 
 `<file count>` is what `node tools/content-lint/index.js` printed (527 on the throwaway run). `/tmp/words` is lost when
 the container is recreated; if it already exists, `docker cp` nests the directory, so copy to a new path instead.
 
-Import **before** approval: the rank lives in the imported `words.difficulty`. Do not re-import after approval unless
-the files changed: a changed file returns that word to `pending_review` and suspends its cards
+**No approval step.** Under trust-by-default (`7234a15`) every imported word lands `approved` and its owner cards
+exist when the import returns; only files with `status: "draft"` are held. There is no starter band to gate:
+the whole imported corpus is studyable, and new cards are offered in rank order (§5), so A1 still comes first.
+`content approve --top N` is **not** needed to unblock study and on this database selects nothing (it only takes
+`pending_review` words). The import revision is the approval's audit record; no `word_reviews` row is written
+(`06-content-cli.md`, "content approve").
+
+Ordering still matters: **owner account, then import.** If the import ran first, the owner has no cards (repair below).
+Do not re-import unless the files changed: a changed file bumps the word's version and card epochs; an approved word
+stays approved unless the reviewer edited it, in which case it returns to `pending_review` and its cards are suspended
 (`06-content-cli.md`, "import").
 
-### Approve the first ranked words
+**The reviewer objects afterwards.** In `/aprobadas` the reviewer can **Retirar** a word (`reject`: cards suspended,
+history kept), **Revisar otra vez** (`demote` to pending) or, under **Retiradas**, **Volver a incluir** (`approve`:
+the cards restart as new). The operator equivalents are `content reject <key…>` and `content approve <key…>`.
+Semantics: `09-review-api.md`, "Objection and its undo". `content/style-guide.md` still says a word enters the app
+only after review; that sentence predates this policy (open item in the docs report).
 
-**Pinned-key approval is the primary path:** dry-run the selection once, save the printed keys, have them reviewed,
-then approve **those keys**. `content approve --top N` selects a fresh dynamic batch on every run, so it is a
-one-shot at best; the saved key list is what you keep, audit and replay.
+**Existing deployment with pending rows.** A database that already held `pending_review` words before this build keeps
+them pending: the upgrade does not flip them. If the owner wants them under the new policy, run once
+`docker exec palabras /app/Palabras content approve --all-pending` after checking `content status` — it approves
+**every** pending word, including council proposals and words a reviewer demoted (`06-content-cli.md`).
+
+### Card repair (owner created after the import)
+
+**Repair path = a pinned key list.** `content approve <key…>` reports `approved=0 unchanged=N` for already-approved
+words and still runs the card pass for **every named word** (verified end to end: 10 cards restored, then idempotent).
+The list must be exact — one unknown key aborts the whole call (`Unknown word key(s): … No words approved.`, nothing
+written). Save the list before running it and keep it with the deploy notes. One way to produce approved keys in rank
+order is the dry run of `learn seed-known` (§5), which only reads (it prints one key per line, then `dry-run=N`; this
+chain was written from the code, not executed):
 
 ```bash
-docker exec palabras /app/Palabras content status                                  # total=527 pending_review=527 approved=0
-docker exec palabras /app/Palabras content approve --top 150 --dry-run > approval-preview.txt
-# 150 keys in rank order, then dry-run=150. Review this exact list BEFORE the next command.
-grep '^es-' approval-preview.txt > approved-keys.txt
-test "$(wc -l < approved-keys.txt)" -eq 150
-mapfile -t KEYS < approved-keys.txt
-docker exec palabras /app/Palabras content approve "${KEYS[@]}"                  # approved=150 unchanged=0
-docker exec palabras /app/Palabras content status                               # approved=150 pending_review=377 total=527
+docker exec palabras /app/Palabras learn seed-known --username <owner> --top 527 --dry-run > repair-preview.txt
+grep '^es-' repair-preview.txt > repair-keys.txt
+mapfile -t KEYS < repair-keys.txt
+docker exec palabras /app/Palabras content approve "${KEYS[@]}"   # approved=0 unchanged=<n>
 ```
 
-The equivalent one-shot write is `content approve --top 150` (output `approved=150 unchanged=0`). It is allowed only
-when it **immediately follows an approved dry-run with no other content mutation in between**, and it must never be
-replayed later as a repair. `--top N` takes the N lowest `(cefr, difficulty, id)` words **whose status is
-`pending_review`**, so a second run approves the **next** N pending words: a careless repeat, or a re-run "to be
-sure", over-approves.
-
-**Repair path = the saved key list.** If cards are missing (owner account created after approval) or a word must come
-back, replay the saved keys: `content approve <key…>` reports `approved=0 unchanged=N` for already-approved words and
-still runs the card pass for **every named word** (verified end to end: 10 cards restored, then idempotent). The list
-must be exact — one unknown key aborts the whole call (`Unknown word key(s): … No words approved.`, nothing written).
-Never repair with another `--top N` selection and never with `--all-pending`.
-
-`content approve --all-pending` is the **bulk** option: **"bulk — approves the entire remaining corpus"**. It also
-repairs cards for the whole already-approved corpus, and it exceeds the starter-band policy (150 words) by design.
-Use it only after a conscious owner decision to approve everything left, never as recovery.
-
-There is no `--dry-run` for the key form and none for `--all-pending`; "always dry-run first" applies only to
-`--top N`.
-
-The reviewer gate. `content/style-guide.md` says a word enters the app only after review. CLI approval bypasses it:
-it writes a `word_revisions` row with `action='approve'` and a NULL actor and **no** `word_reviews` verdict row, so
-the bypass is auditable **only by the saved key list** — treat `approval-preview.txt` as the audit record and keep it
-with the deploy notes (`06-content-cli.md`, "content approve"). Plan §5 accepts this for the first 150 A1 words as a
-time-boxed 150-word exception; anything wider needs the owner's explicit decision.
-
-The preferred path is that the reviewer approves in `/revisar`. Her queue is grouped **by topic, not by rank**, so it
-does not present the same first 150, and she decides independently — do not assume "the reviewer approves the same
-first 150". Words she approves count as approved, and a later `--top N` skips them. Do not select or approve keys
-while she is reviewing.
-
-What stays pending: 377 words (total 527 minus the 150 approved), i.e. the rest of A1, all of A2 and B1. Those words
-have no cards and never reach a session until approved. Approve the next band the same way: dry-run, save, review,
-approve the saved keys.
+Never repair with a `--top N` selection: it only takes pending words, so it repairs nothing and can approve words
+that were meant to wait. `content approve --all-pending` also back-fills cards for every approved word, but it
+approves every pending word at the same time; use it only when `content status` shows `pending_review=0` or the owner
+has decided to approve all of them. There is no `--dry-run` for the key form or for `--all-pending`.
 
 ## 5. Placement for a returning learner
 
@@ -304,12 +298,14 @@ How the ramp works:
   `learn settings --username <owner> --backlog-threshold 400`.
 - After calibration, set the cap back: `learn settings --username <owner> --new-per-day 20` (12 is the default).
 
-Signal to stop sweeping: if the first sittings are almost all Easy, the approved set is too easy. Approving more A1
-does not help; get A2/B1 approved (reviewer first, §4).
+Signal to stop sweeping: if the first sittings are almost all Easy, the ranked prefix is too easy for you. Every
+imported word is already approved, so A2/B1 follow in rank order once A1 is graduated; to jump ahead, use the fallback
+below.
 
 ### Fallback: `learn seed-known`
 
-Run this **after** approval and **after** `learn settings`, dry-run first. For when tapping through hundreds of known
+Run this **after** the import (which approves the words and creates the cards) and **after** `learn settings`,
+dry-run first. It stays available under trust-by-default. For when tapping through hundreds of known
 words is not worth it. Marks the top N **approved** words in rank order as already known: both directions go to
 Review, stability 30, due in 30 days, without spending today's new-word budget.
 
@@ -328,8 +324,8 @@ genuinely reviewed (so it *postpones* them); `--reset` wipes `Reps`/`Stability`/
 once, choose N so it covers only words not yet studied, and do not replay it "to be sure".
 
 `seeded_words=N seeded_cards=0` with exit code `0` is the trap: **there was nowhere to seed**. It is what you get
-when the owner account was created after approval, so the approved words have no cards. It also prints this on a
-database with no cards at all — a silent no-op. Fix the cards first by replaying the saved keys (§4, repair path),
+when the owner account was created after the import, so the approved words have no cards. It also prints this on a
+database with no cards at all — a silent no-op. Fix the cards first with a pinned key list (§4, "Card repair"),
 then dry-run again; `--dry-run` in that state still prints the N keys plus `dry-run=N`, which makes the no-op easy to
 miss.
 
@@ -339,7 +335,8 @@ Cautions:
   it does not change stability, which stays 30).
 - It overwrites the SRS state of every selected card, including cards already graded in a sitting, and `--reset`
   sets them back to New. Run it before sweeping, or choose N so it covers only words not yet studied.
-- It only selects approved words. If the approved set is exhausted, seeding cannot help; approve the next batch.
+- It only selects approved words. If the approved set is exhausted, seeding cannot help; import more content.
+  Rejected words are not approved, so they are never seeded.
 - Suspended cards keep their suspension.
 
 ## 6. Daily use
@@ -356,8 +353,12 @@ Owner (learner), at `https://palabras.siebentower.nl` on Android Chrome:
 Reviewer, with the reviewer account:
 
 - `/revisar`: queue of `pending_review` words with alternatives; approve (also in batches), edit, reject or request a
-  change. Each approval writes a `word_reviews` verdict and creates the owner's cards for that word at once.
-- `/aprobadas`: approved list, search, demote.
+  change. Each approval writes a `word_reviews` verdict and creates the owner's cards for that word at once. Under
+  trust-by-default this queue holds only words that need a decision (council proposals, reviewer-edited words whose
+  source changed, demoted words, legacy pending rows); it is empty right after a corpus import.
+- `/aprobadas`: approved list with search; **Retirar** (objection: the word leaves study, cards paused, history kept)
+  and **Revisar otra vez** (demote to pending). The **Retiradas** filter lists withdrawn words with **Volver a
+  incluir** (cards restart as new).
 - The owner account gets 403 on these routes; the reviewer gets 403 on learner routes. Details: `09-review-api.md`.
 
 ## 7. Troubleshooting
@@ -368,12 +369,13 @@ Reviewer, with the reviewer account:
 | `deploy FAILED, rolled back`, repeating every 5 min | candidate never served `/healthz`, often a migration failure | `touch "$DEPLOY/paused"`, then check `ReviewGate` state on a scratch copy per `08-upgrade-rollback.md` §G.3; partial migration → §8 |
 | `rollback FAILED` | previous image could not be restored | pause at once, keep container logs and the data set, §8 and `08-upgrade-rollback.md` "Rollback" step 2 |
 | Login impossible | account missing or wrong password, or the account guard failed | `user list`; `user set-password <name>` or `user create …` (`04-accounts.md`); reviewer and owner are different logins |
-| Owner sees no cards; `content status` shows approved words | owner account created after approval (cards are made only for learners existing at approval time) | replay the saved key list by name (keys from the `--dry-run` record): `content approve <key…>` reports them `unchanged` and runs the card pass for every named word — **verified**: 10 cards restored, `approved=0 unchanged=5`, idempotent on re-run. One unknown key aborts the whole call, so the list must be exact. Do **not** re-run `--top N` (approves the next N) or `--all-pending` (bulk: approves the entire remaining corpus) |
-| `learn seed-known` reports `seeded_words=N seeded_cards=0`, exit 0 | nowhere to seed: the approved words have no cards (often the owner account was created after approval), or the database has none | repair cards first with the saved key list (§4), then dry-run again; the command itself changes nothing (§5) |
-| Owner sees no cards; approved=0 | nothing approved yet, or imported after the approve | import, then §4 approval |
+| Owner sees no cards; `content status` shows approved words | owner account created after the import (cards are made only for learners existing at import/approval time) | pinned key list by name (§4, "Card repair"): `content approve <key…>` reports them `unchanged` and runs the card pass for every named word — **verified**: 10 cards restored, `approved=0 unchanged=5`, idempotent on re-run. One unknown key aborts the whole call, so the list must be exact. Do **not** use `--top N` (pending words only) or `--all-pending` while pending rows exist (approves all of them) |
+| `learn seed-known` reports `seeded_words=N seeded_cards=0`, exit 0 | nowhere to seed: the approved words have no cards (often the owner account was created after the import), or the database has none | repair cards first with a pinned key list (§4), then dry-run again; the command itself changes nothing (§5) |
+| Owner sees no cards; approved=0 | nothing imported yet, every file is `draft`, or every word was rejected/retired | `content status`; import (§4); lift an objection with `content approve <key…>` or **Volver a incluir** |
+| A word must not be studied | trust-by-default approved it on import | reviewer **Retirar** in `/aprobadas`, or `content reject <key…>`; cards are suspended, history kept (`09-review-api.md`) |
 | New words stop while reviews pile up | backlog above `backlog_threshold` | `learn settings --username <owner> --backlog-threshold 400` |
 | Only 20 new per sitting despite `--new-per-day 200` | by design (600 s budget) | start another sitting |
-| Over-approval (`--top` run twice, or `--all-pending`) | `--top` advances to the next pending words | identify the extra keys from the two dry-run lists or `/aprobadas`; reviewer demotes them in `/aprobadas`, or `content retire <key…>` takes them out (bring back later with `content approve <key>`). Both invalidate their cards; studied progress on them is suspended, not deleted |
+| Over-approval on a database with pending rows (`--top` run twice, or `--all-pending`) | `--top` advances to the next pending words | identify the extra keys from the two dry-run lists or `/aprobadas`; reviewer demotes them in `/aprobadas`, or `content retire <key…>` takes them out (bring back later with `content approve <key>`). Both invalidate their cards; studied progress on them is suspended, not deleted |
 | `content approve` fails with "database is locked" | CLI approval races an import or reviewer batch | re-run; nothing was partly written (`06-content-cli.md`) |
 
 ## 8. Rollback
