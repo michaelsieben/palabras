@@ -86,8 +86,10 @@ public sealed class M1AuthTests
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(CancellationToken.None));
         if (expected == HttpStatusCode.OK)
         {
+            // M4 review queue contract: an empty corpus still answers the full shape.
             Assert.Empty(body.RootElement.GetProperty("items").EnumerateArray());
-            Assert.Equal("M4", body.RootElement.GetProperty("note").GetString());
+            Assert.Equal(0, body.RootElement.GetProperty("pendingTotal").GetInt32());
+            Assert.Empty(body.RootElement.GetProperty("topics").EnumerateArray());
         }
         else
         {

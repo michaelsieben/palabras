@@ -1,11 +1,14 @@
-using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Palabras.Persistence;
+using Palabras.Review;
 
 namespace Palabras.Content;
 
 internal sealed record ContentApprovalResult(int Approved, int Unchanged);
 
+// CLI approval: host/operator path, no authenticated reviewer, so word_reviews is not written
+// (reviewer_id is NOT NULL). The state machine itself is the shared ReviewTransitions core; the CLI
+// keeps its shipped lenient "approve from any status" semantics and owns the aggregate card pass.
 internal static class ContentApproval
 {
     internal static async Task<ContentApprovalResult> ApproveAsync(PalabrasDbContext database,
@@ -23,6 +26,7 @@ internal static class ContentApproval
         var unchanged = 0;
         var changedWordIds = new HashSet<int>();
         var now = (timeProvider ?? TimeProvider.System).GetUtcNow();
+        var nowMs = now.ToUnixTimeMilliseconds();
         foreach (var word in words)
         {
             if (word.Status == "approved")
@@ -30,25 +34,13 @@ internal static class ContentApproval
                 unchanged++;
                 continue;
             }
-            // Import revisions retain the complete source shape, including metadata not stored on Word.
-            // Approval changes status, not content/version/hash; retain that source shape for M4 auditing.
-            var source = await database.WordRevisions.AsNoTracking()
-                .Where(revision => revision.WordId == word.Id && revision.Version == word.Version)
-                .OrderByDescending(revision => revision.Id).Select(revision => revision.SnapshotJson)
-                .FirstOrDefaultAsync(cancellationToken)
-                ?? throw new InvalidOperationException("Missing content snapshot for word: " + word.Key + ". No words approved.");
-            var snapshot = JsonNode.Parse(source)?.AsObject()
-                ?? throw new InvalidOperationException("Invalid content snapshot for word: " + word.Key);
-            snapshot["status"] = "approved";
-            snapshot["updatedAt"] = now.ToString("O");
-            word.Status = "approved";
-            word.UpdatedAt = now.ToUnixTimeMilliseconds();
-            database.WordRevisions.Add(new WordRevision
+            var outcome = await ReviewTransitions.ApplyAsync(database, word,
+                new ReviewTransitionRequest(word.Version, ReviewActionNames.Approve, null, null, null, null),
+                ReviewTransitions.AnyStatus, actorUserId: null, nowMs, applyCardEffects: false, cancellationToken);
+            if (outcome.Result != ReviewResults.Applied)
             {
-                WordId = word.Id, Version = word.Version, Action = "approve",
-                // Filesystem operator has no authenticated user identity, matching import revisions.
-                ActorUserId = null, SnapshotJson = snapshot.ToJsonString(), CreatedAt = word.UpdatedAt
-            });
+                throw new InvalidOperationException("Word cannot be approved: " + word.Key + ". No words approved.");
+            }
             approved++;
             changedWordIds.Add(word.Id);
         }
@@ -57,7 +49,7 @@ internal static class ContentApproval
         var wordIds = allPending
             ? await database.Words.Where(word => word.Status == "approved").Select(word => word.Id).ToArrayAsync(cancellationToken)
             : words.Select(word => word.Id).ToArray();
-        await ContentCardLifecycle.ApproveAsync(database, wordIds, changedWordIds, now.ToUnixTimeMilliseconds(), cancellationToken);
+        await ContentCardLifecycle.ApproveAsync(database, wordIds, changedWordIds, nowMs, cancellationToken);
         await database.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return new(approved, unchanged);

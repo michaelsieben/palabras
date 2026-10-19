@@ -12,6 +12,7 @@ using Palabras.Accounts;
 using Palabras.Learn;
 using Palabras.Persistence;
 using Palabras.Content;
+using Palabras.Review;
 using Palabras.Srs;
 using Palabras.Backup;
 
@@ -251,8 +252,8 @@ app.MapLearnEndpoints();
 app.MapDayEndpoints();
 app.MapStatsEndpoints();
 app.MapExportEndpoints();
-// simplification: M4 will replace this reviewer queue placeholder with real content.
-app.MapGet("/api/review/queue", () => Results.Ok(new { items = Array.Empty<object>(), note = "M4" })).RequireAuthorization("reviewer");
+// M4 reviewer gate (T-20261019-1606): queue, verdicts and the approved list over word_reviews.
+app.MapReviewEndpoints();
 app.MapFallback("/api/{**path}", () => Results.NotFound(new { error = "not_found" }));
 app.MapFallbackToFile("index.html", staticOptions);
 app.Run();

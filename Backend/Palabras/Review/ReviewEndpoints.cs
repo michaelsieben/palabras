@@ -1,0 +1,453 @@
+using System.Data;
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Palabras.Learn;
+using Palabras.Persistence;
+
+namespace Palabras.Review;
+
+// M4 reviewer gate over word_reviews (plan §2.4). Reviewer-only: the owner account deliberately has
+// no reviewer role, so her verdicts stay hers (Q-M4-6). Every route answers the API error contract.
+internal static class ReviewEndpoints
+{
+    private const string Policy = "reviewer";
+    private const int DefaultQueueLimit = 30;
+    private const int MaximumQueueLimit = 30;
+    private const int DefaultApprovedLimit = 20;
+    private const int MaximumApprovedLimit = 50;
+    private const int MaximumActionsPerBatch = 50;
+    private const int MaximumBatchApprovals = 25;
+    private const int MaximumDecisionMs = 600_000;
+
+    internal static void MapReviewEndpoints(this WebApplication app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        var group = app.MapGroup("/api/review").RequireAuthorization(Policy);
+        group.MapGet("/queue", QueueAsync);
+        group.MapPost("/actions", ActionsAsync);
+        group.MapGet("/approved", ApprovedAsync);
+    }
+
+    // E.4 ordering: topic with most pending first; inside a topic council_agreement DESC NULLS LAST,
+    // then key. The corpus is hundreds of words, so the ordering is computed from loaded rows rather
+    // than pushed into SQLite (no proposal_support/frequency_rank column exists in M4).
+    private static async Task<IResult> QueueAsync(DatabaseSettings settings, string? limit,
+        CancellationToken cancellationToken)
+    {
+        if (!TryLimit(limit, DefaultQueueLimit, MaximumQueueLimit, out var take))
+        {
+            return Error(StatusCodes.Status400BadRequest, "bad_request");
+        }
+        await using var database = settings.CreateContext();
+        var pending = await database.Words.AsNoTracking()
+            .Where(word => word.Status == "pending_review").ToListAsync(cancellationToken);
+        if (pending.Count == 0)
+        {
+            return Results.Ok(new ReviewQueueResponse([], 0, []));
+        }
+        var wordIds = pending.Select(word => word.Id).ToArray();
+        var snapshots = await ReviewTransitions.LoadCurrentSnapshotsAsync(database, wordIds, cancellationToken);
+        var fallbackTopics = await LoadTopicsAsync(database, wordIds, cancellationToken);
+        var topicByWord = pending.ToDictionary(word => word.Id,
+            word => FirstTopic(snapshots.GetValueOrDefault(word.Id), fallbackTopics.GetValueOrDefault(word.Id)));
+        var topicCounts = topicByWord.Values.Where(topic => topic is not null)
+            .GroupBy(topic => topic!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+        var ordered = pending
+            .OrderByDescending(word => topicCounts.GetValueOrDefault(topicByWord[word.Id] ?? string.Empty))
+            .ThenByDescending(word => word.CouncilAgreement ?? double.NegativeInfinity)
+            .ThenBy(word => word.Key, StringComparer.Ordinal)
+            .Take(take)
+            .ToArray();
+        var pageIds = ordered.Select(word => word.Id).ToArray();
+        var senses = await database.Senses.AsNoTracking().Where(sense => pageIds.Contains(sense.WordId))
+            .OrderBy(sense => sense.WordId).ThenBy(sense => sense.SenseOrder)
+            .Select(sense => new { sense.WordId, sense.SenseOrder, sense.EnGloss, sense.EnAccepted,
+                sense.EsAccepted, sense.ExampleEs, sense.ExampleEn, sense.Notes })
+            .ToListAsync(cancellationToken);
+        var alternatives = await database.WordAlternatives.AsNoTracking()
+            .Where(alternative => pageIds.Contains(alternative.WordId))
+            .OrderBy(alternative => alternative.Rank).ThenBy(alternative => alternative.Id)
+            .ToListAsync(cancellationToken);
+        // "Cambiar ⚑" leaves a note so a reworked entry shows the reviewer's last flag again.
+        var flags = await database.WordReviews.AsNoTracking()
+            .Where(review => pageIds.Contains(review.WordId) && review.Action == "needs_change")
+            .OrderByDescending(review => review.Id)
+            .Select(review => new { review.WordId, review.Note, review.CreatedAt })
+            .ToListAsync(cancellationToken);
+        var flagByWord = new Dictionary<int, ReviewLastFlag>();
+        foreach (var flag in flags)
+        {
+            flagByWord.TryAdd(flag.WordId,
+                new ReviewLastFlag("needs_change", flag.Note, DateTimeOffset.FromUnixTimeMilliseconds(flag.CreatedAt)));
+        }
+        var items = ordered.Select(word =>
+        {
+            var snapshot = snapshots.GetValueOrDefault(word.Id);
+            var snapshotSenseCount = snapshot?["senses"]?.AsArray().Count;
+            var wordSenses = senses
+                .Where(sense => sense.WordId == word.Id
+                    && (snapshotSenseCount is null || sense.SenseOrder < snapshotSenseCount))
+                .OrderBy(sense => sense.SenseOrder)
+                .Select(sense => new ReviewSenseItem(sense.SenseOrder, sense.EnGloss,
+                    ParseStringArray(sense.EnAccepted), ParseStringArray(sense.EsAccepted),
+                    sense.ExampleEs, sense.ExampleEn, sense.Notes))
+                .ToArray();
+            var chips = alternatives.Where(alternative => alternative.WordId == word.Id
+                    && !alternative.Kind.StartsWith("previous_", StringComparison.Ordinal))
+                .Select(alternative => ReviewTransitions.FieldForAlternativeKind(alternative.Kind) is { } field
+                    ? new ReviewAlternativeChip(alternative.Id, field, alternative.Value, alternative.Gloss,
+                        alternative.Reason, null)
+                    : null)
+                .Where(chip => chip is not null)
+                .Select(chip => chip!)
+                .ToArray();
+            return new ReviewItem(word.Id, word.Key, word.Version, word.Headword, word.Article, word.Gender,
+                word.Pos, word.Cefr, topicByWord.GetValueOrDefault(word.Id), wordSenses, word.Notes,
+                word.RegionNotes, word.RegisterNotes, word.CouncilAgreement, word.CouncilBand,
+                word.ReducedConfidence != 0, ParseLintWarnings(word.LintWarnings), chips,
+                flagByWord.GetValueOrDefault(word.Id));
+        }).ToArray();
+        var topics = topicCounts.OrderByDescending(count => count.Value)
+            .ThenBy(count => count.Key, StringComparer.Ordinal)
+            .Select(count => new ReviewTopicCount(count.Key, count.Value)).ToArray();
+        return Results.Ok(new ReviewQueueResponse(items, pending.Count, topics));
+    }
+
+    // One request = one transaction under SQLite's write lock (same pattern as POST /api/learn/attempts):
+    // the duplicate check and the verdict insert cannot interleave with a concurrent flush. Per-item
+    // outcomes keep a partially usable offline queue, so the batch itself always answers 200.
+    private static async Task<IResult> ActionsAsync(ReviewActionsRequest? request, HttpContext context,
+        DatabaseSettings settings, TimeProvider timeProvider, CancellationToken cancellationToken)
+    {
+        if (LearnEndpoints.CurrentUserId(context) is not { } reviewerId)
+        {
+            return Error(StatusCodes.Status401Unauthorized, "unauthorized");
+        }
+        var actions = request?.Actions;
+        if (actions is null || actions.Count is < 1 or > MaximumActionsPerBatch
+            || actions.Count(action => action?.ViaBatch == true) > MaximumBatchApprovals)
+        {
+            return Error(StatusCodes.Status400BadRequest, "bad_request");
+        }
+        await using var database = settings.CreateContext();
+        await database.Database.OpenConnectionAsync(cancellationToken);
+        var connection = (SqliteConnection)database.Database.GetDbConnection();
+        await using var transaction = connection.BeginTransaction(IsolationLevel.Serializable, deferred: false);
+        await database.Database.UseTransactionAsync(transaction, cancellationToken);
+
+        var wordIds = actions.Where(action => action is not null && action.WordId > 0)
+            .Select(action => action!.WordId).Distinct().ToArray();
+        var words = await database.Words.Where(word => wordIds.Contains(word.Id))
+            .ToDictionaryAsync(word => word.Id, cancellationToken);
+        var clientIds = actions.Where(action => action is not null && Guid.TryParse(action.ClientReviewId, out _))
+            .Select(action => Guid.Parse(action!.ClientReviewId!).ToString("D")).Distinct().ToArray();
+        var seen = (await database.WordReviews.AsNoTracking()
+                .Where(review => clientIds.Contains(review.ClientReviewId))
+                .Select(review => review.ClientReviewId).ToListAsync(cancellationToken))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var now = timeProvider.GetUtcNow();
+        var nowMs = now.ToUnixTimeMilliseconds();
+        var results = new List<ReviewActionResult>(actions.Count);
+        foreach (var raw in actions)
+        {
+            var echoed = raw?.ClientReviewId ?? "";
+            if (!TryNormalize(raw, out var action))
+            {
+                results.Add(new(echoed, ReviewResults.Invalid, null));
+                continue;
+            }
+            if (seen.Contains(action.ClientReviewId))
+            {
+                results.Add(new(action.EchoedClientReviewId, ReviewResults.Duplicate, null));
+                continue;
+            }
+            if (!words.TryGetValue(raw!.WordId, out var word))
+            {
+                results.Add(new(action.EchoedClientReviewId, ReviewResults.Invalid, null));
+                continue;
+            }
+            if (word.Version != action.Request.WordVersion)
+            {
+                results.Add(new(action.EchoedClientReviewId, ReviewResults.StaleVersion, null));
+                continue;
+            }
+            // Batch approve is only offered for council `alta` rows with no lint warning (plan §2.4).
+            if (action.ViaBatch && !BatchEligible(word))
+            {
+                results.Add(new(action.EchoedClientReviewId, ReviewResults.Invalid, null));
+                continue;
+            }
+            var outcome = await ReviewTransitions.ApplyAsync(database, word, action.Request,
+                ReviewTransitions.ReviewerAllowedFrom(action.Request.Action), reviewerId, nowMs,
+                applyCardEffects: true, cancellationToken);
+            if (outcome.Result != ReviewResults.Applied)
+            {
+                results.Add(new(action.EchoedClientReviewId, outcome.Result, null));
+                continue;
+            }
+            database.WordReviews.Add(new WordReview
+            {
+                WordId = word.Id,
+                WordVersion = action.Request.WordVersion,
+                SenseOrder = action.Request.SenseOrder,
+                ReviewerId = reviewerId,
+                Action = action.Request.Action,
+                Field = outcome.Field
+                    ?? (action.Request.Action == ReviewActionNames.NeedsChange ? action.Request.Field : null),
+                ChosenAlternativeId = outcome.AlternativeId,
+                EditDiff = outcome.EditDiff,
+                Note = action.Note,
+                ClientReviewId = action.ClientReviewId,
+                // via_batch has no 0/1 CHECK in the schema (plan §2.3 omits it); this endpoint is the
+                // only writer and always stores exactly 0 or 1.
+                ViaBatch = action.ViaBatch ? 1 : 0,
+                AgreementAtReview = word.CouncilAgreement,
+                DecisionMs = action.DecisionMs,
+                CreatedAt = nowMs
+            });
+            await database.SaveChangesAsync(cancellationToken);
+            seen.Add(action.ClientReviewId);
+            results.Add(new(action.EchoedClientReviewId, ReviewResults.Applied,
+                new ReviewActionWordResult(word.Status, word.Version)));
+        }
+        await transaction.CommitAsync(cancellationToken);
+        return Results.Ok(new ReviewActionsResponse(results));
+    }
+
+    // Aprobadas: searchable on headword/gloss and keyset paged by word id (the cursor in `after`).
+    // approvedAt falls back for pre-M4 rows: status_changed_at is NULL there, so the latest approve
+    // revision (written by the CLI) and finally words.updated_at/created_at are used. The list never
+    // reports a missing value as "approved at the epoch".
+    private static async Task<IResult> ApprovedAsync(DatabaseSettings settings, string? q,
+        string? after, string? limit, CancellationToken cancellationToken)
+    {
+        if (!TryLimit(limit, DefaultApprovedLimit, MaximumApprovedLimit, out var take))
+        {
+            return Error(StatusCodes.Status400BadRequest, "bad_request");
+        }
+        int? cursor = null;
+        if (!string.IsNullOrWhiteSpace(after))
+        {
+            if (!int.TryParse(after, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) || parsed <= 0)
+            {
+                return Error(StatusCodes.Status400BadRequest, "bad_request");
+            }
+            cursor = parsed;
+        }
+        await using var database = settings.CreateContext();
+        var words = await database.Words.AsNoTracking()
+            .Where(word => word.Status == "approved").ToListAsync(cancellationToken);
+        var wordIds = words.Select(word => word.Id).ToArray();
+        var snapshots = await ReviewTransitions.LoadCurrentSnapshotsAsync(database, wordIds, cancellationToken);
+        var fallbackTopics = await LoadTopicsAsync(database, wordIds, cancellationToken);
+        var senses = await database.Senses.AsNoTracking()
+            .Where(sense => wordIds.Contains(sense.WordId))
+            .OrderBy(sense => sense.WordId).ThenBy(sense => sense.SenseOrder)
+            .Select(sense => new { sense.WordId, sense.SenseOrder, sense.EnGloss })
+            .ToListAsync(cancellationToken);
+        var approvals = await database.WordRevisions.AsNoTracking()
+            .Where(revision => wordIds.Contains(revision.WordId) && revision.Action == "approve")
+            .OrderByDescending(revision => revision.Id)
+            .Select(revision => new { revision.WordId, revision.CreatedAt })
+            .ToListAsync(cancellationToken);
+        var lastApproval = new Dictionary<int, long>();
+        foreach (var approval in approvals)
+        {
+            lastApproval.TryAdd(approval.WordId, approval.CreatedAt);
+        }
+        var rows = words.Select(word =>
+        {
+            var snapshot = snapshots.GetValueOrDefault(word.Id);
+            var snapshotSenseCount = snapshot?["senses"]?.AsArray().Count;
+            var gloss = senses.FirstOrDefault(sense => sense.WordId == word.Id
+                && (snapshotSenseCount is null || sense.SenseOrder < snapshotSenseCount))?.EnGloss ?? "";
+            var approvedMs = word.StatusChangedAt
+                ?? (lastApproval.TryGetValue(word.Id, out var approvalMs) ? approvalMs : (long?)null)
+                ?? (word.UpdatedAt != 0 ? word.UpdatedAt : word.CreatedAt);
+            return new ApprovedWordItem(word.Id, word.Key, word.Headword, word.Article, gloss,
+                FirstTopic(snapshot, fallbackTopics.GetValueOrDefault(word.Id)),
+                DateTimeOffset.FromUnixTimeMilliseconds(approvedMs));
+        });
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var needle = q.Trim();
+            rows = rows.Where(row => row.Headword.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                || row.Key.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                || row.Gloss.Contains(needle, StringComparison.OrdinalIgnoreCase));
+        }
+        var ordered = rows.OrderByDescending(row => row.ApprovedAt).ThenByDescending(row => row.WordId).ToList();
+        if (cursor is { } afterId)
+        {
+            var index = ordered.FindIndex(row => row.WordId == afterId);
+            if (index < 0)
+            {
+                return Error(StatusCodes.Status400BadRequest, "bad_request");
+            }
+            ordered = ordered.Skip(index + 1).ToList();
+        }
+        return Results.Ok(new ApprovedWordsResponse(ordered.Take(take).ToArray()));
+    }
+
+    private sealed record NormalizedAction(
+        string EchoedClientReviewId,
+        string ClientReviewId,
+        ReviewTransitionRequest Request,
+        bool ViaBatch,
+        string? Note,
+        int? DecisionMs);
+
+    // Wire-shape validation only. Content/payload rules (chip ownership, sense orders, editable
+    // fields) are enforced by ReviewTransitions so the CLI and the HTTP route agree.
+    private static bool TryNormalize(ReviewActionRequest? raw, out NormalizedAction action)
+    {
+        action = null!;
+        if (raw is null || !Guid.TryParse(raw.ClientReviewId, out var clientReviewId))
+        {
+            return false;
+        }
+        if (raw.WordId <= 0 || raw.WordVersion <= 0 || !ReviewActionNames.IsKnown(raw.Action))
+        {
+            return false;
+        }
+        if (raw.SenseOrder is < 0 || (raw.Field is { } field && !ReviewFieldNames.IsKnown(field)))
+        {
+            return false;
+        }
+        if ((raw.Action == ReviewActionNames.ApproveAlt) != (raw.AlternativeId is not null))
+        {
+            return false;
+        }
+        if (raw.AlternativeId is { } alternativeId && alternativeId <= 0)
+        {
+            return false;
+        }
+        switch (raw.Action)
+        {
+            case ReviewActionNames.ApproveAlt:
+                if (raw.Edits is { Count: > 0 })
+                {
+                    return false;
+                }
+                break;
+            case ReviewActionNames.ApproveEdit:
+                if (raw.AlternativeId is not null || raw.Field is not null
+                    || raw.Edits is not { Count: > 0 and <= 10 })
+                {
+                    return false;
+                }
+                foreach (var edit in raw.Edits)
+                {
+                    if (edit is null || !ReviewFieldNames.IsEditable(edit.Field) || edit.After is null
+                        || edit.SenseOrder is < 0)
+                    {
+                        return false;
+                    }
+                }
+                break;
+            default:
+                if (raw.AlternativeId is not null || raw.Edits is { Count: > 0 })
+                {
+                    return false;
+                }
+                // Only "Cambiar ⚑" may name the field it is flagging.
+                if (raw.Action != ReviewActionNames.NeedsChange && raw.Field is not null)
+                {
+                    return false;
+                }
+                break;
+        }
+        if (raw.ViaBatch == true && raw.Action != ReviewActionNames.Approve)
+        {
+            return false;
+        }
+        action = new NormalizedAction(raw.ClientReviewId ?? "", clientReviewId.ToString("D"),
+            new ReviewTransitionRequest(raw.WordVersion, raw.Action!, raw.Field, raw.SenseOrder,
+                raw.AlternativeId, raw.Edits),
+            raw.ViaBatch == true, raw.Note,
+            raw.DecisionMs is { } decision ? Math.Clamp(decision, 0, MaximumDecisionMs) : null);
+        return true;
+    }
+
+    private static bool BatchEligible(Word word) =>
+        string.Equals(word.CouncilBand, "alta", StringComparison.Ordinal) && word.LintWarnings is null;
+
+    private static async Task<Dictionary<int, IReadOnlyList<string>>> LoadTopicsAsync(PalabrasDbContext database,
+        IReadOnlyList<int> wordIds, CancellationToken cancellationToken)
+    {
+        if (wordIds.Count == 0)
+        {
+            return [];
+        }
+        var rows = await database.WordTopics.AsNoTracking()
+            .Where(topic => wordIds.Contains(topic.WordId))
+            .OrderBy(topic => topic.Topic)
+            .Select(topic => new { topic.WordId, topic.Topic })
+            .ToListAsync(cancellationToken);
+        return rows.GroupBy(row => row.WordId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<string>)group.Select(row => row.Topic).ToArray());
+    }
+
+    // Q-M4-7: a word can carry up to three topics; the sheet and the queue group by the first one in
+    // the current snapshot (file order), falling back to the alphabetically first word_topics row.
+    private static string? FirstTopic(JsonObject? snapshot, IReadOnlyList<string>? fallback)
+    {
+        if (snapshot?["topics"] is JsonArray topics && topics.Count > 0
+            && topics[0] is JsonValue value && value.TryGetValue<string>(out var first))
+        {
+            return first;
+        }
+        return fallback is { Count: > 0 } ? fallback[0] : null;
+    }
+
+    private static IReadOnlyList<string> ParseStringArray(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+        try
+        {
+            return JsonSerializer.Deserialize<string[]>(json) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    // lint_warnings is a JSON array in the ΔF shape. If M3b ever stores plain text, the raw value is
+    // surfaced as one warning rather than silently dropping the reviewer's red chip.
+    private static IReadOnlyList<string> ParseLintWarnings(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+        var values = ParseStringArray(json);
+        return values.Count > 0 ? values : [json];
+    }
+
+    private static bool TryLimit(string? raw, int defaultValue, int maximum, out int value)
+    {
+        value = defaultValue;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return true;
+        }
+        if (!int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed)
+            || parsed < 1 || parsed > maximum)
+        {
+            return false;
+        }
+        value = parsed;
+        return true;
+    }
+
+    private static IResult Error(int status, string error) =>
+        Results.Json(new { error }, statusCode: status);
+}
