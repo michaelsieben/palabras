@@ -45,10 +45,22 @@ internal static class ReviewEndpoints
     // rejected row is a full ReviewItem (wordId, version, status), which is exactly what `approve`
     // needs to lift the objection. The three scopes stay mutually exclusive.
     //
+    // Paging contract (T-20261019-2100 step 41): `status=all` walks one sequence — the pending block
+    // first, then the decided list (approved + rejected) in the shared decision order. `nextAfter` is
+    // the word id of the last row on the page; that row is never returned again, and walking until
+    // `nextAfter` is absent reaches every pending, approved and rejected row exactly once.
+    //
+    // The pending block is page one only: a decided cursor goes straight to the decided list. A
+    // pending cursor resumes inside the pending block, and the decided list then starts at its own
+    // beginning with whatever budget the pending page left over. When the pending block fills the
+    // page (pending >= limit), the page still carries a cursor — its last pending id — so the
+    // decided rows remain reachable instead of the walk stopping with `nextAfter` absent.
+    //
     // Decided rows (approved + rejected) share one ordering: newest decision first, keyset-paged
     // by word id through `after`/`nextAfter`. The cursor addresses the decided list of the
     // selected scope, so `status=approved`, `status=rejected` and the decided part of `all` page
-    // the same way.
+    // the same way. A cursor for a word whose status changed between pages is a `bad_request`; the
+    // client restarts the walk. `status=pending` keeps the pre-change page and ignores `after`.
     private static async Task<IResult> QueueAsync(DatabaseSettings settings, string? limit, string? status,
         string? after, CancellationToken cancellationToken)
     {
@@ -69,40 +81,66 @@ internal static class ReviewEndpoints
             }
             cursor = parsed;
         }
+        var includesDecided = includeApproved || includeRejected;
         await using var database = settings.CreateContext();
+        // Only a combined page understands a cursor on the pending side; the pending-only scope keeps
+        // its pre-change single page.
         var pending = includePending
-            ? await LoadPendingQueueAsync(database, take, cancellationToken)
-            : new PendingQueue([], 0, []);
-        var decided = includeApproved || includeRejected
+            ? await LoadPendingQueueAsync(database, take, includesDecided ? cursor : null, cancellationToken)
+            : PendingQueue.Empty;
+        // A decided cursor addresses the decided list alone: the pending block was already carried by
+        // page one. A pending cursor resumes the pending block, so the decided list starts fresh.
+        var decided = includesDecided
             ? await LoadDecidedQueueAsync(database, includeApproved, includeRejected,
-                take - pending.Words.Count, cursor, cancellationToken)
-            : new DecidedQueue([], 0, 0, null, false);
+                take - pending.Words.Count, pending.CursorInsidePending ? null : cursor, cancellationToken)
+            : DecidedQueue.Empty;
         if (decided.InvalidCursor)
         {
             return Error(StatusCodes.Status400BadRequest, "bad_request");
+        }
+        int? nextAfter = null;
+        if (includesDecided && pending.Remaining > 0)
+        {
+            nextAfter = pending.Words[^1].Id;
+        }
+        else if (decided.Remaining > 0)
+        {
+            // Usually the decided list continues from its own last row. When the pending block filled
+            // the page the decided budget was zero, so the pending block's last id is the handoff
+            // cursor and the next page starts the decided list.
+            var lastWord = decided.Words.Count > 0
+                ? decided.Words[^1]
+                : pending.Words.Count > 0 ? pending.Words[^1] : null;
+            nextAfter = lastWord?.Id;
         }
         var pageWords = pending.Words.Concat(decided.Words).ToArray();
         var items = pageWords.Length == 0
             ? []
             : await BuildQueueItemsAsync(database, pageWords, cancellationToken);
         return Results.Ok(new ReviewQueueResponse(items, pending.Total, pending.Topics,
-            decided.ApprovedTotal, decided.NextAfter, decided.RejectedTotal));
+            decided.ApprovedTotal, nextAfter, decided.RejectedTotal));
     }
 
     private sealed record PendingQueue(IReadOnlyList<Word> Words, int Total,
-        IReadOnlyList<ReviewTopicCount> Topics);
+        IReadOnlyList<ReviewTopicCount> Topics, int Remaining, bool CursorInsidePending)
+    {
+        public static PendingQueue Empty { get; } = new([], 0, [], 0, false);
+    }
 
     private sealed record DecidedQueue(IReadOnlyList<Word> Words, int ApprovedTotal, int RejectedTotal,
-        int? NextAfter, bool InvalidCursor);
+        int Remaining, bool InvalidCursor)
+    {
+        public static DecidedQueue Empty { get; } = new([], 0, 0, 0, false);
+    }
 
     private static async Task<PendingQueue> LoadPendingQueueAsync(PalabrasDbContext database, int take,
-        CancellationToken cancellationToken)
+        int? cursor, CancellationToken cancellationToken)
     {
         var pending = await database.Words.AsNoTracking()
             .Where(word => word.Status == "pending_review").ToListAsync(cancellationToken);
         if (pending.Count == 0)
         {
-            return new PendingQueue([], 0, []);
+            return PendingQueue.Empty;
         }
         var wordIds = pending.Select(word => word.Id).ToArray();
         var snapshots = await ReviewTransitions.LoadCurrentSnapshotsAsync(database, wordIds, cancellationToken);
@@ -116,12 +154,40 @@ internal static class ReviewEndpoints
             .OrderByDescending(word => topicCounts.GetValueOrDefault(topicByWord[word.Id] ?? string.Empty))
             .ThenByDescending(word => word.CouncilAgreement ?? double.NegativeInfinity)
             .ThenBy(word => word.Key, StringComparer.Ordinal)
-            .Take(take)
             .ToArray();
+        // The cursor is a word id from the page before. A pending id resumes this ordered list; any
+        // other id belongs to the decided list, whose page one already carried the pending block.
+        var start = 0;
+        var cursorInsidePending = false;
+        if (cursor is { } afterId)
+        {
+            var index = Array.FindIndex(ordered, word => word.Id == afterId);
+            if (index >= 0)
+            {
+                start = index + 1;
+                cursorInsidePending = true;
+            }
+        }
+        Word[] page;
+        var remainingAfterPage = 0;
+        if (cursor is null)
+        {
+            page = ordered.Take(take).ToArray();
+            remainingAfterPage = ordered.Length - page.Length;
+        }
+        else if (cursorInsidePending)
+        {
+            page = ordered.Skip(start).Take(take).ToArray();
+            remainingAfterPage = ordered.Length - start - page.Length;
+        }
+        else
+        {
+            page = [];
+        }
         var topics = topicCounts.OrderByDescending(count => count.Value)
             .ThenBy(count => count.Key, StringComparer.Ordinal)
             .Select(count => new ReviewTopicCount(count.Key, count.Value)).ToArray();
-        return new PendingQueue(ordered, pending.Count, topics);
+        return new PendingQueue(page, pending.Count, topics, remainingAfterPage, cursorInsidePending);
     }
 
     // Decided rows (approved and rejected) are ordered by the same "decision time" rule
@@ -147,7 +213,7 @@ internal static class ReviewEndpoints
         var rejectedTotal = words.Count(word => word.Status == "rejected");
         if (words.Count == 0)
         {
-            return new DecidedQueue([], 0, 0, null, false);
+            return new DecidedQueue([], 0, 0, 0, false);
         }
         var wordIds = words.Select(word => word.Id).ToArray();
         var decisions = await database.WordRevisions.AsNoTracking()
@@ -178,14 +244,13 @@ internal static class ReviewEndpoints
             var index = ordered.FindIndex(row => row.Word.Id == afterId);
             if (index < 0)
             {
-                return new DecidedQueue([], approvedTotal, rejectedTotal, null, true);
+                return new DecidedQueue([], approvedTotal, rejectedTotal, 0, true);
             }
             start = index + 1;
         }
         var remaining = ordered.Skip(start).ToList();
         var page = remaining.Take(Math.Max(take, 0)).Select(row => row.Word).ToArray();
-        var nextAfter = take > 0 && remaining.Count > take ? page[^1].Id : (int?)null;
-        return new DecidedQueue(page, approvedTotal, rejectedTotal, nextAfter, false);
+        return new DecidedQueue(page, approvedTotal, rejectedTotal, remaining.Count - page.Length, false);
     }
 
     private static async Task<ReviewItem[]> BuildQueueItemsAsync(PalabrasDbContext database,

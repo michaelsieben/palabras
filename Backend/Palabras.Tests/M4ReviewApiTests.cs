@@ -100,6 +100,9 @@ public sealed partial class M4ReviewApiTests
         using var limitedBody = await JsonAsync(limited);
         Assert.Equal(1, limitedBody.RootElement.GetProperty("items").GetArrayLength());
         Assert.Equal(3, limitedBody.RootElement.GetProperty("pendingTotal").GetInt32());
+        // The pending-only scope keeps its pre-change single page: it hands out no cursor, so it can
+        // never promise a page it does not serve.
+        Assert.False(limitedBody.RootElement.TryGetProperty("nextAfter", out _));
         foreach (var bad in new[] { "0", "31", "abc", "-1" })
         {
             using var rejected = await client.GetAsync("/api/review/queue?limit=" + bad, CancellationToken.None);
@@ -242,6 +245,88 @@ public sealed partial class M4ReviewApiTests
             using var response = await client.GetAsync("/api/review/queue?status=" + bad, CancellationToken.None);
             await AssertJsonErrorAsync(response, HttpStatusCode.BadRequest, "bad_request");
         }
+    }
+
+    [Fact]
+    public async Task QueueAllScopeReachesDecidedRowsWhenPendingFillsThePageExactly()
+    {
+        using var factory = new ReviewApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela", agreement: 0.9);
+            AddWord(database, 2, "es-pan-02", "pan", agreement: 0.8);
+            AddWord(database, 3, "es-mesa-03", "mesa", agreement: 0.7);
+            AddWord(database, 4, "es-silla-04", "silla", status: "approved",
+                statusChangedAt: Now.AddHours(-1).ToUnixTimeMilliseconds(), approvedVersion: 1);
+            AddWord(database, 5, "es-libro-05", "libro", status: "rejected",
+                statusChangedAt: Now.AddHours(-2).ToUnixTimeMilliseconds());
+            AddWord(database, 6, "es-lápiz-06", "lápiz", status: "rejected",
+                statusChangedAt: Now.AddHours(-3).ToUnixTimeMilliseconds());
+        });
+        using var client = await LoginAsync(factory, "reviewer");
+
+        // limit == pending count: page one is pending-only (the decided budget is 0), but it must
+        // still hand out a cursor, and the next page must start the decided list. Before step 41 the
+        // walk stopped there and the rejected rows were unreachable through `status=all`.
+        var pages = await WalkAllScopeAsync(client, limit: 3);
+        Assert.Equal(new[] { new[] { 1, 2, 3 }, new[] { 4, 5, 6 } },
+            pages.Select(page => page.Select(row => row.WordId).ToArray()).ToArray());
+
+        var walked = pages.SelectMany(page => page).ToArray();
+        Assert.Equal(new[] { 1, 2, 3, 4, 5, 6 }, walked.Select(row => row.WordId).OrderBy(id => id).ToArray());
+        Assert.Equal(walked.Length, walked.Select(row => row.WordId).Distinct().Count());
+        Assert.Equal(new[] { "pending_review", "pending_review", "pending_review", "approved", "rejected", "rejected" },
+            walked.Select(row => row.Status).ToArray());
+
+        // The second page repeats no pending row and carries the rejected rows with their action
+        // contract (wordId + version), so a withdrawn word stays reachable through `all`.
+        Assert.DoesNotContain(pages[1], row => pages[0].Any(first => first.WordId == row.WordId));
+        Assert.Contains(walked, row => row.WordId == 5 && row.Status == "rejected");
+        Assert.Contains(walked, row => row.WordId == 6 && row.Status == "rejected");
+    }
+
+    [Fact]
+    public async Task QueueAllScopeWalksPendingAndDecidedPagesWithoutDuplicatesOrGaps()
+    {
+        using var factory = new ReviewApplicationFactory(Now, database =>
+        {
+            // More pending rows than one page holds, plus decided rows of both kinds: the walk must
+            // finish the pending block first, then continue into the decided list.
+            AddWord(database, 1, "es-abuela-01", "abuela", agreement: 0.9);
+            AddWord(database, 2, "es-pan-02", "pan", agreement: 0.8);
+            AddWord(database, 3, "es-mesa-03", "mesa", agreement: 0.7);
+            AddWord(database, 4, "es-tía-04", "tía", agreement: 0.6);
+            AddWord(database, 5, "es-casa-05", "casa", agreement: 0.5);
+            AddWord(database, 6, "es-silla-06", "silla", status: "approved",
+                statusChangedAt: Now.AddHours(-1).ToUnixTimeMilliseconds(), approvedVersion: 1);
+            AddWord(database, 7, "es-libro-07", "libro", status: "rejected",
+                statusChangedAt: Now.AddHours(-2).ToUnixTimeMilliseconds());
+            AddWord(database, 8, "es-verbo-08", "verbo", status: "approved",
+                statusChangedAt: Now.AddHours(-3).ToUnixTimeMilliseconds(), approvedVersion: 1);
+            AddWord(database, 9, "es-lápiz-09", "lápiz", status: "rejected",
+                statusChangedAt: Now.AddHours(-4).ToUnixTimeMilliseconds());
+        });
+        using var client = await LoginAsync(factory, "reviewer");
+
+        var pages = await WalkAllScopeAsync(client, limit: 3);
+        // pending order is agreement DESC, decided order is newest decision first; page two mixes the
+        // tail of the pending block with the first decided row.
+        Assert.Equal(
+            new[] { new[] { 1, 2, 3 }, new[] { 4, 5, 6 }, new[] { 7, 8, 9 } },
+            pages.Select(page => page.Select(row => row.WordId).ToArray()));
+
+        var walked = pages.SelectMany(page => page).ToArray();
+        Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 },
+            walked.Select(row => row.WordId).OrderBy(id => id).ToArray());
+        Assert.Equal(walked.Length, walked.Select(row => row.WordId).Distinct().Count());
+        Assert.Equal(5, walked.Count(row => row.Status == "pending_review"));
+        Assert.Equal(2, walked.Count(row => row.Status == "approved"));
+        Assert.Equal(2, walked.Count(row => row.Status == "rejected"));
+
+        // A later page never repeats a pending row, and both rejected rows are reached.
+        Assert.DoesNotContain(pages[1], row => pages[0].Any(first => first.WordId == row.WordId));
+        Assert.DoesNotContain(pages[2], row => pages[0].Concat(pages[1]).Any(earlier => earlier.WordId == row.WordId));
+        Assert.Contains(walked, row => row.WordId == 7 && row.Status == "rejected");
+        Assert.Contains(walked, row => row.WordId == 9 && row.Status == "rejected");
     }
 
     [Fact]
@@ -1492,6 +1577,30 @@ public sealed partial class M4ReviewApiTests
 
     private static async Task<JsonDocument> JsonAsync(HttpResponseMessage response) =>
         JsonDocument.Parse(await response.Content.ReadAsStringAsync(CancellationToken.None));
+
+    // Walks `status=all` from the first page until `nextAfter` is absent, returning every page in
+    // order. The page cap turns a cursor that never clears into a test failure instead of a hang.
+    private static async Task<List<(int WordId, string Status)[]>> WalkAllScopeAsync(HttpClient client, int limit)
+    {
+        var pages = new List<(int WordId, string Status)[]>();
+        string? cursor = null;
+        do
+        {
+            var path = "/api/review/queue?status=all&limit=" + limit.ToString(CultureInfo.InvariantCulture)
+                + (cursor is null ? string.Empty : "&after=" + cursor);
+            using var body = await JsonAsync(await client.GetAsync(path, CancellationToken.None));
+            pages.Add(body.RootElement.GetProperty("items").EnumerateArray()
+                .Select(item => (item.GetProperty("wordId").GetInt32(),
+                    item.GetProperty("status").GetString()!))
+                .ToArray());
+            Assert.True(pages.Count < 20, "status=all walk did not terminate");
+            cursor = body.RootElement.TryGetProperty("nextAfter", out var next)
+                ? next.GetInt32().ToString(CultureInfo.InvariantCulture)
+                : null;
+        }
+        while (cursor is not null);
+        return pages;
+    }
 
     private static async Task AssertJsonErrorAsync(HttpResponseMessage response, HttpStatusCode status, string error)
     {
