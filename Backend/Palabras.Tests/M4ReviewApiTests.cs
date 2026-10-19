@@ -21,7 +21,7 @@ namespace Palabras.Tests;
 // M4 reviewer gate contract tests (plan §2.2/§2.4, T-20261019-1606 step 2). Every call goes through
 // the real cookie auth, the X-Palabras middleware and the SQLite write-lock transaction. The
 // database files live under /tmp/palabras-m4, never /data.
-public sealed class M4ReviewApiTests
+public sealed partial class M4ReviewApiTests
 {
     private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-19T09:00:00Z", CultureInfo.InvariantCulture);
     private const string Password = "test-password";
@@ -1189,6 +1189,8 @@ public sealed class M4ReviewApiTests
         }
 
         internal string DatabasePath => Path.Combine(_root, "data", "palabras.db");
+
+        internal string ImportDirectory => Path.Combine(_root, "source");
 
         internal FakeTimeProvider Time => _time;
 

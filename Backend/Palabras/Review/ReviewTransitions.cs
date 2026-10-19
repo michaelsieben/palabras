@@ -259,6 +259,11 @@ internal static class ReviewTransitions
                 // A no-op edit would bump the version (and invalidate learner answers) for nothing.
                 return new(ReviewResults.Invalid);
             }
+            var candidate = accepted is null ? JsonValue.Create(after)! : JsonSerializer.SerializeToNode(accepted)!;
+            if (!ReviewContentValidation.IsValid(edit.Field!, candidate, word.Pos, word.Article))
+            {
+                return new(ReviewResults.Invalid);
+            }
             changes.Add(new EditChange(edit.Field!, edit.SenseOrder, before, after, sense, source, accepted));
             previous.TryAdd((edit.Field!, edit.SenseOrder), before);
             diff.Add(new JsonObject
@@ -367,6 +372,11 @@ internal static class ReviewTransitions
             before = field == ReviewFieldNames.Gloss ? sense.EnGloss : sense.ExampleEs;
         }
         if (string.Equals(before, alternative.Value, StringComparison.Ordinal))
+        {
+            return new(ReviewResults.Invalid);
+        }
+        if (!ReviewContentValidation.IsValid(swapsHeadword ? ReviewFieldNames.Lemma : field,
+                JsonValue.Create(alternative.Value)!, word.Pos, word.Article))
         {
             return new(ReviewResults.Invalid);
         }

@@ -112,7 +112,12 @@ internal sealed class ContentImporter
                 entries.Count(entry => hashes.TryGetValue(entry.Key, out var hash) && hash == entry.Hash), []);
         }
 
-        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
+        // Serialize the hash check with reviewer writes: whichever commits first determines the
+        // version the next operation reads. Never upgrade a stale read transaction to a writer.
+        await database.Database.OpenConnectionAsync(cancellationToken);
+        var writableConnection = (SqliteConnection)database.Database.GetDbConnection();
+        await using var transaction = writableConnection.BeginTransaction(System.Data.IsolationLevel.Serializable, deferred: false);
+        await database.Database.UseTransactionAsync(transaction, cancellationToken);
         var created = 0;
         var updated = 0;
         var unchanged = 0;
@@ -121,6 +126,8 @@ internal sealed class ContentImporter
             var word = await database.Words.SingleOrDefaultAsync(word => word.Key == entry.Key, cancellationToken);
             if (word?.ContentHash == entry.Hash)
             {
+                // Hash tracks the last source import, not the reviewer-edited snapshot. An
+                // unchanged source must keep her edit, verdict, version and card epochs intact.
                 unchanged++;
                 continue;
             }
@@ -138,7 +145,7 @@ internal sealed class ContentImporter
             else
             {
                 await ContentCardLifecycle.DemoteAsync(database, word.Id, cancellationToken);
-                word.Version++;
+                word.Version = checked(word.Version + 1);
                 word.Status = "pending_review";
                 updated++;
             }
@@ -156,6 +163,9 @@ internal sealed class ContentImporter
             word.ProvenanceMethod = Text(root["provenance"]!, "method")!;
             word.ProvenanceRun = Text(root["provenance"]!, "run");
             word.ContentHash = entry.Hash;
+            word.StatusChangedAt = now;
+            // ApprovedVersion remains the last approved version (audit only). Revisions and
+            // word_reviews are append-only: changed source never rewrites an old verdict.
             word.UpdatedAt = now;
             await database.SaveChangesAsync(cancellationToken);
             await PopulateChildrenAsync(database, word, root, cancellationToken);
