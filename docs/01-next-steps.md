@@ -99,12 +99,13 @@ Corpus imports need no prior reviewer decision for M6; M4 is the objection surfa
   `needs_change`, reject. Queue scopes are `pending|approved|rejected|all`, default `pending`.
   Her decision is final; reject suspends cards and keeps history, re-approve restores fresh cards
   (manual/leech pauses stay); every change writes a revision.
-- M3: council CLI in `tools/council` (offline, Vercel AI SDK, privacy guard ΔH) that produces
-  alternatives as `pending_review` files for the importer.
+- M3: council CLI in `tools/council` (offline, plain `fetch` adapters, privacy guard ΔH) that produces
+  bundles with alternatives; council proposals import as `pending_review` (`tools/council/README.md`).
 
 Status: M4 backend and UI are implemented and code-reviewed (see the T-20261019-1606 bullets in Status
 below); plan step 4 (reviewer edit vs re-import) shipped in `89657e4` (also Status below). M4 is **not accepted**
-until the attended phone/tablet check below has happened. M3 is not started.
+until the attended phone/tablet check below has happened. M3: importer C1–C5 and producer CLI C6 (`10050d6`) / C7
+(`a3cdfff`) are implemented; M3 is **not complete** until the owner's real council run (C9) commits the first bundle.
 
 **Done when:** the reviewer withdraws an imported word on her phone and it leaves learner sessions
 without losing history; re-approving restores fresh cards; approving a council proposal makes it eligible

@@ -106,6 +106,10 @@ Provider roster, non-Claude model IDs, API keys, retention settings and cost/lat
 **Default:** decide at M3 start; keys live in a local untracked `.env` for `tools/council`, never
 in the container (no LLM at runtime).
 
+**Status (M3 C7, `a3cdfff`):** the file is `tools/council/.env.council` (template `env.example`;
+`tools/council/README.md` Configuration). The roster, keys and retention settings are still open and
+are decided by the owner at the first real run (C9); the model ids in `env.example` are placeholders.
+
 ## Q13. Does a dismissed notification satisfy `userVisibleOnly`?
 
 Unverified (`design-amendment.md` evidence check).

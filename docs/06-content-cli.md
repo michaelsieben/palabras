@@ -166,8 +166,29 @@ failure. Refusals go to stderr as
 
 Committed schemas: `content/schema/council-manifest.schema.json` (`palabras.council.manifest.v1`) and
 `content/schema/council-candidate.schema.json`. Both are validated by the C# importer (JSON Schema, format checks on,
-unknown properties refused at every level) against the shared fixtures under `tools/council/fixtures/`; the future
-`tools/council` validator (C6) consumes the same schemas and fixtures.
+unknown properties refused at every level) against the shared fixtures under `tools/council/fixtures/`; the
+`tools/council` validator (`council validate`, C6) consumes the same schemas and fixtures.
+
+#### Producer side
+
+Bundles are produced offline by the council CLI (`tools/council`, M3 C6/C7). Usage, privacy list, keys, costs and
+failure causes are in `tools/council/README.md`; this section covers only what crosses into the repo.
+
+- `council propose` writes `content/council/<run_id>/` directly (default `--out`): `manifest.json` always,
+  `candidates.jsonl` only when `status` is `ok`, and `dropped.jsonl` as audit. A failed run leaves a manifest without
+  candidates, which this importer refuses. No `raw/` directory is written.
+- Keys are assigned by the producer as `es-<slug>-NN` (lemma without article, accents folded, lowest free `01`–`99`,
+  never from `pos`) against the corpus and every committed bundle, and are never re-derived. Pairs already in that
+  offline lexicon are dropped as `exists`; a word that exists only in the database can still arrive under a new key, and
+  is then a duplicate for the reviewer to reject (skip-by-key prevents an overwrite, not a new key).
+- The producer validates its own bundle before finishing. The owner then commits the bundle directory; the image copies
+  `content/council/` and the startup sync imports it (below). `node tools/content-lint/index.js` lints committed bundles
+  in CI.
+- `--replay` output is a preview/test artefact and must never be committed.
+- Policy is unchanged by the producer (`7234a15`): corpus `import` approves on arrival, council `propose` candidates
+  still land as `pending_review` and need a reviewer approval before they reach learners.
+
+No real bundle has been committed yet; the first is the owner's real run (M3 C9).
 
 - `manifest.json` — required. Carries `run_id` (path-safe, 3–64 chars, also the bundle directory name), `mode`
   (`propose` or `rework`), `prompt_version`, `style_guide_sha256`, the request block, the model roster with per-phase
