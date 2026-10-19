@@ -762,6 +762,65 @@ public sealed class M4ReviewApiTests
     }
 
     [Fact]
+    public async Task ApprovedListExposesTheCurrentVersionSoARevisedWordCanBeDemoted()
+    {
+        // An approved word edited after approval keeps version > 1. The approved list must return that
+        // real version, because demote still enforces the version precondition like every action.
+        using var factory = new ReviewApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela", status: "approved", topic: "family",
+                glosses: ["grandmother"], statusChangedAt: Now.AddDays(-1).ToUnixTimeMilliseconds(),
+                approvedVersion: 3, version: 3);
+        });
+        using var client = await LoginAsync(factory, "reviewer");
+
+        int version;
+        using (var body = await JsonAsync(await client.GetAsync("/api/review/approved", CancellationToken.None)))
+        {
+            var item = Assert.Single(body.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal(1, item.GetProperty("wordId").GetInt32());
+            version = item.GetProperty("version").GetInt32();
+            Assert.Equal(3, version);
+        }
+
+        // A stale version is still a stale_version result and leaves the word approved.
+        using (var stale = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[] { Action(Guid.NewGuid().ToString(), 1, "demote", wordVersion: version - 1) }
+        }))
+        {
+            Assert.Equal(HttpStatusCode.OK, stale.StatusCode);
+            using var body = await JsonAsync(stale);
+            Assert.Equal("stale_version", Assert.Single(body.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+        await using (var database = factory.OpenDatabase())
+        {
+            Assert.Equal("approved", (await database.Words.AsNoTracking().SingleAsync()).Status);
+        }
+
+        // The version the approved list returned is exactly what demote requires.
+        using (var applied = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[] { Action(Guid.NewGuid().ToString(), 1, "demote", wordVersion: version) }
+        }))
+        {
+            Assert.Equal(HttpStatusCode.OK, applied.StatusCode);
+            using var body = await JsonAsync(applied);
+            var result = Assert.Single(body.RootElement.GetProperty("results").EnumerateArray());
+            Assert.Equal("applied", result.GetProperty("result").GetString());
+            Assert.Equal("pending_review", result.GetProperty("word").GetProperty("status").GetString());
+            Assert.Equal(3, result.GetProperty("word").GetProperty("version").GetInt32());
+        }
+        await using (var database = factory.OpenDatabase())
+        {
+            var word = await database.Words.AsNoTracking().SingleAsync();
+            Assert.Equal("pending_review", word.Status);
+            Assert.Equal(3, word.Version);
+        }
+    }
+
+    [Fact]
     public async Task ApprovedListSearchesKeysetPagesAndFallsBackForPreM4Rows()
     {
         using var factory = new ReviewApplicationFactory(Now, database =>
@@ -982,13 +1041,13 @@ public sealed class M4ReviewApiTests
         string status = "pending_review", string topic = "family", double? agreement = null, string? band = null,
         string? lint = null, string? article = null, string? gender = null, string pos = "noun",
         IReadOnlyList<string>? glosses = null, IReadOnlyList<(string Kind, string Value, string Reason)>? alternativeValues = null,
-        long? statusChangedAt = null, int? approvedVersion = null, int reducedConfidence = 0)
+        long? statusChangedAt = null, int? approvedVersion = null, int reducedConfidence = 0, int version = 1)
     {
         var senseGlosses = glosses ?? ["gloss of " + headword];
         database.Words.Add(new Word
         {
             Id = id, Key = key, Headword = headword, Article = article, Gender = gender, Pos = pos, Cefr = "A1",
-            RegionScope = "ES", Register = "neutral", Status = status, Version = 1,
+            RegionScope = "ES", Register = "neutral", Status = status, Version = version,
             ContentHash = "hash-" + key, ProvenanceMethod = "hand-authored",
             CouncilAgreement = agreement, CouncilBand = band, LintWarnings = lint,
             ReducedConfidence = reducedConfidence, StatusChangedAt = statusChangedAt,
@@ -1009,7 +1068,7 @@ public sealed class M4ReviewApiTests
         var snapshot = Snapshot(key, headword, topic, senseGlosses, article, gender, pos, status);
         database.WordRevisions.Add(new WordRevision
         {
-            WordId = id, Version = 1, Action = "import", SnapshotJson = snapshot.ToJsonString(),
+            WordId = id, Version = version, Action = "import", SnapshotJson = snapshot.ToJsonString(),
             CreatedAt = Now.AddDays(-10).ToUnixTimeMilliseconds()
         });
         foreach (var (kind, value, reason) in alternativeValues ?? [])

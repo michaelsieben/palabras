@@ -269,7 +269,7 @@ internal static class ReviewEndpoints
             var approvedMs = word.StatusChangedAt
                 ?? (lastApproval.TryGetValue(word.Id, out var approvalMs) ? approvalMs : (long?)null)
                 ?? (word.UpdatedAt != 0 ? word.UpdatedAt : word.CreatedAt);
-            return new ApprovedWordItem(word.Id, word.Key, word.Headword, word.Article, gloss,
+            return new ApprovedWordItem(word.Id, word.Key, word.Version, word.Headword, word.Article, gloss,
                 FirstTopic(snapshot, fallbackTopics.GetValueOrDefault(word.Id)),
                 DateTimeOffset.FromUnixTimeMilliseconds(approvedMs));
         });

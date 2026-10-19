@@ -85,9 +85,12 @@ internal sealed record ReviewActionResult(
 
 internal sealed record ReviewActionsResponse(IReadOnlyList<ReviewActionResult> Results);
 
+// `version` is the current words.version: every review action (demote included) must echo it, so the
+// approved list has to carry it or an approved row with version > 1 could never be demoted.
 internal sealed record ApprovedWordItem(
     int WordId,
     string Key,
+    int Version,
     string Headword,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Article,
     string Gloss,
