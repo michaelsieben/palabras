@@ -327,11 +327,11 @@ internal static class ReviewTransitions
                 case ReviewFieldNames.Example:
                     change.Sense!.ExampleEs = change.After;
                     change.Source!["example"] = change.After;
-                    // No English input exists on this path, so the previous translation is cleared
-                    // rather than kept: a stale example_en would describe the sentence just
-                    // replaced. The undo row carries the old English in `gloss`.
-                    change.Sense.ExampleEn = "";
-                    change.Source!["exampleGloss"] = "";
+                    // No English input exists on this path, and word.schema.json requires a
+                    // non-empty exampleGloss. The previous translation is therefore kept rather
+                    // than cleared: "" (or an omitted key) would make the revision snapshot
+                    // schema-invalid. The old English still rides on the undo row, so undo
+                    // restores the pair exactly.
                     break;
                 default:
                     change.Sense!.EsAccepted = JsonSerializer.Serialize(change.Accepted);
@@ -428,9 +428,10 @@ internal static class ReviewTransitions
             source!["example"] = alternative.Value;
             // A council example alternative carries its English translation in `gloss` (the bundle's
             // `en`); without this the swap would leave example_en describing the sentence it just
-            // replaced. Legacy undo alternatives (`previous_example`) carry no gloss, so their
-            // behaviour is unchanged.
-            if (!string.IsNullOrEmpty(alternative.Gloss))
+            // replaced. A null gloss is a legacy undo row that never carried a translation; an
+            // empty one is a known-empty pre-swap English and must be restored as such, so the
+            // two states cannot share the IsNullOrEmpty test.
+            if (alternative.Gloss is not null)
             {
                 sense.ExampleEn = alternative.Gloss;
                 source!["exampleGloss"] = alternative.Gloss;

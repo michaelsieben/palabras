@@ -95,20 +95,61 @@ public sealed class M3ContentSyncTests : IDisposable
     public async Task ReworkBundleIsNeverImportedAtStartupAsync()
     {
         var council = Path.Combine(_root, "council");
-        CopyFixture("valid-rework", Path.Combine(council, "a-rework"));
-
-        using var factory = new SyncFactory(_root, _databasePath, council, enabled: true);
-        using var client = factory.CreateClient(NoRedirect());
-        using (var healthy = await client.GetAsync("/healthz", CancellationToken.None))
+        var propose = CopyFixture("valid-propose", Path.Combine(council, "a-propose"));
+        using (var first = new SyncFactory(_root, _databasePath, council, enabled: true))
         {
-            Assert.Equal(HttpStatusCode.OK, healthy.StatusCode);
+            using var client = first.CreateClient(NoRedirect());
+            await client.GetAsync("/healthz", CancellationToken.None);
+            await first.WaitForSyncAsync();
         }
-        await factory.WaitForSyncAsync();
 
-        await using var database = new DatabaseSettings(_databasePath).CreateContext();
-        Assert.Empty(await database.Words.ToListAsync());
-        Assert.Empty(await database.CouncilRuns.ToListAsync());
-        Assert.Contains(factory.LogLines, line => line.Contains("propose bundles only", StringComparison.Ordinal));
+        // Import first, then point the sync at a rework of a word that now exists. Without the
+        // propose-only guard the rework would apply here (its target is present), so the unchanged
+        // rows are the observable discriminator; the log line alone would also pass on an empty DB.
+        int words;
+        int revisions;
+        int senses;
+        int runs;
+        List<(int Id, int Version, string Hash)> before;
+        await using (var database = new DatabaseSettings(_databasePath).CreateContext())
+        {
+            words = await database.Words.CountAsync();
+            revisions = await database.WordRevisions.CountAsync();
+            senses = await database.Senses.CountAsync();
+            runs = await database.CouncilRuns.CountAsync();
+            before = (await database.Words.AsNoTracking().OrderBy(word => word.Id)
+                    .Select(word => new { word.Id, word.Version, word.ContentHash }).ToListAsync())
+                .Select(word => (word.Id, word.Version, word.ContentHash)).ToList();
+        }
+        Assert.Equal(2, words);
+        Assert.Equal(1, runs);
+
+        Directory.Delete(propose, true);
+        CopyFixture("valid-rework", Path.Combine(council, "b-rework"));
+
+        using (var second = new SyncFactory(_root, _databasePath, council, enabled: true))
+        {
+            using var client = second.CreateClient(NoRedirect());
+            using (var healthy = await client.GetAsync("/healthz", CancellationToken.None))
+            {
+                Assert.Equal(HttpStatusCode.OK, healthy.StatusCode);
+            }
+            await second.WaitForSyncAsync();
+            Assert.Contains(second.LogLines, line => line.Contains("propose bundles only", StringComparison.Ordinal));
+        }
+
+        await using var after = new DatabaseSettings(_databasePath).CreateContext();
+        Assert.Equal(words, await after.Words.CountAsync());
+        Assert.Equal(revisions, await after.WordRevisions.CountAsync());
+        Assert.Equal(senses, await after.Senses.CountAsync());
+        Assert.Equal(runs, await after.CouncilRuns.CountAsync());
+        var afterRows = (await after.Words.AsNoTracking().OrderBy(word => word.Id)
+                .Select(word => new { word.Id, word.Version, word.ContentHash }).ToListAsync())
+            .Select(word => (word.Id, word.Version, word.ContentHash)).ToList();
+        Assert.Equal(before, afterRows);
+        // The rework's run id was not recorded, so it is retried on a later start (through the CLI).
+        Assert.DoesNotContain("01JAB4M0R7WBY3N8Z5X2C1V4B6",
+            await after.CouncilRuns.Select(row => row.RunId).ToListAsync());
     }
 
     [Fact]

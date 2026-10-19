@@ -1,5 +1,7 @@
 using System.Text.Json.Nodes;
+using Json.Schema;
 using Microsoft.EntityFrameworkCore;
+using Palabras.Content;
 using Palabras.Content.Council;
 using Palabras.Persistence;
 using Palabras.Review;
@@ -281,7 +283,7 @@ public sealed partial class M4ReviewApiTests
     }
 
     [Fact]
-    public async Task ApproveEditOfAnExampleClearsTheStaleTranslationAndUndoRestoresItAsync()
+    public async Task ApproveEditOfAnExampleKeepsTheTranslationTheSchemaRequiresAsync()
     {
         using var factory = new ReviewApplicationFactory(Now);
         var imported = await new CouncilImporter(new DatabaseSettings(factory.DatabasePath))
@@ -317,13 +319,15 @@ public sealed partial class M4ReviewApiTests
         {
             var sense = await database.Senses.SingleAsync(row => row.WordId == wordId);
             Assert.Equal("Compro patatas en el mercado.", sense.ExampleEs);
-            // No English input exists on approve_edit, so the old translation must not survive as if
-            // it still described the new sentence (it is kept on the undo row instead).
-            Assert.Equal("", sense.ExampleEn);
+            // approve_edit carries no English input and word.schema.json requires a non-empty
+            // exampleGloss, so the previous translation is kept. The old English also rides on the
+            // undo row, so demote -> undo can still restore the exact pair.
+            Assert.Equal("Can you bring us some patatas bravas?", sense.ExampleEn);
             var snapshot = JsonNode.Parse((await database.WordRevisions
                 .Where(revision => revision.WordId == wordId && revision.Action == "edit")
                 .OrderByDescending(revision => revision.Id).FirstAsync()).SnapshotJson)!;
-            Assert.Equal("", snapshot["senses"]![0]!["exampleGloss"]!.GetValue<string>());
+            Assert.Equal("Can you bring us some patatas bravas?",
+                snapshot["senses"]![0]!["exampleGloss"]!.GetValue<string>());
             var undo = await database.WordAlternatives.SingleAsync(alternative =>
                 alternative.WordId == wordId && alternative.Kind == "previous_example");
             Assert.Equal("¿Nos pones unas patatas bravas?", undo.Value);
@@ -363,6 +367,287 @@ public sealed partial class M4ReviewApiTests
             Assert.Equal("¿Nos pones unas patatas bravas?", sense.ExampleEs);
             Assert.Equal("Can you bring us some patatas bravas?", sense.ExampleEn);
         }
+    }
+
+    [Fact]
+    public async Task ApproveEditThenCouncilExampleSwapAndUndoRestoresBothLanguagesAsync()
+    {
+        using var factory = new ReviewApplicationFactory(Now);
+        var imported = await new CouncilImporter(new DatabaseSettings(factory.DatabasePath))
+            .ImportAsync(Path.Combine(CouncilFixtureRoot(), "valid-propose"), new CouncilImportOptions(),
+                CancellationToken.None);
+        Assert.Empty(imported.Refusals);
+
+        using var client = await LoginAsync(factory, "reviewer");
+        using var body = await JsonAsync(await client.GetAsync("/api/review/queue", CancellationToken.None));
+        var patata = body.RootElement.GetProperty("items").EnumerateArray()
+            .Single(item => item.GetProperty("key").GetString() == "es-patata-01");
+        var wordId = patata.GetProperty("wordId").GetInt32();
+        var exampleChip = patata.GetProperty("alternatives").EnumerateArray()
+            .Single(chip => chip.GetProperty("field").GetString() == "example");
+
+        // 1. approve_edit the Spanish example (the wire form has no English field).
+        using (var edit = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[]
+            {
+                new
+                {
+                    clientReviewId = Guid.NewGuid().ToString(), wordId, wordVersion = 1, action = "approve_edit",
+                    edits = new object[] { new { field = "example", senseOrder = 0, after = "Siempre compro patatas en el mercado." } }
+                }
+            }
+        }))
+        {
+            using var editBody = await JsonAsync(edit);
+            Assert.Equal("applied", Assert.Single(editBody.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+        using (var demote = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[] { Action(Guid.NewGuid().ToString(), wordId, "demote", wordVersion: 2) }
+        }))
+        {
+            using var demoteBody = await JsonAsync(demote);
+            Assert.Equal("applied", Assert.Single(demoteBody.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+
+        // 2. Swap to the council example: both languages become the chip's pair.
+        using (var swap = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[]
+            {
+                new
+                {
+                    clientReviewId = Guid.NewGuid().ToString(), wordId, wordVersion = 2, action = "approve_alt",
+                    field = "example", senseOrder = 0, alternativeId = exampleChip.GetProperty("id").GetInt32()
+                }
+            }
+        }))
+        {
+            using var swapBody = await JsonAsync(swap);
+            Assert.Equal("applied", Assert.Single(swapBody.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+        int undoId;
+        await using (var database = factory.OpenDatabase())
+        {
+            var sense = await database.Senses.SingleAsync(row => row.WordId == wordId);
+            Assert.Equal("Compro patatas en el mercado.", sense.ExampleEs);
+            Assert.Equal("I buy potatoes at the market.", sense.ExampleEn);
+            // The newest previous_example row is the swap's, and it carries the pre-swap English.
+            undoId = (await database.WordAlternatives
+                .Where(alternative => alternative.WordId == wordId && alternative.Kind == "previous_example")
+                .OrderByDescending(alternative => alternative.Id).FirstAsync()).Id;
+        }
+        using (var demote = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[] { Action(Guid.NewGuid().ToString(), wordId, "demote", wordVersion: 3) }
+        }))
+        {
+            using var demoteBody = await JsonAsync(demote);
+            Assert.Equal("applied", Assert.Single(demoteBody.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+
+        // 3. Undo the swap: the pre-swap pair comes back, both languages.
+        using (var undo = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[]
+            {
+                new
+                {
+                    clientReviewId = Guid.NewGuid().ToString(), wordId, wordVersion = 3, action = "approve_alt",
+                    field = "example", senseOrder = 0, alternativeId = undoId
+                }
+            }
+        }))
+        {
+            using var undoBody = await JsonAsync(undo);
+            Assert.Equal("applied", Assert.Single(undoBody.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+
+        await using (var database = factory.OpenDatabase())
+        {
+            var word = await database.Words.SingleAsync(candidate => candidate.Id == wordId);
+            Assert.Equal(4, word.Version);
+            var sense = await database.Senses.SingleAsync(row => row.WordId == wordId);
+            Assert.Equal("Siempre compro patatas en el mercado.", sense.ExampleEs);
+            Assert.Equal("Can you bring us some patatas bravas?", sense.ExampleEn);
+        }
+    }
+
+    [Fact]
+    public async Task ApproveEditThenCouncilExampleSwapAndUndoRestoresAnEmptyTranslationAsync()
+    {
+        using var factory = new ReviewApplicationFactory(Now);
+        var imported = await new CouncilImporter(new DatabaseSettings(factory.DatabasePath))
+            .ImportAsync(Path.Combine(CouncilFixtureRoot(), "valid-propose"), new CouncilImportOptions(),
+                CancellationToken.None);
+        Assert.Empty(imported.Refusals);
+
+        int wordId;
+        await using (var database = factory.OpenDatabase())
+        {
+            var word = await database.Words.SingleAsync(candidate => candidate.Key == "es-patata-01");
+            wordId = word.Id;
+            // A row whose English was already empty before the edit: the undo must put the empty
+            // string back instead of leaving the swapped-in council translation in place.
+            (await database.Senses.SingleAsync(row => row.WordId == word.Id)).ExampleEn = "";
+            await database.SaveChangesAsync();
+        }
+
+        using var client = await LoginAsync(factory, "reviewer");
+        using var body = await JsonAsync(await client.GetAsync("/api/review/queue", CancellationToken.None));
+        var patata = body.RootElement.GetProperty("items").EnumerateArray()
+            .Single(item => item.GetProperty("key").GetString() == "es-patata-01");
+        var exampleChip = patata.GetProperty("alternatives").EnumerateArray()
+            .Single(chip => chip.GetProperty("field").GetString() == "example");
+
+        using (var edit = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[]
+            {
+                new
+                {
+                    clientReviewId = Guid.NewGuid().ToString(), wordId, wordVersion = 1, action = "approve_edit",
+                    edits = new object[] { new { field = "example", senseOrder = 0, after = "Siempre compro patatas en el mercado." } }
+                }
+            }
+        }))
+        {
+            using var editBody = await JsonAsync(edit);
+            Assert.Equal("applied", Assert.Single(editBody.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+        using (var demote = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[] { Action(Guid.NewGuid().ToString(), wordId, "demote", wordVersion: 2) }
+        }))
+        {
+            using var demoteBody = await JsonAsync(demote);
+            Assert.Equal("applied", Assert.Single(demoteBody.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+        using (var swap = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[]
+            {
+                new
+                {
+                    clientReviewId = Guid.NewGuid().ToString(), wordId, wordVersion = 2, action = "approve_alt",
+                    field = "example", senseOrder = 0, alternativeId = exampleChip.GetProperty("id").GetInt32()
+                }
+            }
+        }))
+        {
+            using var swapBody = await JsonAsync(swap);
+            Assert.Equal("applied", Assert.Single(swapBody.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+        int undoId;
+        await using (var database = factory.OpenDatabase())
+        {
+            var sense = await database.Senses.SingleAsync(row => row.WordId == wordId);
+            Assert.Equal("I buy potatoes at the market.", sense.ExampleEn);
+            var undo = await database.WordAlternatives
+                .Where(alternative => alternative.WordId == wordId && alternative.Kind == "previous_example")
+                .OrderByDescending(alternative => alternative.Id).FirstAsync();
+            // The pre-swap English was a known empty string, not an unknown legacy gloss.
+            Assert.Equal("", undo.Gloss);
+            undoId = undo.Id;
+        }
+        using (var demote = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[] { Action(Guid.NewGuid().ToString(), wordId, "demote", wordVersion: 3) }
+        }))
+        {
+            using var demoteBody = await JsonAsync(demote);
+            Assert.Equal("applied", Assert.Single(demoteBody.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+        using (var undo = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[]
+            {
+                new
+                {
+                    clientReviewId = Guid.NewGuid().ToString(), wordId, wordVersion = 3, action = "approve_alt",
+                    field = "example", senseOrder = 0, alternativeId = undoId
+                }
+            }
+        }))
+        {
+            using var undoBody = await JsonAsync(undo);
+            Assert.Equal("applied", Assert.Single(undoBody.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+
+        await using (var database = factory.OpenDatabase())
+        {
+            var sense = await database.Senses.SingleAsync(row => row.WordId == wordId);
+            Assert.Equal("Siempre compro patatas en el mercado.", sense.ExampleEs);
+            Assert.Equal("", sense.ExampleEn);
+        }
+    }
+
+    [Fact]
+    public async Task ApproveEditOfAnExampleWritesASchemaValidSnapshotAsync()
+    {
+        using var factory = new ReviewApplicationFactory(Now);
+        var corpus = await SyntheticCorpus.WriteAsync(Path.Combine(factory.ImportDirectory),
+            new SyntheticCorpus.Entry("es-casa-01", "casa", "A2", 10));
+        var imported = await new ContentImporter(new DatabaseSettings(factory.DatabasePath))
+            .ImportAsync(corpus, false, CancellationToken.None);
+        Assert.Empty(imported.Rejected);
+
+        using var client = await LoginAsync(factory, "reviewer");
+        using var body = await JsonAsync(await client.GetAsync("/api/review/queue", CancellationToken.None));
+        var casa = body.RootElement.GetProperty("items").EnumerateArray()
+            .Single(item => item.GetProperty("key").GetString() == "es-casa-01");
+        using (var edit = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[]
+            {
+                new
+                {
+                    clientReviewId = Guid.NewGuid().ToString(), wordId = casa.GetProperty("wordId").GetInt32(),
+                    wordVersion = 1, action = "approve_edit",
+                    edits = new object[] { new { field = "example", senseOrder = 0, after = "Vivo en una casa muy tranquila." } }
+                }
+            }
+        }))
+        {
+            using var editBody = await JsonAsync(edit);
+            Assert.Equal("applied", Assert.Single(editBody.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+
+        string snapshotJson;
+        await using (var database = factory.OpenDatabase())
+        {
+            var word = await database.Words.SingleAsync(candidate => candidate.Key == "es-casa-01");
+            snapshotJson = (await database.WordRevisions
+                .Where(revision => revision.WordId == word.Id && revision.Action == "edit")
+                .OrderByDescending(revision => revision.Id).FirstAsync()).SnapshotJson;
+        }
+
+        // The revision snapshot stays a corpus document. Reuse the importer's schema file and
+        // evaluation options rather than hand-checking the shape: exampleGloss is required with
+        // minLength 1, so "" or an omitted key would make this fail.
+        var snapshot = JsonNode.Parse(snapshotJson)!;
+        Assert.Equal("The casa is here.",
+            snapshot["senses"]![0]!["exampleGloss"]!.GetValue<string>());
+        var schema = JsonSchema.FromFile(Path.Combine(AppContext.BaseDirectory, "content", "schema",
+            "word.schema.json"));
+        var evaluation = schema.Evaluate(snapshot, new EvaluationOptions
+        {
+            RequireFormatValidation = true,
+            OutputFormat = OutputFormat.List
+        });
+        Assert.True(evaluation.IsValid, snapshotJson);
     }
 
     [Fact]
