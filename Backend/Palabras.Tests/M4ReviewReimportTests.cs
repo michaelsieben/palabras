@@ -53,7 +53,9 @@ public sealed partial class M4ReviewApiTests
             Assert.Equal(3, await database.WordAlternatives.CountAsync());
             Assert.Single(await database.Senses.ToListAsync());
             Assert.Single(await database.WordTopics.ToListAsync());
-            Assert.All(await database.Cards.ToListAsync(), card => Assert.Equal(0, card.Epoch));
+            // The import's trust-by-default card pass created the cards at epoch 0; the reviewer's
+            // content edit is a content change, so it invalidates them exactly once.
+            Assert.All(await database.Cards.ToListAsync(), card => Assert.Equal(1, card.Epoch));
         }
     }
 
@@ -98,9 +100,11 @@ public sealed partial class M4ReviewApiTests
             Assert.Equal("abuela", word.Headword);
             Assert.NotEqual(originalHash, word.ContentHash);
             Assert.Equal(3, word.Version);
-            Assert.Equal("pending_review", word.Status);
+            // Trust-by-default: the changed source re-approves at the new version instead of
+            // silently emptying the learner's queue for a word that was already accepted.
+            Assert.Equal("approved", word.Status);
             Assert.NotNull(word.StatusChangedAt);
-            Assert.Equal(2, word.ApprovedVersion); // Last approval remains an audit fact, not current approval.
+            Assert.Equal(3, word.ApprovedVersion);
             Assert.Equal("grandmother from changed source", (await database.Senses.SingleAsync()).EnGloss);
             Assert.Equal(2, await database.WordAlternatives.CountAsync());
             Assert.Single(await database.WordTopics.ToListAsync());
@@ -116,8 +120,10 @@ public sealed partial class M4ReviewApiTests
             Assert.Null(verdict.ChosenAlternativeId); // ON DELETE SET NULL; diff/snapshots preserve chosen content.
             Assert.All(await database.Cards.ToListAsync(), card =>
             {
-                Assert.Equal(1, card.Epoch);
-                Assert.Equal("word_not_approved", card.SuspendedReason);
+                // edit (+1) and changed-source import (+1); the word never leaves the approved queue,
+                // so no card is suspended.
+                Assert.Equal(2, card.Epoch);
+                Assert.Null(card.SuspendedReason);
             });
         }
         // The opposite ordering: queued edit for v2 cannot approve newly imported v3.

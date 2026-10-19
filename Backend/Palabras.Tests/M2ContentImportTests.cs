@@ -41,8 +41,9 @@ public sealed class M2ContentImportTests : IDisposable
             path => JsonNode.Parse(File.ReadAllText(path))!["difficulty"]?.GetValue<int>());
         Assert.All(words, word =>
         {
-            Assert.Equal("pending_review", word.Status);
+            Assert.Equal("approved", word.Status);
             Assert.Equal(1, word.Version);
+            Assert.Equal(1, word.ApprovedVersion);
             Assert.Equal(64, word.ContentHash.Length);
             Assert.Equal(pluralByKey[word.Key], word.Plural);
             Assert.Equal(difficultyByKey[word.Key], word.Difficulty);
@@ -116,7 +117,7 @@ public sealed class M2ContentImportTests : IDisposable
         Assert.Equal(1, revision.Version);
         Assert.Equal("import", revision.Action);
         Assert.Null(revision.ActorUserId);
-        Assert.Equal("pending_review", JsonNode.Parse(revision.SnapshotJson)!["status"]!.GetValue<string>());
+        Assert.Equal("approved", JsonNode.Parse(revision.SnapshotJson)!["status"]!.GetValue<string>());
     }
 
     [Fact]
@@ -134,7 +135,7 @@ public sealed class M2ContentImportTests : IDisposable
     }
 
     [Fact]
-    public async Task SemanticEditIncrementsVersionDemotesApprovalPreservesSenseIdAndWritesRevision()
+    public async Task SemanticEditIncrementsVersionKeepsTrustedWordApprovedPreservesSenseIdAndWritesRevision()
     {
         var source = Seed();
         await Write(source);
@@ -142,8 +143,6 @@ public sealed class M2ContentImportTests : IDisposable
         await using var database = _settings.CreateContext();
         var before = await database.Words.SingleAsync();
         var senseId = (await database.Senses.SingleAsync()).Id;
-        before.Status = "approved";
-        await database.SaveChangesAsync();
         source["headword"] = "nevera nueva";
         source["status"] = "draft";
         source["topics"] = new JsonArray("technology");
@@ -152,7 +151,10 @@ public sealed class M2ContentImportTests : IDisposable
         Assert.Equal(new[] { 0, 1, 0, 0 }, Counts(await Import()));
         await database.Entry(before).ReloadAsync();
         Assert.Equal(2, before.Version);
-        Assert.Equal("pending_review", before.Status);
+        // Trust-by-default: a changed source never drops an approved word out of the learner queue;
+        // the reviewer can object afterwards.
+        Assert.Equal("approved", before.Status);
+        Assert.Equal(2, before.ApprovedVersion);
         Assert.Equal("nevera nueva", before.Headword);
         Assert.Equal(senseId, (await database.Senses.AsNoTracking().SingleAsync()).Id);
         Assert.Equal(2, await database.WordRevisions.CountAsync());
@@ -186,11 +188,11 @@ public sealed class M2ContentImportTests : IDisposable
 
     [Theory]
     [InlineData("draft", "draft")]
-    [InlineData("pending_review", "pending_review")]
-    [InlineData("approved", "pending_review")]
-    [InlineData("rejected", "pending_review")]
-    [InlineData("needs_change", "pending_review")]
-    public async Task OnlyDraftAndPendingReviewAreHonoredOnCreation(string fileStatus, string expected)
+    [InlineData("pending_review", "approved")]
+    [InlineData("approved", "approved")]
+    [InlineData("rejected", "approved")]
+    [InlineData("needs_change", "approved")]
+    public async Task OnlyDraftHoldIsHonoredOnCreation(string fileStatus, string expected)
     {
         var source = Seed();
         source["status"] = fileStatus;

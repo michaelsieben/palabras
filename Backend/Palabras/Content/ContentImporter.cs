@@ -120,6 +120,11 @@ internal sealed class ContentImporter
         var created = 0;
         var updated = 0;
         var unchanged = 0;
+        // Trust-by-default: an imported word is approved on arrival; a reviewer objects later.
+        // The ids are re-approved below so the card pass creates/refreshes learner cards and the
+        // changed-content epoch bump stays inside this same transaction.
+        var approvedWordIds = new List<int>();
+        var changedApprovedWordIds = new HashSet<int>();
         foreach (var entry in entries)
         {
             var word = await database.Words.SingleOrDefaultAsync(word => word.Key == entry.Key, cancellationToken);
@@ -134,15 +139,35 @@ internal sealed class ContentImporter
             word ??= new Word { Key = entry.Key };
             var root = entry.Root;
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var contentChanged = false;
             if (isNew)
             {
                 word.CreatedAt = entry.CreatedAt;
-                word.Status = Text(root, "status") == "draft" ? "draft" : "pending_review";
+                // `draft` is the one explicit hold the source can request; every other file status
+                // is stale metadata under trust-by-default, so the word arrives approved.
+                word.Status = Text(root, "status") == "draft" ? "draft" : "approved";
+                if (word.Status == "approved")
+                {
+                    word.ApprovedVersion = word.Version;
+                }
                 database.Words.Add(word);
                 created++;
             }
+            else if (word.Status == "approved")
+            {
+                // Q-M4-3 changed-source behaviour, amended for trust-by-default: bump and accept the
+                // new content, but stay approved. Demoting here would silently empty the learner's
+                // queue for a word a reviewer had already accepted; the reviewer can object instead.
+                word.Version = checked(word.Version + 1);
+                word.ApprovedVersion = word.Version;
+                word.Status = "approved";
+                contentChanged = true;
+                updated++;
+            }
             else
             {
+                // Any other current status (pending_review, rejected, needs_change, draft) keeps the
+                // shipped re-review behaviour: the changed source returns it to the reviewer.
                 await ContentCardLifecycle.DemoteAsync(database, word.Id, cancellationToken);
                 word.Version = checked(word.Version + 1);
                 word.Status = "pending_review";
@@ -179,6 +204,22 @@ internal sealed class ContentImporter
                 WordId = word.Id, Version = word.Version, Action = "import",
                 SnapshotJson = snapshot.ToJsonString(), CreatedAt = now
             });
+            await database.SaveChangesAsync(cancellationToken);
+            if (word.Status == "approved")
+            {
+                // The import revision above already records the approval; this list only drives the
+                // card pass, which needs the database id.
+                approvedWordIds.Add(word.Id);
+                if (contentChanged)
+                {
+                    changedApprovedWordIds.Add(word.Id);
+                }
+            }
+        }
+        if (approvedWordIds.Count > 0)
+        {
+            await ContentCardLifecycle.ApproveAsync(database, approvedWordIds.ToArray(), changedApprovedWordIds,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), cancellationToken);
             await database.SaveChangesAsync(cancellationToken);
         }
         await transaction.CommitAsync(cancellationToken);

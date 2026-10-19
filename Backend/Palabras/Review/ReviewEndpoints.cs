@@ -34,19 +34,65 @@ internal static class ReviewEndpoints
     // E.4 ordering: topic with most pending first; inside a topic council_agreement DESC NULLS LAST,
     // then key. The corpus is hundreds of words, so the ordering is computed from loaded rows rather
     // than pushed into SQLite (no proposal_support/frequency_rank column exists in M4).
-    private static async Task<IResult> QueueAsync(DatabaseSettings settings, string? limit,
-        CancellationToken cancellationToken)
+    //
+    // Trust-by-default (T-20261019-2100): the queue still leads with pending rows, then exposes
+    // approved rows so a reviewer can object to them. `status=all` is the default; `status=pending`
+    // preserves the pre-change page exactly for a caller that has not adopted the new field yet.
+    // Approved rows are keyset-paged with `after`/`nextAfter` (the cursor is a word id), matching
+    // /api/review/approved.
+    private static async Task<IResult> QueueAsync(DatabaseSettings settings, string? limit, string? status,
+        string? after, CancellationToken cancellationToken)
     {
         if (!TryLimit(limit, DefaultQueueLimit, MaximumQueueLimit, out var take))
         {
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         }
+        if (!TryQueueScope(status, out var includePending, out var includeApproved))
+        {
+            return Error(StatusCodes.Status400BadRequest, "bad_request");
+        }
+        int? cursor = null;
+        if (!string.IsNullOrWhiteSpace(after))
+        {
+            if (!int.TryParse(after, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) || parsed <= 0)
+            {
+                return Error(StatusCodes.Status400BadRequest, "bad_request");
+            }
+            cursor = parsed;
+        }
         await using var database = settings.CreateContext();
+        var pending = includePending
+            ? await LoadPendingQueueAsync(database, take, cancellationToken)
+            : new PendingQueue([], 0, []);
+        var approved = includeApproved
+            ? await LoadApprovedQueueAsync(database, take - pending.Words.Count, cursor, cancellationToken)
+            : new ApprovedQueue([], 0, null, false);
+        if (approved.InvalidCursor)
+        {
+            return Error(StatusCodes.Status400BadRequest, "bad_request");
+        }
+        var pageWords = pending.Words.Concat(approved.Words).ToArray();
+        var items = pageWords.Length == 0
+            ? []
+            : await BuildQueueItemsAsync(database, pageWords, cancellationToken);
+        return Results.Ok(new ReviewQueueResponse(items, pending.Total, pending.Topics,
+            approved.Total, approved.NextAfter));
+    }
+
+    private sealed record PendingQueue(IReadOnlyList<Word> Words, int Total,
+        IReadOnlyList<ReviewTopicCount> Topics);
+
+    private sealed record ApprovedQueue(IReadOnlyList<Word> Words, int Total, int? NextAfter,
+        bool InvalidCursor);
+
+    private static async Task<PendingQueue> LoadPendingQueueAsync(PalabrasDbContext database, int take,
+        CancellationToken cancellationToken)
+    {
         var pending = await database.Words.AsNoTracking()
             .Where(word => word.Status == "pending_review").ToListAsync(cancellationToken);
         if (pending.Count == 0)
         {
-            return Results.Ok(new ReviewQueueResponse([], 0, []));
+            return new PendingQueue([], 0, []);
         }
         var wordIds = pending.Select(word => word.Id).ToArray();
         var snapshots = await ReviewTransitions.LoadCurrentSnapshotsAsync(database, wordIds, cancellationToken);
@@ -62,7 +108,68 @@ internal static class ReviewEndpoints
             .ThenBy(word => word.Key, StringComparer.Ordinal)
             .Take(take)
             .ToArray();
-        var pageIds = ordered.Select(word => word.Id).ToArray();
+        var topics = topicCounts.OrderByDescending(count => count.Value)
+            .ThenBy(count => count.Key, StringComparer.Ordinal)
+            .Select(count => new ReviewTopicCount(count.Key, count.Value)).ToArray();
+        return new PendingQueue(ordered, pending.Count, topics);
+    }
+
+    // Approved rows are ordered by the same approvedAt rule /api/review/approved uses, then keyset
+    // paged by word id. The cursor is resolved against the full ordered list, so a non-existent id
+    // is a bad_request rather than a silently empty page.
+    private static async Task<ApprovedQueue> LoadApprovedQueueAsync(PalabrasDbContext database, int take,
+        int? cursor, CancellationToken cancellationToken)
+    {
+        var words = await database.Words.AsNoTracking()
+            .Where(word => word.Status == "approved").ToListAsync(cancellationToken);
+        if (words.Count == 0)
+        {
+            return new ApprovedQueue([], 0, null, false);
+        }
+        var wordIds = words.Select(word => word.Id).ToArray();
+        var approvals = await database.WordRevisions.AsNoTracking()
+            .Where(revision => wordIds.Contains(revision.WordId) && revision.Action == "approve")
+            .OrderByDescending(revision => revision.Id)
+            .Select(revision => new { revision.WordId, revision.CreatedAt })
+            .ToListAsync(cancellationToken);
+        var lastApproval = new Dictionary<int, long>();
+        foreach (var approval in approvals)
+        {
+            lastApproval.TryAdd(approval.WordId, approval.CreatedAt);
+        }
+        var ordered = words
+            .Select(word => new
+            {
+                Word = word,
+                ApprovedAt = word.StatusChangedAt
+                    ?? (lastApproval.TryGetValue(word.Id, out var approvalMs) ? approvalMs : (long?)null)
+                    ?? (word.UpdatedAt != 0 ? word.UpdatedAt : word.CreatedAt)
+            })
+            .OrderByDescending(row => row.ApprovedAt)
+            .ThenByDescending(row => row.Word.Id)
+            .ToList();
+        var start = 0;
+        if (cursor is { } afterId)
+        {
+            var index = ordered.FindIndex(row => row.Word.Id == afterId);
+            if (index < 0)
+            {
+                return new ApprovedQueue([], words.Count, null, true);
+            }
+            start = index + 1;
+        }
+        var remaining = ordered.Skip(start).ToList();
+        var page = remaining.Take(Math.Max(take, 0)).Select(row => row.Word).ToArray();
+        var nextAfter = take > 0 && remaining.Count > take ? page[^1].Id : (int?)null;
+        return new ApprovedQueue(page, words.Count, nextAfter, false);
+    }
+
+    private static async Task<ReviewItem[]> BuildQueueItemsAsync(PalabrasDbContext database,
+        IReadOnlyList<Word> pageWords, CancellationToken cancellationToken)
+    {
+        var pageIds = pageWords.Select(word => word.Id).ToArray();
+        var snapshots = await ReviewTransitions.LoadCurrentSnapshotsAsync(database, pageIds, cancellationToken);
+        var fallbackTopics = await LoadTopicsAsync(database, pageIds, cancellationToken);
         var senses = await database.Senses.AsNoTracking().Where(sense => pageIds.Contains(sense.WordId))
             .OrderBy(sense => sense.WordId).ThenBy(sense => sense.SenseOrder)
             .Select(sense => new { sense.WordId, sense.SenseOrder, sense.EnGloss, sense.EnAccepted,
@@ -75,7 +182,7 @@ internal static class ReviewEndpoints
         // The chip support denominator is the run's requested roster (plan §2.5, T-12): one query
         // for the runs behind this page, not one per word. A word without a run (legacy corpus row)
         // keeps support=null, exactly as before M3b.
-        var runIds = ordered.Where(word => word.CouncilRunId is not null)
+        var runIds = pageWords.Where(word => word.CouncilRunId is not null)
             .Select(word => word.CouncilRunId!.Value).Distinct().ToArray();
         var modelsRequested = runIds.Length == 0
             ? new Dictionary<int, int>()
@@ -93,7 +200,7 @@ internal static class ReviewEndpoints
             flagByWord.TryAdd(flag.WordId,
                 new ReviewLastFlag("needs_change", flag.Note, DateTimeOffset.FromUnixTimeMilliseconds(flag.CreatedAt)));
         }
-        var items = ordered.Select(word =>
+        return pageWords.Select(word =>
         {
             var snapshot = snapshots.GetValueOrDefault(word.Id);
             var snapshotSenseCount = snapshot?["senses"]?.AsArray().Count;
@@ -122,15 +229,11 @@ internal static class ReviewEndpoints
                 .Select(chip => chip!)
                 .ToArray();
             return new ReviewItem(word.Id, word.Key, word.Version, word.Headword, word.Article, word.Gender,
-                word.Pos, word.Cefr, topicByWord.GetValueOrDefault(word.Id), wordSenses, word.Notes,
-                word.RegionNotes, word.RegisterNotes, word.CouncilAgreement, word.CouncilBand,
+                word.Pos, word.Cefr, FirstTopic(snapshot, fallbackTopics.GetValueOrDefault(word.Id)), wordSenses,
+                word.Notes, word.RegionNotes, word.RegisterNotes, word.CouncilAgreement, word.CouncilBand,
                 word.ReducedConfidence != 0, ParseLintWarnings(word.LintWarnings), chips,
-                flagByWord.GetValueOrDefault(word.Id));
+                flagByWord.GetValueOrDefault(word.Id), word.Status);
         }).ToArray();
-        var topics = topicCounts.OrderByDescending(count => count.Value)
-            .ThenBy(count => count.Key, StringComparer.Ordinal)
-            .Select(count => new ReviewTopicCount(count.Key, count.Value)).ToArray();
-        return Results.Ok(new ReviewQueueResponse(items, pending.Count, topics));
     }
 
     // One request = one transaction under SQLite's write lock (same pattern as POST /api/learn/attempts):
@@ -446,6 +549,29 @@ internal static class ReviewEndpoints
         }
         var values = ParseStringArray(json);
         return values.Count > 0 ? values : [json];
+    }
+
+    private static bool TryQueueScope(string? raw, out bool includePending, out bool includeApproved)
+    {
+        includePending = true;
+        includeApproved = true;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return true;
+        }
+        switch (raw.Trim())
+        {
+            case "pending":
+                includeApproved = false;
+                return true;
+            case "approved":
+                includePending = false;
+                return true;
+            case "all":
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static bool TryLimit(string? raw, int defaultValue, int maximum, out int value)

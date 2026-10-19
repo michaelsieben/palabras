@@ -92,7 +92,7 @@ public sealed class M5CardLifecycleTests : IDisposable
     [Theory]
     [InlineData("manual")]
     [InlineData("leech")]
-    public async Task ContentEditDemotesAndBumpsEpochButReapprovalOnlyClearsWordSuspension(string protectedReason)
+    public async Task ChangedSourceKeepsAnApprovedWordEligibleAndPreservesProtectedPauses(string protectedReason)
     {
         await ImportAndSeed();
         await using (var database = _settings.CreateContext())
@@ -110,21 +110,23 @@ public sealed class M5CardLifecycleTests : IDisposable
         await EditAndImport();
         await using (var database = _settings.CreateContext())
         {
-            Assert.Equal("pending_review", (await database.Words.SingleAsync()).Status);
+            // Trust-by-default: the changed source re-approves at the new version; the word is not
+            // dropped from the learner's queue and only the manual/leech pause survives.
+            Assert.Equal("approved", (await database.Words.SingleAsync()).Status);
             var cards = await database.Cards.OrderBy(card => card.Id).ToListAsync();
             Assert.Equal(protectedReason, cards[0].SuspendedReason);
-            Assert.All(cards.Skip(1), card => Assert.Equal("word_not_approved", card.SuspendedReason));
+            Assert.All(cards.Skip(1), card => Assert.Null(card.SuspendedReason));
             Assert.All(cards, card => Assert.Equal(1, card.Epoch));
             await Approve(database);
             Assert.Equal(protectedReason, cards[0].SuspendedReason);
             Assert.All(cards.Skip(1), card => Assert.Null(card.SuspendedReason));
-            Assert.All(cards, card => Assert.Equal(2, card.Epoch));
+            Assert.All(cards, card => Assert.Equal(1, card.Epoch));
             Assert.Equal(15, cards[0].Reps);
             Assert.Equal(8, cards[0].Lapses);
             Assert.Equal(20, cards[0].Stability);
             Assert.Equal(CardState.Review, cards[0].State);
             await Approve(database);
-            Assert.All(cards, card => Assert.Equal(2, card.Epoch));
+            Assert.All(cards, card => Assert.Equal(1, card.Epoch));
         }
     }
 
@@ -181,8 +183,10 @@ public sealed class M5CardLifecycleTests : IDisposable
         Assert.Equal(1, await fresh.CountAsync());
         Assert.Equal(1, await due.CountAsync());
         await EditAndImport();
-        Assert.Equal(0, await fresh.CountAsync());
-        Assert.Equal(0, await due.CountAsync());
+        // The word stays approved, so the untouched new card and the learning card both remain
+        // eligible (epoch bumped, not suspended).
+        Assert.Equal(1, await fresh.CountAsync());
+        Assert.Equal(1, await due.CountAsync());
     }
 
     [Fact]
@@ -290,18 +294,20 @@ public sealed class M5CardLifecycleTests : IDisposable
         {
             Assert.Equal(2, await database.Senses.CountAsync());
             Assert.Equal(4, await database.Cards.CountAsync());
-            Assert.Equal("pending_review", (await database.Words.SingleAsync()).Status);
+            Assert.Equal("approved", (await database.Words.SingleAsync()).Status);
             var removed = await database.Cards.Where(card => card.SenseId == removedSenseId).OrderBy(card => card.Id).ToListAsync();
+            // The retained removed sense is marked sense_removed; the live sense stays eligible.
             Assert.Equal(protectedReason ?? "sense_removed", removed[0].SuspendedReason);
             Assert.Equal("sense_removed", removed[1].SuspendedReason);
-            Assert.All(removed, card => Assert.Equal(1, card.Epoch));
+            // Only live senses are invalidated by the changed-content epoch bump.
+            Assert.All(removed, card => Assert.Equal(0, card.Epoch));
             Assert.All(await database.Cards.Where(card => card.SenseId != removedSenseId).ToListAsync(),
-                card => Assert.Equal("word_not_approved", card.SuspendedReason));
+                card => Assert.Null(card.SuspendedReason));
             await Approve(database);
             await Approve(database, true);
             Assert.Equal(protectedReason ?? "sense_removed", removed[0].SuspendedReason);
             Assert.Equal("sense_removed", removed[1].SuspendedReason);
-            Assert.All(removed, card => Assert.Equal(1, card.Epoch));
+            Assert.All(removed, card => Assert.Equal(0, card.Epoch));
             Assert.Equal(2, await database.Cards.CountAsync(card => card.SuspendedReason == null));
         }
         await WriteSenseCountAndImport(2);
@@ -309,15 +315,17 @@ public sealed class M5CardLifecycleTests : IDisposable
         {
             var removed = await database.Cards.Where(card => card.SenseId == removedSenseId).OrderBy(card => card.Id).ToListAsync();
             Assert.Equal(cardIds, removed.Select(card => card.Id).ToArray());
-            Assert.Equal(protectedReason ?? "word_not_approved", removed[0].SuspendedReason);
-            Assert.Equal("word_not_approved", removed[1].SuspendedReason);
-            Assert.All(removed, card => Assert.Equal(2, card.Epoch));
+            // The importer's approved-content card pass already releases the word_not_approved
+            // marker; protected manual/leech pauses survive it.
+            Assert.Equal(protectedReason, removed[0].SuspendedReason);
+            Assert.Null(removed[1].SuspendedReason);
+            Assert.All(removed, card => Assert.Equal(1, card.Epoch));
             await Approve(database);
             Assert.Equal(protectedReason, removed[0].SuspendedReason);
             Assert.Null(removed[1].SuspendedReason);
             Assert.All(removed, card =>
             {
-                Assert.Equal(3, card.Epoch);
+                Assert.Equal(1, card.Epoch);
                 Assert.Equal(CardState.Review, card.State);
                 Assert.Equal(42, card.Stability);
                 Assert.Equal(5, card.Reps);
@@ -386,6 +394,10 @@ public sealed class M5CardLifecycleTests : IDisposable
         await using var database = _settings.CreateContext();
         database.Users.AddRange(new User { Id = 1, Username = "owner", Role = "owner", PasswordHash = "hash" },
             new User { Id = 2, Username = "reviewer", Role = "reviewer", PasswordHash = "hash" });
+        // These tests exercise the explicit approval lifecycle. Undo the trust-by-default import
+        // (approved word plus its automatic card pass) so the CLI approval under test is the writer.
+        await database.Cards.ExecuteDeleteAsync();
+        await database.Words.ExecuteUpdateAsync(setters => setters.SetProperty(word => word.Status, "pending_review"));
         await database.SaveChangesAsync();
     }
 

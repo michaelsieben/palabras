@@ -31,6 +31,7 @@ public sealed class ContentCliTests : IDisposable
     [InlineData("content", "approve", "--top", "5", "es-nevera-01")]
     [InlineData("content", "status", "extra")]
     [InlineData("content", "retire")]
+    [InlineData("content", "reject")]
     public async Task InvalidArgumentsFailBeforeDatabaseAccess(params string[] args)
     {
         var result = await Run(args);
@@ -68,6 +69,32 @@ public sealed class ContentCliTests : IDisposable
         // one import revision per corpus file plus the two explicit approvals above
         Assert.Equal(corpusSize + 2, await database.WordRevisions.CountAsync());
         Assert.Equal(word.UpdatedAt, (await database.Words.AsNoTracking().SingleAsync(value => value.Id == word.Id)).UpdatedAt);
+    }
+
+    [Fact]
+    public async Task RejectKeysSuspendsCardsAndRepeatIsNoOp()
+    {
+        await SeedAccountsAsync();
+        await ImportSyntheticAsync();
+        Assert.Equal(0, (await Run(["content", "approve", "es-alfa-01"])).Exit);
+        var result = await Run(["content", "reject", "es-alfa-01"]);
+        Assert.Equal(0, result.Exit);
+        Assert.Contains("rejected=1 unchanged=0", result.Output);
+        await using var database = _settings.CreateContext();
+        var word = await database.Words.SingleAsync(value => value.Key == "es-alfa-01");
+        Assert.Equal("rejected", word.Status);
+        var cards = await database.Cards.Where(card => database.Senses.Any(sense =>
+            sense.Id == card.SenseId && sense.WordId == word.Id)).ToListAsync();
+        Assert.Equal(2, cards.Count);
+        Assert.All(cards, card => Assert.Equal("word_not_approved", card.SuspendedReason));
+        Assert.Single(await database.WordRevisions.Where(revision => revision.WordId == word.Id
+            && revision.Action == "reject").ToListAsync());
+        var repeat = await Run(["content", "reject", "es-alfa-01"]);
+        Assert.Equal(0, repeat.Exit);
+        Assert.Contains("rejected=0 unchanged=1", repeat.Output);
+        var unknown = await Run(["content", "reject", "es-unknown-01"]);
+        Assert.Equal(1, unknown.Exit);
+        Assert.Contains("Unknown word key(s): es-unknown-01", unknown.Error);
     }
 
     [Fact]
@@ -228,6 +255,7 @@ public sealed class ContentCliTests : IDisposable
         var imported = await new ContentImporter(_settings).ImportAsync(corpus, false, CancellationToken.None);
         Assert.Equal(5, imported.Created);
         Assert.Empty(imported.Rejected);
+        await MarkAllPendingAsync();
     }
 
     private async Task SeedAccountsAsync()
@@ -254,12 +282,24 @@ public sealed class ContentCliTests : IDisposable
         .Select(line => line.Split('='))
         .ToDictionary(parts => parts[0], parts => int.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture));
 
+    // The CLI tests exercise the operator approval commands, not the trust-by-default import
+    // result. Put the imported rows back into pending_review so `content approve` is the operation
+    // under test.
+    private async Task MarkAllPendingAsync()
+    {
+        await using var database = _settings.CreateContext();
+        // The import's trust-by-default card pass is not what the approval commands are testing.
+        await database.Cards.ExecuteDeleteAsync();
+        await database.Words.ExecuteUpdateAsync(setters => setters.SetProperty(word => word.Status, "pending_review"));
+    }
+
     private async Task<int> Import()
     {
         var corpusSize = M2ContentImportTests.CorpusFileCount();
         var result = await new ContentImporter(_settings).ImportAsync(M2ContentImportTests.CorpusDirectory(), false, CancellationToken.None);
         Assert.Equal(corpusSize, result.Created);
         Assert.Empty(result.Rejected);
+        await MarkAllPendingAsync();
         return corpusSize;
     }
 

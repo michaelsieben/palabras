@@ -87,8 +87,7 @@ internal static class ContentCardLifecycle
 
     internal static async Task DemoteAsync(PalabrasDbContext database, int wordId, CancellationToken cancellationToken)
     {
-        var cards = await database.Cards.Where(card => database.Senses.Any(sense =>
-            sense.Id == card.SenseId && sense.WordId == wordId)).ToListAsync(cancellationToken);
+        var cards = await CardsForWordAsync(database, wordId, cancellationToken);
         foreach (var card in cards)
         {
             // Content edits invalidate old answers even if the card was already manually paused.
@@ -96,4 +95,35 @@ internal static class ContentCardLifecycle
             card.SuspendedReason ??= "word_not_approved";
         }
     }
+
+    // Objection withdrawn: the cards that the rejection deactivated start over as fresh New cards.
+    // Keeping the pre-objection FSRS state would silently resume a schedule computed before the
+    // reviewer said the word was wrong; review_log rows are untouched, so history still exists.
+    // Manual/leech pauses are protected and keep their state, exactly like every other release path.
+    internal static async Task ResetAfterRejectionAsync(PalabrasDbContext database, int wordId, long nowMs,
+        CancellationToken cancellationToken)
+    {
+        var cards = await CardsForWordAsync(database, wordId, cancellationToken);
+        foreach (var card in cards.Where(card => card.SuspendedReason == "word_not_approved"))
+        {
+            card.Epoch = checked(card.Epoch + 1);
+            card.State = Srs.CardState.New;
+            card.Step = null;
+            card.Stability = null;
+            card.Difficulty = null;
+            card.DueMs = nowMs;
+            card.LastReviewMs = null;
+            card.Reps = 0;
+            card.Lapses = 0;
+            card.IsLeech = false;
+            card.BuriedUntilLocalDate = null;
+            card.IntroducedLocalDate = null;
+            card.SuspendedReason = null;
+        }
+    }
+
+    private static Task<List<Card>> CardsForWordAsync(PalabrasDbContext database, int wordId,
+        CancellationToken cancellationToken) =>
+        database.Cards.Where(card => database.Senses.Any(sense =>
+            sense.Id == card.SenseId && sense.WordId == wordId)).ToListAsync(cancellationToken);
 }

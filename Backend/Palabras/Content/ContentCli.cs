@@ -9,7 +9,7 @@ namespace Palabras.Content;
 // Host/operator-only CLI, like `user`; never exposed through an HTTP endpoint.
 internal static class ContentCli
 {
-    private const string Usage = "Usage: content approve <key…> | content approve --all-pending | content approve --top N [--dry-run] | content retire <key…> | content status";
+    private const string Usage = "Usage: content approve <key…> | content approve --all-pending | content approve --top N [--dry-run] | content reject <key…> | content retire <key…> | content status";
     private static readonly string[] Statuses = ["draft", "pending_review", "approved", "needs_change", "rejected", "retired"];
 
     internal static async Task<int> RunAsync(string[] args, DatabaseSettings settings, TextWriter output,
@@ -17,6 +17,16 @@ internal static class ContentCli
     {
         try
         {
+            if (args is ["content", "reject", .. var rejectKeys] && rejectKeys.Length > 0
+                && rejectKeys.All(value => !string.IsNullOrWhiteSpace(value) && !value.StartsWith("-", StringComparison.Ordinal)))
+            {
+                await DatabaseLifecycle.InitializeAsync(settings, cancellationToken);
+                await using var rejectionDatabase = settings.CreateContext();
+                var rejected = await ContentRejection.RejectAsync(rejectionDatabase,
+                    rejectKeys.Distinct(StringComparer.Ordinal).ToArray(), cancellationToken);
+                await output.WriteLineAsync($"rejected={rejected.Rejected} unchanged={rejected.Unchanged}");
+                return 0;
+            }
             if (args is ["content", "retire", .. var retireKeys] && retireKeys.Length > 0
                 && retireKeys.All(value => !string.IsNullOrWhiteSpace(value) && !value.StartsWith("-", StringComparison.Ordinal)))
             {

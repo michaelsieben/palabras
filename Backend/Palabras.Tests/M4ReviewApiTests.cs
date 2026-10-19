@@ -44,10 +44,15 @@ public sealed partial class M4ReviewApiTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var body = await JsonAsync(response);
         var items = body.RootElement.GetProperty("items").EnumerateArray().ToArray();
-        // family (two pending) first, agreement DESC NULLS LAST then key; food next.
-        Assert.Equal(new[] { "es-abuela-01", "es-tia-02", "es-pan-03" },
+        // family (two pending) first, agreement DESC NULLS LAST then key; food next. The approved
+        // word is reachable after the pending page so a reviewer can object to it.
+        Assert.Equal(new[] { "es-abuela-01", "es-tia-02", "es-pan-03", "es-mesa-04" },
             items.Select(item => item.GetProperty("key").GetString()).ToArray());
+        Assert.Equal(new[] { "pending_review", "pending_review", "pending_review", "approved" },
+            items.Select(item => item.GetProperty("status").GetString()).ToArray());
         Assert.Equal(3, body.RootElement.GetProperty("pendingTotal").GetInt32());
+        Assert.Equal(1, body.RootElement.GetProperty("approvedTotal").GetInt32());
+        Assert.False(body.RootElement.TryGetProperty("nextAfter", out _));
         var topics = body.RootElement.GetProperty("topics").EnumerateArray().ToArray();
         Assert.Equal(new[] { "family", "food" }, topics.Select(topic => topic.GetProperty("topic").GetString()).ToArray());
         Assert.Equal(new[] { 2, 1 }, topics.Select(topic => topic.GetProperty("pending").GetInt32()).ToArray());
@@ -85,6 +90,54 @@ public sealed partial class M4ReviewApiTests
         {
             using var rejected = await client.GetAsync("/api/review/queue?limit=" + bad, CancellationToken.None);
             await AssertJsonErrorAsync(rejected, HttpStatusCode.BadRequest, "bad_request");
+        }
+    }
+
+    [Fact]
+    public async Task QueueExposesApprovedRowsForObjectionAndPagesThemByWordId()
+    {
+        using var factory = new ReviewApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela", status: "approved");
+            AddWord(database, 2, "es-pan-02", "pan", status: "approved", topic: "food");
+            AddWord(database, 3, "es-mesa-03", "mesa", status: "approved", topic: "household");
+            AddWord(database, 4, "es-tia-04", "tía", status: "pending_review");
+        });
+        using var client = await LoginAsync(factory, "reviewer");
+
+        // status=pending keeps the exact pre-trust-by-default page.
+        using (var pending = await JsonAsync(await client.GetAsync("/api/review/queue?status=pending")))
+        {
+            var item = Assert.Single(pending.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal("es-tia-04", item.GetProperty("key").GetString());
+            Assert.Equal(0, pending.RootElement.GetProperty("approvedTotal").GetInt32());
+        }
+
+        int firstPageLastId;
+        using (var approved = await JsonAsync(await client.GetAsync("/api/review/queue?status=approved&limit=2")))
+        {
+            var items = approved.RootElement.GetProperty("items").EnumerateArray().ToArray();
+            Assert.Equal(2, items.Length);
+            Assert.All(items, item => Assert.Equal("approved", item.GetProperty("status").GetString()));
+            Assert.Equal(3, approved.RootElement.GetProperty("approvedTotal").GetInt32());
+            firstPageLastId = items[^1].GetProperty("wordId").GetInt32();
+            Assert.Equal(firstPageLastId, approved.RootElement.GetProperty("nextAfter").GetInt32());
+        }
+        using (var rest = await JsonAsync(await client.GetAsync(
+            "/api/review/queue?status=approved&after=" + firstPageLastId)))
+        {
+            var item = Assert.Single(rest.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal("approved", item.GetProperty("status").GetString());
+            Assert.False(rest.RootElement.TryGetProperty("nextAfter", out _));
+        }
+        using (var bad = await client.GetAsync("/api/review/queue?status=bogus", CancellationToken.None))
+        {
+            await AssertJsonErrorAsync(bad, HttpStatusCode.BadRequest, "bad_request");
+        }
+        using (var badCursor = await client.GetAsync("/api/review/queue?status=approved&after=999",
+            CancellationToken.None))
+        {
+            await AssertJsonErrorAsync(badCursor, HttpStatusCode.BadRequest, "bad_request");
         }
     }
 
@@ -289,6 +342,91 @@ public sealed partial class M4ReviewApiTests
     }
 
     [Fact]
+    public async Task RejectAnApprovedWordSuspendsCardsKeepsHistoryAndUndoStartsThemFresh()
+    {
+        using var factory = new ReviewApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela", status: "approved",
+                statusChangedAt: Now.AddDays(-3).ToUnixTimeMilliseconds(), approvedVersion: 1);
+            AddCard(database, 10, state: CardState.Review, epoch: 0, reps: 4, lapses: 1, stability: 12.5,
+                difficulty: 6.2, dueMs: Now.AddDays(2).ToUnixTimeMilliseconds(),
+                lastReviewMs: Now.AddDays(-1).ToUnixTimeMilliseconds());
+            AddCard(database, 10, direction: "en_es", state: CardState.New, epoch: 0);
+        });
+        using var client = await LoginAsync(factory, "reviewer");
+        await using (var database = factory.OpenDatabase())
+        {
+            database.ReviewLogs.Add(new ReviewLog
+            {
+                UserId = 1, WordId = 1, CardId = (await database.Cards.OrderBy(card => card.Id)
+                    .Select(card => card.Id).FirstAsync()), CardEpoch = 0,
+                ClientAttemptId = "before-objection", Rating = Rating.Good,
+                ReviewedAtMs = Now.AddDays(-1).ToUnixTimeMilliseconds(),
+                ReceivedAtMs = Now.AddDays(-1).ToUnixTimeMilliseconds(), CountsForSrs = true
+            });
+            await database.SaveChangesAsync();
+        }
+
+        using (var response = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[] { Action(Guid.NewGuid().ToString(), 1, "reject", note: "No es peninsular") }
+        }))
+        {
+            using var body = await JsonAsync(response);
+            var result = Assert.Single(body.RootElement.GetProperty("results").EnumerateArray());
+            Assert.Equal("applied", result.GetProperty("result").GetString());
+            Assert.Equal("rejected", result.GetProperty("word").GetProperty("status").GetString());
+        }
+        await using (var database = factory.OpenDatabase())
+        {
+            Assert.Equal("rejected", (await database.Words.SingleAsync()).Status);
+            var cards = await database.Cards.OrderBy(card => card.Id).ToListAsync();
+            Assert.All(cards, card =>
+            {
+                Assert.Equal("word_not_approved", card.SuspendedReason);
+                Assert.Equal(1, card.Epoch);
+            });
+            // Deactivation does not throw away the learning history or the FSRS state yet.
+            Assert.Equal(4, cards[0].Reps);
+            Assert.Single(await database.ReviewLogs.ToListAsync());
+            Assert.Equal("reject", (await database.WordReviews.SingleAsync()).Action);
+            Assert.Single(await database.WordRevisions.Where(revision => revision.Action == "reject").ToListAsync());
+        }
+
+        using (var response = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[] { Action(Guid.NewGuid().ToString(), 1, "approve") }
+        }))
+        {
+            using var body = await JsonAsync(response);
+            Assert.Equal("applied", Assert.Single(body.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+        await using (var database = factory.OpenDatabase())
+        {
+            Assert.Equal("approved", (await database.Words.SingleAsync()).Status);
+            var cards = await database.Cards.OrderBy(card => card.Id).ToListAsync();
+            Assert.All(cards, card =>
+            {
+                Assert.Null(card.SuspendedReason);
+                Assert.Equal(2, card.Epoch); // rejection +1, objection-withdrawn reset +1
+                Assert.Equal(CardState.New, card.State);
+                Assert.Equal(0, card.Reps);
+                Assert.Equal(0, card.Lapses);
+                Assert.Null(card.Stability);
+                Assert.Null(card.Difficulty);
+                Assert.Null(card.LastReviewMs);
+                Assert.Equal(Now.ToUnixTimeMilliseconds(), card.DueMs);
+            });
+            // Review history survives the round trip.
+            Assert.Single(await database.ReviewLogs.ToListAsync());
+            Assert.Equal(new[] { "reject", "approve" },
+                (await database.WordReviews.OrderBy(review => review.Id).ToListAsync())
+                    .Select(review => review.Action).ToArray());
+        }
+    }
+
+    [Fact]
     public async Task ApproveEditWritesANewSnapshotAppliesTheEditToLearnerReadsAndSupportsUndo()
     {
         using var factory = new ReviewApplicationFactory(Now, database =>
@@ -470,11 +608,14 @@ public sealed partial class M4ReviewApiTests
     {
         var statuses = new[] { "draft", "pending_review", "approved", "needs_change", "rejected", "retired" };
         var actions = new[] { "approve", "approve_alt", "approve_edit", "needs_change", "reject", "demote" };
-        // Plan §2.2: reviewer writes touch only pending_review (and approved->pending for demote).
+        // Plan §2.2 amended by trust-by-default (T-20261019-2100): pending_review actions are
+        // unchanged; an approved word can be objected to (reject) and a rejected word re-approved
+        // (undo); approved words also accept reviewer corrections (approve_edit/approve_alt).
         static bool Allowed(string status, string action) => (status, action) switch
         {
             ("pending_review", "approve" or "approve_alt" or "approve_edit" or "needs_change" or "reject") => true,
-            ("approved", "demote") => true,
+            ("approved", "demote" or "reject" or "approve_edit" or "approve_alt") => true,
+            ("rejected", "approve") => true,
             _ => false
         };
         var rows = statuses.SelectMany(status => actions.Select(action => (Status: status, Action: action))).ToArray();
@@ -979,7 +1120,9 @@ public sealed partial class M4ReviewApiTests
     {
         using var factory = new ReviewApplicationFactory(Now, database =>
         {
-            AddWord(database, 1, "es-abuela-01", "abuela", status: "rejected");
+            // A draft is still outside the reviewer's strict matrix, while the CLI keeps its
+            // shipped "approve from any status" semantics.
+            AddWord(database, 1, "es-abuela-01", "abuela", status: "draft");
         });
         using var client = await LoginAsync(factory, "reviewer");
         using (var response = await PostAsync(client, "/api/review/actions", new

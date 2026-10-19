@@ -51,14 +51,22 @@ internal sealed record ReviewItem(
     bool ReducedConfidence,
     IReadOnlyList<string> LintWarnings,
     IReadOnlyList<ReviewAlternativeChip> Alternatives,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReviewLastFlag? LastFlag);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ReviewLastFlag? LastFlag,
+    // Additive (T-20261019-2100): the queue now leads with pending rows and then exposes approved
+    // rows for objection, so the client must be able to tell them apart. Defaults keep every
+    // pre-existing pending item serialising the same value it always implicitly had.
+    string Status = "pending_review");
 
 internal sealed record ReviewTopicCount(string Topic, int Pending);
 
+// `approvedTotal` and `nextAfter` are additive: a caller that ignored them before keeps working,
+// and `status=pending` still returns exactly the pre-trust-by-default page.
 internal sealed record ReviewQueueResponse(
     IReadOnlyList<ReviewItem> Items,
     int PendingTotal,
-    IReadOnlyList<ReviewTopicCount> Topics);
+    IReadOnlyList<ReviewTopicCount> Topics,
+    int ApprovedTotal = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? NextAfter = null);
 
 internal sealed record ReviewEditRequest(string? Field, int? SenseOrder, string? After);
 

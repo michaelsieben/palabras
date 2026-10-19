@@ -164,6 +164,14 @@ public sealed class LearnCliTests : IDisposable
         var imported = await new ContentImporter(_settings).ImportAsync(corpus, false, CancellationToken.None);
         Assert.Equal(3, imported.Created);
         Assert.Empty(imported.Rejected);
+        // Import now approves by default; this test needs one unapproved word, so gamma is put back
+        // into review and the import's automatic card pass is removed before seeding.
+        await using (var importDatabase = _settings.CreateContext())
+        {
+            await importDatabase.Cards.ExecuteDeleteAsync();
+            await importDatabase.Words.Where(word => word.Key == "es-gamma-01")
+                .ExecuteUpdateAsync(setters => setters.SetProperty(word => word.Status, "pending_review"));
+        }
         // gamma ranks first but stays pending: seeding may never touch unapproved content.
         var approved = await RunContent(["content", "approve", "es-alfa-01", "es-beta-01"]);
         Assert.Equal(0, approved.Exit);
@@ -249,9 +257,11 @@ public sealed class LearnCliTests : IDisposable
         var imported = await new ContentImporter(_settings).ImportAsync(corpus, false, CancellationToken.None);
         Assert.Empty(imported.Rejected);
         Assert.Equal(entries.Length, imported.Created);
+        // Trust-by-default imports land approved and the importer already created the cards; the
+        // CLI pass remains a safe idempotent backfill for an upgraded corpus.
         var approved = await RunContent(["content", "approve", "--all-pending"]);
         Assert.Equal(0, approved.Exit);
-        Assert.Contains($"approved={entries.Length} ", approved.Output);
+        Assert.Contains("approved=0 unchanged=0", approved.Output);
     }
 
     private static async Task<string[]> KeysInStateAsync(PalabrasDbContext database, CardState state)

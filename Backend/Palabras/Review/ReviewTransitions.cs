@@ -39,10 +39,11 @@ internal static class ReviewTransitions
     private static readonly IReadOnlyDictionary<string, IReadOnlySet<string>> StrictFrom =
         new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal)
         {
-            [ReviewActionNames.Approve] = new HashSet<string>(StringComparer.Ordinal) { "pending_review" },
-            [ReviewActionNames.ApproveAlt] = new HashSet<string>(StringComparer.Ordinal) { "pending_review" },
-            [ReviewActionNames.ApproveEdit] = new HashSet<string>(StringComparer.Ordinal) { "pending_review" },
-            [ReviewActionNames.Reject] = new HashSet<string>(StringComparer.Ordinal) { "pending_review" },
+            [ReviewActionNames.Approve] = new HashSet<string>(StringComparer.Ordinal) { "pending_review", "rejected" },
+            [ReviewActionNames.ApproveAlt] = new HashSet<string>(StringComparer.Ordinal) { "pending_review", "approved" },
+            [ReviewActionNames.ApproveEdit] = new HashSet<string>(StringComparer.Ordinal) { "pending_review", "approved" },
+            // Trust-by-default: a reviewer must be able to object to an already-approved word.
+            [ReviewActionNames.Reject] = new HashSet<string>(StringComparer.Ordinal) { "pending_review", "approved" },
             [ReviewActionNames.NeedsChange] = new HashSet<string>(StringComparer.Ordinal) { "pending_review" },
             [ReviewActionNames.Demote] = new HashSet<string>(StringComparer.Ordinal) { "approved" }
         };
@@ -84,9 +85,9 @@ internal static class ReviewTransitions
             ReviewActionNames.ApproveAlt => await ApproveAlternativeAsync(database, word, snapshot, request,
                 actorUserId, nowMs, applyCardEffects, cancellationToken),
             ReviewActionNames.Reject => await FlagAsync(database, word, snapshot, "rejected",
-                ReviewActionNames.Reject, actorUserId, nowMs, cancellationToken),
+                ReviewActionNames.Reject, actorUserId, nowMs, applyCardEffects, cancellationToken),
             ReviewActionNames.NeedsChange => await FlagAsync(database, word, snapshot, "needs_change",
-                ReviewActionNames.NeedsChange, actorUserId, nowMs, cancellationToken),
+                ReviewActionNames.NeedsChange, actorUserId, nowMs, applyCardEffects, cancellationToken),
             _ => await DemoteAsync(database, word, snapshot, actorUserId, nowMs, applyCardEffects,
                 cancellationToken)
         };
@@ -171,6 +172,13 @@ internal static class ReviewTransitions
         JsonObject snapshot, int? actorUserId, long nowMs, bool applyCardEffects, bool contentChanged,
         CancellationToken cancellationToken)
     {
+        // Undo of an objection: cards deactivated by the rejection start over instead of resuming
+        // the schedule they had before the reviewer objected. The CLI approval path runs the card
+        // pass afterwards, so the reset must not depend on applyCardEffects.
+        if (word.Status == "rejected")
+        {
+            await ContentCardLifecycle.ResetAfterRejectionAsync(database, word.Id, nowMs, cancellationToken);
+        }
         ApplyStatus(snapshot, "approved", nowMs);
         word.Status = "approved";
         // Carry-forward policy: the columns are NULL for everything approved before M4. Any approval
@@ -490,13 +498,19 @@ internal static class ReviewTransitions
 
     private static async Task<ReviewTransitionOutcome> FlagAsync(PalabrasDbContext database, Word word,
         JsonObject snapshot, string status, string action, int? actorUserId, long nowMs,
-        CancellationToken cancellationToken)
+        bool applyCardEffects, CancellationToken cancellationToken)
     {
         ApplyStatus(snapshot, status, nowMs);
         word.Status = status;
         word.StatusChangedAt = nowMs;
         word.UpdatedAt = nowMs;
         database.WordRevisions.Add(Revision(word, action, snapshot, actorUserId, nowMs));
+        if (status == "rejected" && applyCardEffects)
+        {
+            // Objection to an approved word: deactivate the learner cards. review_log rows are
+            // preserved (card_id is ON DELETE NO ACTION), so history survives the objection.
+            await ContentCardLifecycle.DemoteAsync(database, word.Id, cancellationToken);
+        }
         await database.SaveChangesAsync(cancellationToken);
         return new(ReviewResults.Applied, word.Version);
     }
