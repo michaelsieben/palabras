@@ -2,16 +2,17 @@ import { ApiError, apiRequest } from './client.ts'
 
 export type AlternativeField = 'lemma' | 'gloss' | 'example' | 'regional_variant' | 'register_variant'
 export type ReviewField = AlternativeField | 'regional_note' | 'article' | 'gender' | 'accepted' | 'whole'
+export type ReviewStatus = 'pending_review' | 'approved' | 'rejected'
 export type ReviewSense = { order: number; gloss: string; acceptedEn: string[]; acceptedEs: string[]; exampleEs: string; exampleEn: string; notes?: string }
 export type ReviewItem = {
-  wordId: number; key: string; version: number; headword: string; article?: string; gender?: string
+  wordId: number; key: string; version: number; headword: string; article?: string; gender?: string; status?: ReviewStatus
   pos: string; cefr: string; topic?: string; senses: ReviewSense[]; notes?: string; regionNotes?: string; registerNotes?: string
   agreement?: number; band?: 'alta' | 'media'; reducedConfidence: boolean; lintWarnings: string[]
   alternatives: { id: number; field: AlternativeField; text: string; translation?: string; reason: string; support?: string }[]
   lastFlag?: { action: string; note?: string; at: string }
 }
-export type ApprovedWord = { wordId: number; key: string; version: number; headword: string; article?: string; gloss: string; topic?: string; approvedAt: string }
-export type ReviewQueueResponse = { items: ReviewItem[]; pendingTotal: number; topics: { topic: string; pending: number }[] }
+export type ApprovedWord = { wordId: number; key: string; version: number; headword: string; article?: string; gloss: string; topic?: string; approvedAt: string; status?: ReviewStatus }
+export type ReviewQueueResponse = { items: ReviewItem[]; pendingTotal: number; topics: { topic: string; pending: number }[]; approvedTotal?: number; rejectedTotal?: number; nextAfter?: number | null }
 export type ReviewEdit = { field: ReviewField; senseOrder?: number; after: string }
 export type ReviewAction = { clientReviewId: string; wordId: number; wordVersion: number
   action: 'approve' | 'approve_alt' | 'approve_edit' | 'reject' | 'needs_change' | 'demote'
@@ -27,6 +28,7 @@ export function isApprovedWord(v: unknown): v is ApprovedWord {
 }
 export function isReviewItem(v: unknown): v is ReviewItem {
   return object(v) && integer(v.wordId, 1) && integer(v.version, 1) && ['key', 'headword', 'pos', 'cefr'].every(k => typeof v[k] === 'string')
+    && (v.status === undefined || ['pending_review', 'approved', 'rejected'].includes(String(v.status)))
     && optional(v, ['article', 'gender', 'topic', 'notes', 'regionNotes', 'registerNotes']) && typeof v.reducedConfidence === 'boolean'
     && (v.agreement === undefined || typeof v.agreement === 'number' && Number.isFinite(v.agreement) && v.agreement >= 0 && v.agreement <= 1)
     && (v.band === undefined || v.band === 'alta' || v.band === 'media') && strings(v.lintWarnings)
@@ -36,15 +38,22 @@ export function isReviewItem(v: unknown): v is ReviewItem {
 }
 export function parseReviewQueue(body: unknown): ReviewQueueResponse {
   if (!object(body) || !Array.isArray(body.items) || !body.items.every(isReviewItem) || !integer(body.pendingTotal)
-    || !Array.isArray(body.topics) || !body.topics.every(t => object(t) && typeof t.topic === 'string' && integer(t.pending))) throw new ApiError('invalid-response')
+    || !Array.isArray(body.topics) || !body.topics.every(t => object(t) && typeof t.topic === 'string' && integer(t.pending))
+    || !['approvedTotal', 'rejectedTotal'].every(k => body[k] === undefined || integer(body[k]))
+    || !(body.nextAfter === undefined || body.nextAfter === null || integer(body.nextAfter, 1))) throw new ApiError('invalid-response')
   return body as ReviewQueueResponse
 }
-export async function getReviewQueue(signal?: AbortSignal): Promise<ReviewQueueResponse> {
-  return parseReviewQueue(await apiRequest('/api/review/queue?limit=30', { signal }))
+export async function getReviewQueue(signal?: AbortSignal, status: 'pending' | 'approved' | 'rejected' | 'all' = 'pending', after?: string): Promise<ReviewQueueResponse> {
+  const query = new URLSearchParams({ limit: '30', status })
+  if (after) query.set('after', after)
+  const result = parseReviewQueue(await apiRequest(`/api/review/queue?${query}`, { signal }))
+  // Cached legacy pending rows may omit status; decided server scopes must not guess their state.
+  if (status !== 'pending' && result.items.some(w => !w.status || status !== 'all' && w.status !== status)) throw new ApiError('invalid-response')
+  return result
 }
 export const approvedPageSize = 30
 export async function getApprovedWords(q: string, after?: string, signal?: AbortSignal): Promise<{ items: ApprovedWord[]; nextCursor?: string }> {
-  const query = new URLSearchParams({ q, limit: String(approvedPageSize) })
+  const query = new URLSearchParams({ q, limit: String(approvedPageSize), status: 'approved' })
   if (after) query.set('after', after)
   const body = await apiRequest(`/api/review/approved?${query}`, { signal })
   if (!object(body) || !Array.isArray(body.items) || !body.items.every(isApprovedWord)) throw new ApiError('invalid-response')

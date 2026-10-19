@@ -80,9 +80,9 @@ test('real alternatives handlers render variants read-only without headword chan
   assert.equal(saved[0].action.action, 'approve_alt'); assert.equal(saved[0].action.wordVersion, 3); assert.equal(saved[0].action.alternativeId, 10)
   assert.equal(saved[0].original.headword, 'palabra-1')
 })
-for (const found of [true, false]) test(`stale demote automatically fetches approved page1; ${found ? 'fresh version enables new UUID' : 'missing word preserves actionable decision'}`, async () => {
+for (const action of ['demote', 'reject']) for (const found of [true, false]) test(`stale ${action} automatically fetches approved page1; ${found ? 'fresh version enables new UUID' : 'missing word preserves actionable decision'}`, async () => {
   const calls = []; const actions = []; const discarded = []; let rows = []; let stale = false
-  const oldAction = reviewAction(2, { action: 'demote', wordVersion: 7 })
+  const oldAction = reviewAction(2, { action, wordVersion: 7 })
   const queue = { ...emptyQueue(), getSnapshot: () => ({ rows, storageError: false }), enqueue: async a => { actions.push(a) }, discard: async id => { discarded.push(id); rows = rows.filter(r => r.action.clientReviewId !== id) } }
   const h = component('../src/review/ApprovedPanel.tsx', {
     '../api/client': { ApiError }, '../api/review': { getApprovedWords: async (q, after) => {
@@ -102,8 +102,9 @@ for (const found of [true, false]) test(`stale demote automatically fetches appr
   if (found) {
     assert.deepEqual(discarded, [oldAction.clientReviewId])
     assert.match(text(tree), /versión 8/)
-    await button(tree, 'Revisar otra vez').props.onClick(); await tick()
+    await button(tree, action === 'reject' ? 'Retirar' : 'Revisar otra vez').props.onClick(); await tick()
     assert.equal(actions[0].wordVersion, 8)
+    assert.equal(actions[0].action, action)
     assert.notEqual(actions[0].clientReviewId, oldAction.clientReviewId)
   } else {
     assert.deepEqual(discarded, [])
@@ -113,4 +114,80 @@ for (const found of [true, false]) test(`stale demote automatically fetches appr
     render(); h.effect(1); await tick()
     assert.equal(calls.length, 3, 'same stale result must not trigger a refresh loop')
   }
+})
+test('approved objection enqueues reject with displayed version and consequence; repeated active filter does not clear list', async () => {
+  const saved = []; const queue = { ...emptyQueue(), enqueue: async (action, word) => saved.push({ action, word }) }
+  const h = component('../src/review/ApprovedPanel.tsx', { '../api/client': { ApiError }, '../api/review': { getApprovedWords: async () => ({ items: [approvedWord(5, { version: 11 })] }) }, './ReviewRowStatus': { ReviewRowStatus: 'RowStatus' } })
+  const render = () => h.render(e => e.ApprovedPanel({ queue }))
+  render(); h.hydrate(); await tick()
+  assert.match(text(render()), /Se pausarán sus tarjetas; el historial se conservará/)
+  button(render(), 'Aprobadas').props.onClick()
+  assert.match(text(render()), /versión 11/)
+  await button(render(), 'Retirar').props.onClick(); await tick()
+  assert.equal(saved[0].action.action, 'reject'); assert.equal(saved[0].action.wordVersion, 11)
+  assert.equal(saved[0].word.status, 'approved'); assert.equal(saved[0].word.wordId, 5)
+})
+test('rejected filter pages with explicit status and reversal uses authoritative row version', async () => {
+  const calls = []; const saved = []
+  const queue = { ...emptyQueue(), enqueue: async (action, word) => saved.push({ action, word }) }
+  const h = component('../src/review/ApprovedPanel.tsx', { '../api/client': { ApiError }, '../api/review': {
+    getApprovedWords: async () => ({ items: [] }),
+    getReviewQueue: async (signal, status, after) => { calls.push({ status, after }); return { items: [reviewWord(after ? 8 : 7, { status: 'rejected', version: 15 })], nextAfter: after ? null : 7 } },
+  }, './ReviewRowStatus': { ReviewRowStatus: 'RowStatus' } })
+  const render = () => h.render(e => e.ApprovedPanel({ queue }))
+  render(); h.hydrate(); await tick()
+  button(render(), 'Retiradas').props.onClick(); render(); h.hydrate(); await tick()
+  assert.match(text(render()), /Retirada/); assert.match(text(render()), /volverán como nuevas/)
+  button(render(), 'Siguiente').props.onClick(); render(); h.hydrate(); await tick()
+  assert.deepEqual(calls, [{ status: 'rejected', after: undefined }, { status: 'rejected', after: '7' }])
+  await button(render(), 'Volver a incluir').props.onClick(); await tick()
+  assert.equal(saved[0].action.action, 'approve'); assert.equal(saved[0].action.wordId, 8); assert.equal(saved[0].action.wordVersion, 15)
+  assert.equal(saved[0].word.status, 'rejected')
+})
+for (const found of [true, false]) test(`rejected stale reversal refreshes page1; ${found ? 'fresh version actionable' : 'missing row stays durable'}`, async () => {
+  const calls = []; const discarded = []; const saved = []; let rows = []; let stale = false
+  const old = reviewAction(8, { action: 'approve', wordVersion: 7 })
+  const queue = { ...emptyQueue(), getSnapshot: () => ({ rows, storageError: false }), discard: async id => { discarded.push(id); rows = rows.filter(r => r.action.clientReviewId !== id) }, enqueue: async a => saved.push(a) }
+  const h = component('../src/review/ApprovedPanel.tsx', { '../api/client': { ApiError }, '../api/review': {
+    getApprovedWords: async () => ({ items: [] }),
+    getReviewQueue: async (_signal, status, after) => { calls.push({ status, after }); return { items: [reviewWord(stale && found ? 8 : 7, { status: 'rejected', version: stale ? 9 : 7 })], nextAfter: 7 } },
+  }, './ReviewRowStatus': { ReviewRowStatus: 'RowStatus' } })
+  const render = () => h.render(e => e.ApprovedPanel({ queue }))
+  render(); h.hydrate(); await tick()
+  button(render(), 'Retiradas').props.onClick(); render(); h.hydrate(); await tick()
+  button(render(), 'Siguiente').props.onClick(); render(); h.hydrate(); await tick()
+  stale = true; rows = [{ action: old, word: reviewWord(8, { status: 'rejected', version: 7 }), state: 'failed', result: 'stale_version' }]
+  render(); const cleanup = h.effect(1); cleanup(); h.effect(1); await tick()
+  assert.deepEqual(calls.map(c => c.after), [undefined, '7', undefined]); assert.ok(calls.every(c => c.status === 'rejected'))
+  assert.match(text(render()), /Página 1/)
+  if (found) {
+    assert.match(text(render()), /La palabra ha cambiado/); assert.deepEqual(discarded, [old.clientReviewId])
+    const card = nodes(render()).find(n => n.type === 'article' && text(n).includes('palabra-8'))
+    await button(card, 'Volver a incluir').props.onClick(); await tick()
+    assert.equal(saved[0].wordVersion, 9); assert.notEqual(saved[0].clientReviewId, old.clientReviewId)
+  } else {
+    assert.deepEqual(discarded, []); assert.ok(nodes(render()).some(n => n.type === 'RowStatus' && n.props.row === rows[0]))
+    render(); h.effect(1); await tick(); assert.equal(calls.length, 3)
+  }
+})
+test('objection invalid_transition and duplicate stay on row across filters; confirmed refresh wired', async () => {
+  for (const result of ['invalid_transition', 'duplicate']) {
+    const row = { action: reviewAction(3, { action: 'reject', wordVersion: 7 }), word: approvedWord(3, { status: 'approved' }), state: result === 'duplicate' ? 'applied' : 'failed', result }
+    let rows = [row]
+    // First hydration failing must not discard acknowledged rows without a successful server read.
+    const queue = { ...emptyQueue(), getSnapshot: () => ({ rows, storageError: false }), discard: async () => { rows = [] } }
+    const h = component('../src/review/ApprovedPanel.tsx', { '../api/client': { ApiError }, '../api/review': { getApprovedWords: async () => { throw new ApiError('network') }, getReviewQueue: async () => { throw new ApiError('network') } }, './ReviewRowStatus': { ReviewRowStatus: 'RowStatus' } })
+    const render = () => h.render(e => e.ApprovedPanel({ queue }))
+    render(); h.hydrate(); await tick()
+    button(render(), 'Retiradas').props.onClick(); render(); h.hydrate(); await tick()
+    const status = nodes(render()).find(n => n.type === 'RowStatus')
+    assert.equal(status.props.row.result, result); assert.equal(status.props.confirmedRefresh, true)
+    assert.match(text(render()), /Aprobada/); assert.match(text(render()), /estado leído antes/)
+  }
+})
+test('confirmed duplicate row offers explicit server refresh without another transport or retry', () => {
+  const h = component('../src/review/ReviewRowStatus.tsx'); let refreshes = 0
+  const tree = h.exports.ReviewRowStatus({ row: { state: 'applied', result: 'duplicate' }, confirmedRefresh: true, refresh: () => refreshes++, retry() {}, discard() {} })
+  assert.match(text(tree), /Decisión ya confirmada/); button(tree, 'Actualizar palabra').props.onClick()
+  assert.equal(refreshes, 1); assert.equal(nodes(tree).filter(n => n.type === 'button').length, 1)
 })

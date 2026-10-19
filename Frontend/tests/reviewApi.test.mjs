@@ -11,10 +11,10 @@ test('review fetchers preserve camelCase, current approved version, paths, cooki
     return Response.json(path.includes('/approved') ? { items: Array.from({ length: 30 }, (_, i) => approvedWord(i + 1)) } : path.includes('/queue') ? { items: [reviewWord()], pendingTotal: 1, topics: [{ topic: 'Casa', pending: 1 }] } : { results: [{ clientReviewId: reviewAction().clientReviewId, result: 'stale_version' }] })
   })
   assert.equal((await getReviewQueue(controller.signal)).items[0].version, 3)
-  assert.equal(calls[0].path, '/api/review/queue?limit=30'); assert.equal(calls[0].init.signal, controller.signal)
+   assert.equal(calls[0].path, '/api/review/queue?limit=30&status=pending'); assert.equal(calls[0].init.signal, controller.signal)
   const approved = await getApprovedWords('café y té', '17', controller.signal)
   assert.equal(approved.items[0].version, 7); assert.equal(approved.nextCursor, '30')
-  assert.equal(calls[1].path, '/api/review/approved?q=caf%C3%A9+y+t%C3%A9&limit=30&after=17')
+   assert.equal(calls[1].path, '/api/review/approved?q=caf%C3%A9+y+t%C3%A9&limit=30&status=approved&after=17')
   assert.equal((await postReviewActions([reviewAction()])).results[0].result, 'stale_version')
   assert.equal(calls[2].init.headers.get('X-Palabras'), '1'); assert.equal(calls[2].init.credentials, 'include')
   assert.deepEqual(JSON.parse(calls[2].init.body), { actions: [reviewAction()] })
@@ -41,4 +41,30 @@ test('approved final page exposes no next cursor; stale cursor 400 stays identif
   assert.equal((await getApprovedWords('')).nextCursor, undefined)
   t.mock.method(globalThis, 'fetch', async () => Response.json({ error: 'bad_request' }, { status: 400 }))
   await assert.rejects(getApprovedWords('', '3'), e => e instanceof ApiError && e.status === 400)
+})
+test('queue scopes explicitly serialize status and rejected cursor; retain authoritative status/version/counts', async t => {
+  const calls = []
+  const body = { items: [reviewWord(9, { status: 'rejected', version: 12 })], pendingTotal: 0, topics: [], rejectedTotal: 31, approvedTotal: 0, nextAfter: 9 }
+  t.mock.method(globalThis, 'fetch', async path => {
+    calls.push(path)
+    const status = new URL(path, 'http://localhost').searchParams.get('status')
+    return Response.json({ ...body, items: [reviewWord(9, { status: status === 'pending' ? 'pending_review' : status === 'all' ? 'rejected' : status, version: 12 })] })
+  })
+  for (const scope of ['pending', 'approved', 'rejected', 'all']) {
+    const result = await getReviewQueue(undefined, scope, '10')
+    assert.equal(result.items[0].status, scope === 'pending' ? 'pending_review' : scope === 'all' ? 'rejected' : scope); assert.equal(result.items[0].version, 12)
+    assert.equal(result.rejectedTotal, 31); assert.equal(result.nextAfter, 9)
+    assert.equal(calls.at(-1), `/api/review/queue?limit=30&status=${scope}&after=10`)
+  }
+})
+test('decided queue scopes reject omitted or mismatched status rather than inventing an approved state', async t => {
+  for (const status of [undefined, 'approved']) {
+    t.mock.method(globalThis, 'fetch', async () => Response.json({ items: [reviewWord(1, { status })], pendingTotal: 0, topics: [] }))
+    await assert.rejects(getReviewQueue(undefined, 'rejected'), ApiError)
+  }
+})
+test('queue guards reject invalid statuses/counts/cursors but accept old cached pending payloads', () => {
+  const body = { items: [reviewWord()], pendingTotal: 1, topics: [] }
+  assert.deepEqual(parseReviewQueue(body), body)
+  for (const override of [{ nextAfter: 0 }, { nextAfter: '2' }, { rejectedTotal: -1 }, { approvedTotal: '4' }, { items: [reviewWord(1, { status: 'draft' })] }]) assert.throws(() => parseReviewQueue({ ...body, ...override }), ApiError)
 })

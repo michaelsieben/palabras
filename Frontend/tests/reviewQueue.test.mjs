@@ -9,6 +9,17 @@ import { createReviewStorage, reviewDatabaseName } from '../src/review/storage.t
 import { reviewWord, reviewAction, memoryReviewStore, appliedReviews } from './reviewFixtures.mjs'
 const tick = () => new Promise(resolve => setImmediate(resolve))
 const row = n => ({ action: reviewAction(n), word: reviewWord(n), state: 'pending' })
+for (const action of ['reject', 'approve']) test(`objection ${action} survives offline recreation and retry with original UUID/version`, async () => {
+  const store = memoryReviewStore(); const sent = []; const original = reviewWord(9, { status: action === 'reject' ? 'approved' : 'rejected', version: 14 })
+  const verdict = reviewAction(9, { action, wordVersion: original.version })
+  const offline = createReviewQueue(store, { online: () => false }); offline.start()
+  await offline.enqueue(verdict, original); await offline.flush(); offline.stop()
+  const reloaded = createReviewQueue(store, { online: () => true, send: async batch => { sent.push(batch); if (sent.length === 1) throw new ApiError('http', 503); return { results: batch.map(a => ({ clientReviewId: a.clientReviewId, result: 'duplicate' })) } } })
+  reloaded.start(); await reloaded.flush()
+  assert.equal(reloaded.getSnapshot().rows[0].state, 'pending'); assert.deepEqual(reloaded.getSnapshot().rows[0].word, original)
+  await reloaded.flush(); assert.deepEqual(sent, [[verdict], [verdict]])
+  assert.equal(reloaded.getSnapshot().rows[0].result, 'duplicate'); reloaded.stop()
+})
 test('offline chip verdict persists full original/version/alternative, survives recreation, same UUID replays once', async () => {
   const store = memoryReviewStore(); const sent = []
   const action = reviewAction(1, { action: 'approve_alt', field: 'lemma', alternativeId: 10 })

@@ -179,7 +179,100 @@ try {
       assert.deepEqual(errors, [])
     } finally { await context.close() }
   }
-  console.log('M4 reviewer browser: API fixtures with real App/IndexedDB; offline chip/reload/account scope, read-only variants, sitting5/30, checklist25, batch10, row failures/retry/edit/needs_change, search/pagination/stale cursor and demote current version.')
+  // Approved objection and withdrawn reversal: same IndexedDB outbox survives reload/account switch, retry UUID preserved.
+  {
+    const fixture = reviewBrowserFixture({ approved: [approvedWord(101, { version: 12 })], pending: [] })
+    const { context, page, errors, setUsername } = await session(fixture)
+    try {
+      await page.goto(`${testBaseUrl}/aprobadas`)
+      const card = page.getByRole('article', { name: 'la aprobada-101', exact: true })
+      await expect(card.getByText('Aprobada', { exact: true })).toBeVisible()
+      await expect(page.getByText(/Se pausarán sus tarjetas; el historial se conservará/)).toBeVisible()
+      fixture.failRequests = true
+      await page.getByRole('button', { name: 'Retirar', exact: true }).click()
+      await expect(card).toContainText('Guardada aquí, envío sin confirmar')
+      const rejectId = fixture.sent[0][0].clientReviewId
+      assert.equal(fixture.sent[0][0].action, 'reject'); assert.equal(fixture.sent[0][0].wordVersion, 12)
+      await page.reload(); await expect(card).toContainText('Guardada aquí, envío sin confirmar')
+      setUsername('reviewer-b'); await page.reload()
+      await expect(page.getByRole('button', { name: 'Retirar', exact: true })).toBeVisible()
+      await expect(page.locator('.review-row-status')).toHaveCount(0)
+      setUsername('reviewer-a'); fixture.failRequests = false; await page.reload()
+      await expect.poll(() => fixture.rejected.length).toBe(1)
+      assert.ok(fixture.sent.flat().every(a => a.clientReviewId === rejectId))
+      await page.getByRole('button', { name: 'Retiradas', exact: true }).click()
+      await expect(card.getByText('Retirada', { exact: true })).toBeVisible()
+      await expect(page.getByText(/volverán como nuevas/)).toBeVisible()
+      fixture.failRequests = true
+      await page.getByRole('button', { name: 'Volver a incluir', exact: true }).click()
+      await expect(card).toContainText('Guardada aquí, envío sin confirmar')
+      const approveId = fixture.sent.at(-1)[0].clientReviewId
+      assert.notEqual(approveId, rejectId); assert.equal(fixture.sent.at(-1)[0].action, 'approve'); assert.equal(fixture.sent.at(-1)[0].wordVersion, 12)
+      await page.reload(); await expect(card).toContainText('Guardada aquí, envío sin confirmar')
+      setUsername('reviewer-b'); await page.reload()
+      await expect(page.locator('.review-row-status')).toHaveCount(0)
+      setUsername('reviewer-a'); await page.reload()
+      await expect(card).toContainText('Guardada aquí, envío sin confirmar')
+      fixture.failRequests = false
+      await card.getByRole('button', { name: 'Reintentar envío', exact: true }).click()
+      await expect(card).toContainText('Decisión confirmada')
+      await card.getByRole('button', { name: 'Actualizar palabra', exact: true }).click()
+      await page.getByRole('button', { name: 'Aprobadas', exact: true }).click()
+      await expect(card.getByRole('button', { name: 'Retirar', exact: true })).toBeVisible()
+      assert.equal(fixture.rejected.length, 0)
+      assert.ok(fixture.sent.flat().filter(a => a.action === 'approve').every(a => a.clientReviewId === approveId))
+      assert.ok(fixture.reads.some(q => q.includes('status=rejected')))
+      assert.deepEqual(errors, [])
+    } finally { await context.close() }
+  }
+  // Both directions: HTTP200 per-item failure stays actionable; stale refresh returns to page1 with current version.
+  for (const scope of ['approved', 'rejected']) {
+    const fixture = reviewBrowserFixture({ pending: [], approved: scope === 'approved' ? [approvedWord(101)] : [], rejected: scope === 'rejected' ? [reviewWord(101, { status: 'rejected', version: 7 })] : [] })
+    const { context, page, errors } = await session(fixture)
+    try {
+      await page.goto(`${testBaseUrl}/aprobadas`)
+      if (scope === 'rejected') await page.getByRole('button', { name: 'Retiradas', exact: true }).click()
+      const actionLabel = scope === 'approved' ? 'Retirar' : 'Volver a incluir'
+      fixture.outcome = () => 'invalid_transition'
+      await page.getByRole('button', { name: actionLabel, exact: true }).click()
+      await expect(page.getByRole('article')).toContainText('Ya no está en un estado revisable')
+      await expect(page.getByRole('button', { name: 'Reintentar envío', exact: true })).toBeVisible()
+      await page.getByRole('button', { name: 'Actualizar palabra', exact: true }).click()
+      const source = scope === 'approved' ? fixture.approved : fixture.rejected
+      source[0].version = 9
+      fixture.outcome = () => 'stale_version'
+      await page.getByRole('button', { name: actionLabel, exact: true }).click()
+      await expect(page.getByRole('article')).toContainText('versión 9')
+      await expect(page.getByRole('button', { name: actionLabel, exact: true })).toBeVisible()
+      fixture.outcome = () => 'duplicate'
+      await page.getByRole('button', { name: actionLabel, exact: true }).click()
+      await expect(page.getByRole('article')).toContainText('Decisión ya confirmada')
+      assert.equal(fixture.sent.at(-1)[0].wordVersion, 9)
+      await expect(page.getByRole('button', { name: 'Actualizar palabra', exact: true })).toBeVisible()
+      assert.deepEqual(errors, [])
+    } finally { await context.close() }
+  }
+  // Rejected keyset cursor invalidation restarts page1; page2 reversal echoes that row's version.
+  {
+    const fixture = reviewBrowserFixture({ approved: [], pending: [], rejected: Array.from({ length: 31 }, (_, i) => reviewWord(i + 201, { status: 'rejected', version: 19 })) })
+    const { context, page, errors } = await session(fixture)
+    try {
+      await page.goto(`${testBaseUrl}/aprobadas`)
+      await page.getByRole('button', { name: 'Retiradas', exact: true }).click()
+      await expect(page.getByRole('article')).toHaveCount(30)
+      fixture.staleCursor = true
+      await page.getByRole('button', { name: 'Siguiente', exact: true }).click()
+      await expect(page.getByText(/Volvemos a la página 1/)).toBeVisible()
+      await expect(page.getByRole('article')).toHaveCount(30)
+      await page.getByRole('button', { name: 'Siguiente', exact: true }).click()
+      await expect(page.getByRole('article')).toHaveCount(1)
+      await page.getByRole('button', { name: 'Volver a incluir', exact: true }).click()
+      await expect(page.getByRole('article')).toContainText('Decisión confirmada')
+      assert.equal(fixture.sent.at(-1)[0].wordId, 231); assert.equal(fixture.sent.at(-1)[0].wordVersion, 19)
+      assert.deepEqual(errors, [])
+    } finally { await context.close() }
+  }
+  console.log('M4 reviewer browser: API fixtures with real App/IndexedDB; offline chip/reload/account scope, variants, sitting/batch, failures, approved search/pagination/demote, objection/reversal durable retry and current-version recovery.')
 } finally {
   await browser?.close()
   await new Promise(resolve => server.httpServer.close(resolve))
