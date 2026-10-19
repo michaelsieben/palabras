@@ -1,0 +1,8 @@
+export const reviewWord = (n = 1, overrides = {}) => ({ wordId: n, key: `word-${n}`, version: 3, headword: `palabra-${n}`, article: 'la', gender: 'feminine', pos: 'noun', cefr: 'A2', topic: 'Casa', senses: [{ order: 0, gloss: `word ${n}`, acceptedEn: [`word ${n}`], acceptedEs: [`palabra-${n}`], exampleEs: 'La palabra encaja aquí.', exampleEn: 'The word fits here.' }], reducedConfidence: false, lintWarnings: [], alternatives: [{ id: n * 10, field: 'lemma', text: `alternativa-${n}`, reason: 'Otra palabra' }, { id: n * 10 + 1, field: 'regional_variant', text: 'variante regional', reason: 'Uso regional' }, { id: n * 10 + 2, field: 'register_variant', text: 'variante formal', reason: 'Registro formal' }], ...overrides })
+export const approvedWord = (n = 1, overrides = {}) => ({ wordId: n, key: `word-${n}`, version: 7, headword: `aprobada-${n}`, article: 'la', gloss: `approved ${n}`, topic: 'Casa', approvedAt: '2026-10-19T12:00:00Z', ...overrides })
+export const reviewAction = (n = 1, overrides = {}) => ({ clientReviewId: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`, wordId: n, wordVersion: 3, action: 'approve', ...overrides })
+export function memoryReviewStore() {
+  const rows = new Map()
+  return { put: async r => { rows.set(r.action.clientReviewId, structuredClone(r)) }, putMany: async rs => { for (const r of rs) rows.set(r.action.clientReviewId, structuredClone(r)) }, list: async () => structuredClone([...rows.values()]), remove: async id => { rows.delete(id) } }
+}
+export const appliedReviews = actions => ({ results: actions.map(a => ({ clientReviewId: a.clientReviewId, result: 'applied', word: { status: a.action === 'demote' ? 'pending_review' : 'approved', version: a.wordVersion } })) })

@@ -13,7 +13,8 @@
     "test": "node --test tests/*.test.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "screenshots": "node scripts/generate-screenshots.mjs",
-    "test:browser": "node tests/browser.mjs && node tests/sw-navigation.mjs",
+    "test:browser": "node tests/browser.mjs && node tests/sw-navigation.mjs && node tests/reviewBrowser.mjs",
+    "test:review:browser": "node tests/reviewBrowser.mjs",
     "test:day:browser": "node tests/dayBrowser.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1"

@@ -5,6 +5,8 @@ import { readFile } from 'node:fs/promises'
 import { fulfillLearn, runDayAcceptanceBrowser, runDayBrowser, runLearnerBrowser } from './learnBrowser.mjs'
 import { testBaseUrl, testHost, testPort } from './browserConfig.mjs'
 import { runDayPanelBrowser } from './dayPanelBrowser.mjs'
+import { reviewBrowserFixture } from './reviewBrowserFixture.mjs'
+import { reviewWord } from './reviewFixtures.mjs'
 
 let swOverride
 const server = await preview({ preview: { host: testHost, port: testPort, strictPort: true }, plugins: [{
@@ -24,6 +26,8 @@ async function mockSession(context) {
   const identity = { username: 'demo', role: 'owner' }
   await context.route('**/api/auth/me', route => route.fulfill({ json: identity }))
   await context.route('**/api/learn/**', route => fulfillLearn(route))
+  const review = reviewBrowserFixture({ pending: [reviewWord(1, { alternatives: [{ id: 10, field: 'gloss', text: 'potatoes (as a dish)', reason: 'Prepared alternative' }] }), reviewWord(2)] })
+  await context.route('**/api/review/**', route => review.fulfill(route))
   return identity
 }
 try {
@@ -41,11 +45,13 @@ try {
   let releaseMe
   const meGate = new Promise(resolve => { releaseMe = resolve })
   const authErrors = []
+  const authReview = reviewBrowserFixture()
   authPage.on('pageerror', error => authErrors.push(error.message))
   await authContext.route('**/api/**', async route => {
     const request = route.request()
     const path = new URL(request.url()).pathname
     if (path.startsWith('/api/learn/')) return fulfillLearn(route)
+    if (path.startsWith('/api/review/')) return authReview.fulfill(route)
     if (request.method() !== 'GET') assert.equal(request.headers()['x-palabras'], '1')
     if (path.endsWith('/me')) { await meGate; return route.fulfill({ status: user ? 200 : 401, json: user ?? { error: 'unauthorized' } }) }
     if (path.endsWith('/login')) {
@@ -205,7 +211,7 @@ try {
     if (viewport.width >= 1280) assert.ok(drawer.x >= viewport.width - 600)
     await page.getByRole('button', { name: /potatoes \(as a dish\)/ }).click()
     await page.getByRole('button', { name: 'Editar ✎', exact: true }).first().click()
-    await page.getByLabel('Traducción', { exact: true }).fill('mid-morning snack')
+    await page.locator('.inline-edit input[lang="en"]').fill('mid-morning snack')
     await page.getByRole('button', { name: 'Guardar y aprobar' }).click()
     assert.ok(await page.getByRole('status').first().textContent())
     // Real browser text scaling and scheme; no visual claim based on metrics.
@@ -222,7 +228,7 @@ try {
     assert.deepEqual(errors, [])
     // Two online app loads; both offline navigations serve signed-out-neutral fallback.
     assert.equal(apiRequests.filter(request => request.pathname === '/api/auth/me').length, 2)
-    assert.ok(apiRequests.every(request => request.pathname.startsWith('/api/learn/') || (request.method === 'GET' && request.pathname === '/api/auth/me')))
+    assert.ok(apiRequests.every(request => request.pathname.startsWith('/api/learn/') || request.pathname.startsWith('/api/review/') || (request.method === 'GET' && request.pathname === '/api/auth/me')))
     console.log(JSON.stringify({ viewport, learner, grading, reviewer, drawer, textScale200: scaled, offlineNavigation: 'neutral fallback', revealFocus: 'ok', editAlternative: 'ok', pageErrors: errors, apiRequests }))
     await context.close()
   }
