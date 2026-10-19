@@ -23,12 +23,13 @@ public sealed class M5SrsSchemaTests
         using var response = await client.GetAsync("/healthz", CancellationToken.None);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         await using var database = new DatabaseSettings(factory.DatabasePath).CreateContext();
-        Assert.Equal(8, (await database.Database.GetAppliedMigrationsAsync(CancellationToken.None)).Count());
+        Assert.Equal(9, (await database.Database.GetAppliedMigrationsAsync(CancellationToken.None)).Count());
         Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_SrsCards", StringComparison.Ordinal));
         Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_DayStatusAndSkips", StringComparison.Ordinal));
         Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_RolloverCutoverMarker", StringComparison.Ordinal));
         Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_ReviewGate", StringComparison.Ordinal));
         Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_WordDifficulty", StringComparison.Ordinal));
+        Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_PushReminders", StringComparison.Ordinal));
         Assert.Empty(await database.Database.GetPendingMigrationsAsync(CancellationToken.None));
         await database.Database.OpenConnectionAsync(CancellationToken.None);
         DbConnection connection = database.Database.GetDbConnection();

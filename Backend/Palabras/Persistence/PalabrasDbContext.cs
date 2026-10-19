@@ -23,6 +23,11 @@ internal sealed class PalabrasDbContext : DbContext
     public DbSet<CouncilRun> CouncilRuns => Set<CouncilRun>();
     public DbSet<CouncilModelResult> CouncilModelResults => Set<CouncilModelResult>();
     public DbSet<WordProvenance> WordProvenances => Set<WordProvenance>();
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+    public DbSet<ReminderSettings> ReminderSettings => Set<ReminderSettings>();
+    public DbSet<ReminderLog> ReminderLogs => Set<ReminderLog>();
+    public DbSet<PushDelivery> PushDeliveries => Set<PushDelivery>();
+    public DbSet<NotificationAction> NotificationActions => Set<NotificationAction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -166,6 +171,7 @@ internal sealed class PalabrasDbContext : DbContext
         ConfigureSrs(modelBuilder);
         ConfigureDayTracking(modelBuilder);
         ConfigureAppMeta(modelBuilder);
+        ConfigurePush(modelBuilder);
     }
 
     // M4: word_reviews, the append-only reviewer verdict log (ΔF:609-618). council_run_id is indexed
@@ -353,6 +359,128 @@ internal sealed class PalabrasDbContext : DbContext
         meta.HasKey(value => value.Key);
         meta.Property(value => value.Key).HasColumnName("key").IsRequired();
         meta.Property(value => value.Value).HasColumnName("value").IsRequired();
+    }
+
+    // M8: the five Web Push tables (design-amendment.md ΔC.2/ΔF, plan §2.3). Every one is new, so
+    // the migration creates tables and indexes only — ReviewGate stays the repo's single rebuild
+    // (docs/08-upgrade-rollback.md §G) and no CHECK here can force a rebuild of an existing table.
+    private static void ConfigurePush(ModelBuilder modelBuilder)
+    {
+        var subscription = modelBuilder.Entity<PushSubscription>();
+        subscription.ToTable("push_subscriptions", table =>
+        {
+            table.HasCheckConstraint("ck_push_subscriptions_state", "state IN ('active', 'stale_key', 'rejected')");
+        });
+        subscription.HasKey(value => value.Id);
+        subscription.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
+        subscription.Property(value => value.UserId).HasColumnName("user_id");
+        subscription.HasOne<User>().WithMany().HasForeignKey(value => value.UserId).OnDelete(DeleteBehavior.NoAction);
+        // The endpoint is the natural key of a push subscription: the same device re-PUTs the same
+        // string, and the upsert must land on the existing row without a second registration.
+        subscription.Property(value => value.Endpoint).HasColumnName("endpoint").IsRequired();
+        subscription.HasIndex(value => value.Endpoint).IsUnique();
+        subscription.Property(value => value.P256dh).HasColumnName("p256dh").IsRequired();
+        subscription.Property(value => value.Auth).HasColumnName("auth").IsRequired();
+        subscription.Property(value => value.VapidKeyId).HasColumnName("vapid_key_id").IsRequired();
+        subscription.Property(value => value.DeviceLabel).HasColumnName("device_label");
+        subscription.Property(value => value.State).HasColumnName("state").IsRequired().HasDefaultValue("active");
+        subscription.Property(value => value.CreatedAtMs).HasColumnName("created_at_ms");
+        subscription.Property(value => value.UpdatedAtMs).HasColumnName("updated_at_ms");
+        subscription.Property(value => value.LastSuccessAtMs).HasColumnName("last_success_at_ms");
+        subscription.Property(value => value.LastFailureAtMs).HasColumnName("last_failure_at_ms");
+        subscription.Property(value => value.FailureCount).HasColumnName("failure_count").HasDefaultValue(0);
+        subscription.Property(value => value.LastStatus).HasColumnName("last_status");
+        // The send path asks "this learner's deliverable devices" once a minute.
+        subscription.HasIndex(value => new { value.UserId, value.State }).HasDatabaseName("ix_push_subscriptions_user");
+
+        var reminder = modelBuilder.Entity<ReminderSettings>();
+        reminder.ToTable("reminder_settings", table =>
+        {
+            // HH:mm with 15-minute steps is enforced by the API; the column only guards the length.
+            table.HasCheckConstraint("ck_reminder_settings_time", "length(reminder_time) = 5");
+            table.HasCheckConstraint("ck_reminder_settings_window", "send_window_min BETWEEN 15 AND 240");
+        });
+        reminder.HasKey(value => value.UserId);
+        reminder.Property(value => value.UserId).HasColumnName("user_id").ValueGeneratedNever();
+        reminder.HasOne<User>().WithOne().HasForeignKey<ReminderSettings>(value => value.UserId)
+            .OnDelete(DeleteBehavior.NoAction);
+        reminder.Property(value => value.Enabled).HasColumnName("enabled").HasDefaultValue(true);
+        reminder.Property(value => value.ReminderTime).HasColumnName("reminder_time").IsRequired().HasDefaultValue("22:00");
+        reminder.Property(value => value.MutedUntil).HasColumnName("muted_until");
+        reminder.Property(value => value.SendWindowMin).HasColumnName("send_window_min").HasDefaultValue(90);
+        reminder.Property(value => value.UpdatedAtMs).HasColumnName("updated_at_ms");
+
+        var log = modelBuilder.Entity<ReminderLog>();
+        log.ToTable("reminder_log", table =>
+        {
+            table.HasCheckConstraint("ck_reminder_log_kind", "kind IN ('daily')");
+            table.HasCheckConstraint("ck_reminder_log_channel", "channel IN ('webpush')");
+            table.HasCheckConstraint("ck_reminder_log_result",
+                "result IN ('sending', 'sent', 'failed', 'gone', 'window_missed', 'no_target')");
+        });
+        log.HasKey(value => value.Id);
+        log.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
+        log.Property(value => value.UserId).HasColumnName("user_id");
+        log.HasOne<User>().WithMany().HasForeignKey(value => value.UserId).OnDelete(DeleteBehavior.NoAction);
+        log.Property(value => value.LocalDate).HasColumnName("local_date").IsRequired();
+        log.Property(value => value.Kind).HasColumnName("kind").IsRequired();
+        log.Property(value => value.Channel).HasColumnName("channel").IsRequired();
+        log.Property(value => value.Result).HasColumnName("result").IsRequired();
+        log.Property(value => value.TtlS).HasColumnName("ttl_s");
+        log.Property(value => value.ExpiresAtMs).HasColumnName("expires_at_ms");
+        log.Property(value => value.SkipAvailable).HasColumnName("skip_available");
+        log.Property(value => value.CreatedAtMs).HasColumnName("created_at_ms");
+        log.Property(value => value.UpdatedAtMs).HasColumnName("updated_at_ms");
+        // The claim: one decision per learner per local day per kind and channel, enforced by the
+        // database so two ticks (or a restart) cannot both send.
+        log.HasIndex(value => new { value.UserId, value.LocalDate, value.Kind, value.Channel }).IsUnique();
+
+        var delivery = modelBuilder.Entity<PushDelivery>();
+        delivery.ToTable("push_deliveries", table =>
+        {
+            table.HasCheckConstraint("ck_push_deliveries_result",
+                "result IN ('pending', 'sent', 'gone', 'rejected', 'transient')");
+        });
+        delivery.HasKey(value => value.Id);
+        delivery.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
+        delivery.Property(value => value.ReminderLogId).HasColumnName("reminder_log_id");
+        delivery.HasOne<ReminderLog>().WithMany().HasForeignKey(value => value.ReminderLogId)
+            .OnDelete(DeleteBehavior.Cascade);
+        delivery.Property(value => value.SubscriptionId).HasColumnName("subscription_id");
+        // SET NULL, not NO ACTION: the sender deletes a subscription on 404/410, and that delete
+        // must not fail because the attempt history points at it.
+        delivery.HasOne<PushSubscription>().WithMany().HasForeignKey(value => value.SubscriptionId)
+            .OnDelete(DeleteBehavior.SetNull);
+        delivery.Property(value => value.Attempts).HasColumnName("attempts").HasDefaultValue(0);
+        delivery.Property(value => value.Result).HasColumnName("result").IsRequired();
+        delivery.Property(value => value.LastStatus).HasColumnName("last_status");
+        delivery.Property(value => value.UpdatedAtMs).HasColumnName("updated_at_ms");
+        // One attempt row per device per decision; a retry updates it and bumps `attempts`.
+        delivery.HasIndex(value => new { value.ReminderLogId, value.SubscriptionId }).IsUnique();
+
+        var action = modelBuilder.Entity<NotificationAction>();
+        action.ToTable("notification_actions", table =>
+        {
+            table.HasCheckConstraint("ck_notification_actions_action", "action IN ('open', 'skip', 'mute')");
+            table.HasCheckConstraint("ck_notification_actions_result",
+                "result IN ('ok', 'skip_unavailable', 'already_done', 'unauthenticated', 'error')");
+            // NULL passes a SQLite CHECK, so an action without a mute choice stays valid.
+            table.HasCheckConstraint("ck_notification_actions_mute_choice",
+                "mute_choice IN ('tomorrow', '3d', '7d', 'disable', 'time_changed', 'cancel')");
+        });
+        action.HasKey(value => value.Id);
+        action.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
+        action.Property(value => value.UserId).HasColumnName("user_id");
+        action.HasOne<User>().WithMany().HasForeignKey(value => value.UserId).OnDelete(DeleteBehavior.NoAction);
+        action.Property(value => value.ReminderLogId).HasColumnName("reminder_log_id");
+        // SET NULL: the audit row outlives a purged decision, and it is the only record of the tap.
+        action.HasOne<ReminderLog>().WithMany().HasForeignKey(value => value.ReminderLogId)
+            .OnDelete(DeleteBehavior.SetNull);
+        action.Property(value => value.LocalDate).HasColumnName("local_date").IsRequired();
+        action.Property(value => value.Action).HasColumnName("action").IsRequired();
+        action.Property(value => value.Result).HasColumnName("result").IsRequired();
+        action.Property(value => value.MuteChoice).HasColumnName("mute_choice");
+        action.Property(value => value.CreatedAtMs).HasColumnName("created_at_ms");
     }
 
     private static void ConfigureSrs(ModelBuilder modelBuilder)

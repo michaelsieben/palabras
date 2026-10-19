@@ -372,6 +372,60 @@ namespace Palabras.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Palabras.Persistence.NotificationAction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("action");
+
+                    b.Property<long>("CreatedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at_ms");
+
+                    b.Property<string>("LocalDate")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("local_date");
+
+                    b.Property<string>("MuteChoice")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("mute_choice");
+
+                    b.Property<int?>("ReminderLogId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("reminder_log_id");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("result");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReminderLogId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("notification_actions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_notification_actions_action", "action IN ('open', 'skip', 'mute')");
+
+                            t.HasCheckConstraint("ck_notification_actions_mute_choice", "mute_choice IN ('tomorrow', '3d', '7d', 'disable', 'time_changed', 'cancel')");
+
+                            t.HasCheckConstraint("ck_notification_actions_result", "result IN ('ok', 'skip_unavailable', 'already_done', 'unauthenticated', 'error')");
+                        });
+                });
+
             modelBuilder.Entity("Palabras.Persistence.PracticeSession", b =>
                 {
                     b.Property<int>("Id")
@@ -424,6 +478,244 @@ namespace Palabras.Persistence.Migrations
                     b.ToTable("practice_sessions", null, t =>
                         {
                             t.HasCheckConstraint("ck_practice_sessions_status", "status IN ('in_progress', 'completed', 'abandoned')");
+                        });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.PushDelivery", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempts");
+
+                    b.Property<int?>("LastStatus")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("last_status");
+
+                    b.Property<int>("ReminderLogId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("reminder_log_id");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("result");
+
+                    b.Property<int?>("SubscriptionId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("subscription_id");
+
+                    b.Property<long>("UpdatedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("updated_at_ms");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("ReminderLogId", "SubscriptionId")
+                        .IsUnique();
+
+                    b.ToTable("push_deliveries", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_push_deliveries_result", "result IN ('pending', 'sent', 'gone', 'rejected', 'transient')");
+                        });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.PushSubscription", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Auth")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("auth");
+
+                    b.Property<long>("CreatedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at_ms");
+
+                    b.Property<string>("DeviceLabel")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("device_label");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("endpoint");
+
+                    b.Property<int>("FailureCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("failure_count");
+
+                    b.Property<long?>("LastFailureAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("last_failure_at_ms");
+
+                    b.Property<int?>("LastStatus")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("last_status");
+
+                    b.Property<long?>("LastSuccessAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("last_success_at_ms");
+
+                    b.Property<string>("P256dh")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("p256dh");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("active")
+                        .HasColumnName("state");
+
+                    b.Property<long>("UpdatedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("updated_at_ms");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("VapidKeyId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("vapid_key_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Endpoint")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "State")
+                        .HasDatabaseName("ix_push_subscriptions_user");
+
+                    b.ToTable("push_subscriptions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_push_subscriptions_state", "state IN ('active', 'stale_key', 'rejected')");
+                        });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.ReminderLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("channel");
+
+                    b.Property<long>("CreatedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at_ms");
+
+                    b.Property<long?>("ExpiresAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("expires_at_ms");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("LocalDate")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("local_date");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("result");
+
+                    b.Property<bool>("SkipAvailable")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("skip_available");
+
+                    b.Property<int?>("TtlS")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("ttl_s");
+
+                    b.Property<long>("UpdatedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("updated_at_ms");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "LocalDate", "Kind", "Channel")
+                        .IsUnique();
+
+                    b.ToTable("reminder_log", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_reminder_log_channel", "channel IN ('webpush')");
+
+                            t.HasCheckConstraint("ck_reminder_log_kind", "kind IN ('daily')");
+
+                            t.HasCheckConstraint("ck_reminder_log_result", "result IN ('sending', 'sent', 'failed', 'gone', 'window_missed', 'no_target')");
+                        });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.ReminderSettings", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("user_id");
+
+                    b.Property<bool>("Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true)
+                        .HasColumnName("enabled");
+
+                    b.Property<string>("MutedUntil")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("muted_until");
+
+                    b.Property<string>("ReminderTime")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("22:00")
+                        .HasColumnName("reminder_time");
+
+                    b.Property<int>("SendWindowMin")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(90)
+                        .HasColumnName("send_window_min");
+
+                    b.Property<long>("UpdatedAtMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("updated_at_ms");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("reminder_settings", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_reminder_settings_time", "length(reminder_time) = 5");
+
+                            t.HasCheckConstraint("ck_reminder_settings_window", "send_window_min BETWEEN 15 AND 240");
                         });
                 });
 
@@ -1264,11 +1556,66 @@ namespace Palabras.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Palabras.Persistence.NotificationAction", b =>
+                {
+                    b.HasOne("Palabras.Persistence.ReminderLog", null)
+                        .WithMany()
+                        .HasForeignKey("ReminderLogId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Palabras.Persistence.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Palabras.Persistence.PracticeSession", b =>
                 {
                     b.HasOne("Palabras.Persistence.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.PushDelivery", b =>
+                {
+                    b.HasOne("Palabras.Persistence.ReminderLog", null)
+                        .WithMany()
+                        .HasForeignKey("ReminderLogId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Palabras.Persistence.PushSubscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.PushSubscription", b =>
+                {
+                    b.HasOne("Palabras.Persistence.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.ReminderLog", b =>
+                {
+                    b.HasOne("Palabras.Persistence.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.ReminderSettings", b =>
+                {
+                    b.HasOne("Palabras.Persistence.User", null)
+                        .WithOne()
+                        .HasForeignKey("Palabras.Persistence.ReminderSettings", "UserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });
