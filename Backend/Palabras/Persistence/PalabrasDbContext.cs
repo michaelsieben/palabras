@@ -65,6 +65,9 @@ internal sealed class PalabrasDbContext : DbContext
         word.Property(value => value.Gender).HasColumnName("gender");
         word.Property(value => value.Pos).HasColumnName("pos").IsRequired();
         word.Property(value => value.Cefr).HasColumnName("cefr").IsRequired();
+        // M5 ramp: nullable, no CHECK and no FK. Anything that forces a SQLite rebuild here would
+        // widen the ReviewGate crash window (docs/08-upgrade-rollback.md §G).
+        word.Property(value => value.Difficulty).HasColumnName("difficulty");
         word.Property(value => value.RegionScope).HasColumnName("region_scope").IsRequired();
         word.Property(value => value.Register).HasColumnName("register").IsRequired();
         word.Property(value => value.RegisterNotes).HasColumnName("register_notes");

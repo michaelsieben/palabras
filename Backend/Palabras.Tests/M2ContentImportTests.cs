@@ -35,12 +35,17 @@ public sealed class M2ContentImportTests : IDisposable
             words.Select(word => word.Key).Order(StringComparer.Ordinal));
         var pluralByKey = files.ToDictionary(CorpusKey,
             path => JsonNode.Parse(File.ReadAllText(path))!["plural"]?.GetValue<string>());
+        // U2: the rank maps from the content file, and a file without one imports as NULL — the
+        // shipped corpus is importable both before and after the ranks are written.
+        var difficultyByKey = files.ToDictionary(CorpusKey,
+            path => JsonNode.Parse(File.ReadAllText(path))!["difficulty"]?.GetValue<int>());
         Assert.All(words, word =>
         {
             Assert.Equal("pending_review", word.Status);
             Assert.Equal(1, word.Version);
             Assert.Equal(64, word.ContentHash.Length);
             Assert.Equal(pluralByKey[word.Key], word.Plural);
+            Assert.Equal(difficultyByKey[word.Key], word.Difficulty);
         });
         var second = await importer.ImportAsync(CorpusDirectory(), false, CancellationToken.None);
         Assert.Equal(new[] { 0, 0, files.Length, 0 }, Counts(second));
@@ -288,6 +293,31 @@ public sealed class M2ContentImportTests : IDisposable
         await using var database = _settings.CreateContext();
         Assert.Equal(1, (await database.Words.SingleAsync()).Version);
         Assert.Single(await database.WordRevisions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task DifficultyRankMapsIntoTheColumnAndAMissingRankImportsAsNull()
+    {
+        var ranked = Seed();
+        ranked["difficulty"] = 30;
+        await Write(ranked);
+        var unranked = Seed();
+        unranked["id"] = "es-nevera-02";
+        unranked["headword"] = "nevera de hielo";
+        // The corpus file itself now carries a rank (U1); this copy must not.
+        unranked.AsObject().Remove("difficulty");
+        await Write(unranked);
+        Assert.Equal(new[] { 2, 0, 0, 0 }, Counts(await Import()));
+        await using var database = _settings.CreateContext();
+        Assert.Equal(30, (await database.Words.SingleAsync(word => word.Key == "es-nevera-01")).Difficulty);
+        Assert.Null((await database.Words.SingleAsync(word => word.Key == "es-nevera-02")).Difficulty);
+
+        // Re-ranking is a content change: the source wins and the column follows it back to NULL.
+        ranked.AsObject().Remove("difficulty");
+        await Write(ranked);
+        Assert.Equal(new[] { 0, 1, 1, 0 }, Counts(await Import()));
+        database.ChangeTracker.Clear();
+        Assert.Null((await database.Words.SingleAsync(word => word.Key == "es-nevera-01")).Difficulty);
     }
 
     private Task<ContentImportResult> Import(bool dryRun = false) => new ContentImporter(_settings).ImportAsync(_words, dryRun, CancellationToken.None);

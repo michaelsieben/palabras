@@ -9,6 +9,9 @@ internal sealed class Word
     public string? Gender { get; set; }
     public string Pos { get; set; } = "";
     public string Cefr { get; set; } = "";
+    // Intra-band authoring rank (lower = taught earlier), content-level `difficulty`. NULL for a file
+    // that carries no rank; the new-card ordering coalesces it to 999 so an unranked word sorts last.
+    public int? Difficulty { get; set; }
     public string RegionScope { get; set; } = "";
     public string Register { get; set; } = "";
     public string? RegisterNotes { get; set; }

@@ -816,6 +816,10 @@ namespace Palabras.Persistence.Migrations
                         .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
 
+                    b.Property<int?>("Difficulty")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("difficulty");
+
                     b.Property<string>("Gender")
                         .HasColumnType("TEXT")
                         .HasColumnName("gender");

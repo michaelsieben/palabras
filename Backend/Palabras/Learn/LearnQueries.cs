@@ -98,7 +98,9 @@ internal static class LearnQueries
             from card in DirectionVisible(database, fresh, bounds.StartOfLocalDayMs)
             join sense in database.Senses on card.SenseId equals sense.Id
             join word in database.Words on sense.WordId equals word.Id
-            orderby word.Cefr, word.Id, sense.SenseOrder
+            // Within a band, the content rank ramps the session (plan §2). SQLite sorts NULL first
+            // in ASC, so the coalesce is load-bearing: an unranked word must sort last, not first.
+            orderby word.Cefr, word.Difficulty ?? 999, word.Id, sense.SenseOrder
             select card;
         return limit is { } take ? query.Take(take) : query;
     }

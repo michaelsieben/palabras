@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Time.Testing;
+using Palabras.Learn;
 using Palabras.Persistence;
 using Palabras.Srs;
 using Palabras.Tests.Srs;
@@ -133,7 +134,8 @@ public sealed class M5QueueTests
             .OrderByDescending(item => item.Card.State == CardState.Learning || item.Card.State == CardState.Relearning)
             .ThenBy(item => item.Card.DueMs).Select(item => item.Card).Take(200);
         IQueryable<Card> fresh = eligible.Where(item => item.Card.State == CardState.New && item.Card.Direction == "es_en")
-            .OrderBy(item => item.Word.Cefr).ThenBy(item => item.Word.Id).ThenBy(item => item.Sense.SenseOrder)
+            .OrderBy(item => item.Word.Cefr).ThenBy(item => item.Word.Difficulty ?? 999)
+            .ThenBy(item => item.Word.Id).ThenBy(item => item.Sense.SenseOrder)
             .Select(item => item.Card).Take(12);
         string dueSql = due.ToQueryString();
         string newSql = fresh.ToQueryString();
@@ -153,6 +155,8 @@ public sealed class M5QueueTests
         Assert.Contains("EXISTS", dueSql);
         Assert.Contains("\"reviewed_at_ms\" <", dueSql);
         Assert.Contains("\"cefr\"", newSql);
+        // U2: the rank is coalesced in SQL, so no client evaluation and no NULL-first ordering.
+        Assert.Contains("COALESCE(\"w\".\"difficulty\", 999)", newSql);
         Assert.Equal(new[] { 3, 2, 9, 1 }, (await due.ToListAsync(CancellationToken.None)).Select(card => card.Id).ToArray());
         Assert.Equal(new[] { 14, 13 }, (await fresh.ToListAsync(CancellationToken.None)).Select(card => card.Id).ToArray());
         Assert.Equal(new[] { 3, 2 }, (await due.Take(2).ToListAsync(CancellationToken.None)).Select(card => card.Id).ToArray());
@@ -161,6 +165,53 @@ public sealed class M5QueueTests
         Assert.Throws<InvalidOperationException>(() => database.Cards
             .Where(card => clock.LocalDateOf(DateTimeOffset.FromUnixTimeMilliseconds(card.DueMs)) == clock.LocalToday)
             .ToQueryString());
+    }
+
+    // U2: within a CEFR band the new-card ramp is the content rank, and SQLite sorts NULL first in
+    // ASC, so `?? 999` is load-bearing: the unranked word must sort last, not jump the queue.
+    // ids are chosen so that ordering by id alone gives the wrong answer.
+    [Fact]
+    public async Task NewCardsFollowCefrThenDifficultyThenIdAsync()
+    {
+        await using var rig = new SrsTestDatabase();
+        PalabrasDbContext database = rig.Context;
+        await database.Database.MigrateAsync(CancellationToken.None);
+        var clock = new LearnerClock(new FakeTimeProvider(Parse("2026-10-25T09:00:00Z")), "Europe/Madrid");
+        var bounds = QueueBounds.From(clock, 1);
+        database.Users.Add(new User { Id = 1, Username = "owner", Role = "owner", PasswordHash = "hash" });
+        AddNewWord(database, 10, "A1", 20);
+        AddNewWord(database, 11, "A1", null);
+        AddNewWord(database, 12, "A1", 10);
+        // Cross-band control: an A2 word ranked ahead of every A1 word still sorts after them.
+        AddNewWord(database, 1, "A2", 1);
+        await database.SaveChangesAsync(CancellationToken.None);
+
+        var active = await ActiveSenses.LoadAsync(database, null, CancellationToken.None);
+        IQueryable<Card> query = LearnQueries.New(database, bounds, active, 12);
+        Assert.Contains("COALESCE(", query.ToQueryString());
+        Assert.Equal(new[] { 12, 10, 11, 1 },
+            (await query.Select(card => card.Id).ToListAsync(CancellationToken.None)).ToArray());
+    }
+
+    private static void AddNewWord(PalabrasDbContext database, int id, string cefr, int? difficulty)
+    {
+        database.Words.Add(new Word
+        {
+            Id = id, Key = $"es-word-{id:D2}", Headword = "palabra", Pos = "noun", Cefr = cefr,
+            Difficulty = difficulty, RegionScope = "ES", Register = "neutral", ContentHash = "hash",
+            ProvenanceMethod = "manual", Status = "approved"
+        });
+        database.Senses.Add(new Sense { Id = id, WordId = id, SenseOrder = 0 });
+        database.WordRevisions.Add(new WordRevision
+        {
+            WordId = id, Version = 1, Action = "import", SnapshotJson = "{\"senses\":[{\"gloss\":\"gloss\"}]}",
+            CreatedAt = 1
+        });
+        database.Cards.Add(new Card
+        {
+            Id = id, UserId = 1, SenseId = id, Direction = "es_en", State = CardState.New, DueMs = 0,
+            CreatedAt = 1
+        });
     }
 
     private static DateTimeOffset Parse(string value) => DateTimeOffset.Parse(value, CultureInfo.InvariantCulture);

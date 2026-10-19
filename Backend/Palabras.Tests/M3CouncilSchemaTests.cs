@@ -15,7 +15,7 @@ namespace Palabras.Tests;
 // must leave every new NOT NULL column defaulted so the old image can still INSERT after a rollback.
 public sealed class M3CouncilSchemaTests
 {
-    private static readonly string[] WordColumnsAdded = ["council_run_id", "source"];
+    private static readonly string[] WordColumnsAdded = ["council_run_id", "difficulty", "source"];
 
     private static readonly string[] AlternativeColumnsAdded =
         ["field", "models", "region", "register", "source", "support", "word_version"];
@@ -44,7 +44,8 @@ public sealed class M3CouncilSchemaTests
             Assert.Equal(column.Value, definition);
         }
         Assert.Equal(wordsBefore.Keys.Concat(WordColumnsAdded).Order().ToArray(), wordsAfter.Keys.Order().ToArray());
-        Assert.Equal(28, wordsAfter.Count);
+        // 29 = the 28 CouncilImport columns plus WordDifficulty's nullable difficulty.
+        Assert.Equal(29, wordsAfter.Count);
 
         Dictionary<string, string> alternativesAfter = await ColumnsAsync(connection, "word_alternatives");
         foreach (KeyValuePair<string, string> column in alternativesBefore)

@@ -48,13 +48,16 @@ public sealed class M4ReviewSchemaTests
             "council_agreement:REAL:0::0", "council_band:TEXT:0::0", "reduced_confidence:INTEGER:1:0:0",
             "lint_warnings:TEXT:0::0", "status_changed_at:INTEGER:0::0", "approved_version:INTEGER:0::0",
             // Added by the later, additive CouncilImport migration.
-            "source:TEXT:1:'manual':0", "council_run_id:INTEGER:0::0"
+            "source:TEXT:1:'manual':0", "council_run_id:INTEGER:0::0",
+            // Added by the even later, additive WordDifficulty migration.
+            "difficulty:INTEGER:0::0"
         })
         {
             Assert.Contains(column, wordColumns);
         }
-        // The six ReviewGate columns plus the two additive CouncilImport columns: 20 → 26 → 28.
-        Assert.Equal(28, wordColumns.Length);
+        // The six ReviewGate columns plus the two additive CouncilImport columns and WordDifficulty's
+        // nullable difficulty: 20 → 26 → 28 → 29.
+        Assert.Equal(29, wordColumns.Length);
 
         string reviewsSql = Assert.Single(await ReadStringsAsync(connection,
             "SELECT sql FROM sqlite_master WHERE type='table' AND name=$name;", "word_reviews", CancellationToken.None));
@@ -101,7 +104,7 @@ public sealed class M4ReviewSchemaTests
             Assert.True(columnsAfter.TryGetValue(column.Key, out string? definition), column.Key);
             Assert.Equal(column.Value, definition);
         }
-        Assert.Equal(columnsBefore.Keys.Concat(["council_agreement", "council_band", "reduced_confidence", "lint_warnings", "status_changed_at", "approved_version", "source", "council_run_id"]).Order().ToArray(),
+        Assert.Equal(columnsBefore.Keys.Concat(["council_agreement", "council_band", "reduced_confidence", "lint_warnings", "status_changed_at", "approved_version", "source", "council_run_id", "difficulty"]).Order().ToArray(),
             columnsAfter.Keys.Order().ToArray());
         Assert.Equal(revisionsBefore, await ReadStringsAsync(connection,
             "SELECT action || ':' || version FROM word_revisions ORDER BY id;", "", CancellationToken.None));

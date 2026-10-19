@@ -29,7 +29,9 @@ public sealed class M2ContentSchemaTests
         // Each entry is name:type:not-null:default:primary-key-order, from the actual migrated DB.
         // ReviewGate rebuilds `words` in SQLite to add its CHECK constraint, and the rebuild lists
         // columns alphabetically (id first as the primary key); the field set is what matters.
-        // CouncilImport is additive-only, so its columns are appended in ALTER order.
+        // CouncilImport is additive-only, so its columns are appended in ALTER order; WordDifficulty
+        // appends words.difficulty the same way.
+        // (Each entry is name:type:not-null:default:primary-key-order, from the actual migrated DB.)
         var expectedColumns = new Dictionary<string, string[]>
         {
             ["words"] = [
@@ -41,7 +43,7 @@ public sealed class M2ContentSchemaTests
                 "region_notes:TEXT:0::0", "region_scope:TEXT:1::0", "register:TEXT:1::0",
                 "register_notes:TEXT:0::0", "status:TEXT:1::0", "status_changed_at:INTEGER:0::0",
                 "updated_at:INTEGER:1::0", "version:INTEGER:1:1:0",
-                "source:TEXT:1:'manual':0", "council_run_id:INTEGER:0::0"],
+                "source:TEXT:1:'manual':0", "council_run_id:INTEGER:0::0", "difficulty:INTEGER:0::0"],
             ["senses"] = [
                 "id:INTEGER:1::1", "word_id:INTEGER:1::0", "sense_order:INTEGER:1::0", "en_gloss:TEXT:1::0",
                 "en_accepted:TEXT:1:'[]':0", "es_accepted:TEXT:1:'[]':0", "example_es:TEXT:1::0",
