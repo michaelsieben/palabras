@@ -3,9 +3,11 @@ import { chromium } from '@playwright/test'
 import { createServer, preview } from 'vite'
 import { readFile } from 'node:fs/promises'
 import { fulfillLearn, runDayAcceptanceBrowser, runDayBrowser, runLearnerBrowser } from './learnBrowser.mjs'
+import { testBaseUrl, testHost, testPort } from './browserConfig.mjs'
+import { runDayPanelBrowser } from './dayPanelBrowser.mjs'
 
 let swOverride
-const server = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: true }, plugins: [{
+const server = await preview({ preview: { host: testHost, port: testPort, strictPort: true }, plugins: [{
   name: 'test-update-response',
   configurePreviewServer(server) {
     server.middlewares.use((req, res, next) => {
@@ -29,6 +31,7 @@ try {
   await runLearnerBrowser(browser)
   await runDayBrowser(browser)
   await runDayAcceptanceBrowser(browser)
+  await runDayPanelBrowser(browser)
   const authContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' })
   const authPage = await authContext.newPage()
   let user = null
@@ -57,7 +60,7 @@ try {
     if (logoutStatus === 204) { user = null; return route.fulfill({ status: 204 }) }
     return route.fulfill({ status: logoutStatus, json: { error: 'auth' } })
   })
-  await authPage.goto('http://127.0.0.1:4173/revisar')
+  await authPage.goto(`${testBaseUrl}/revisar`)
   await authPage.locator('.auth-skeleton').waitFor()
   assert.equal(await authPage.getByLabel('Usuario', { exact: true }).count(), 0)
   releaseMe()
@@ -90,7 +93,7 @@ try {
   await authPage.getByRole('button', { name: 'Iniciar sesión', exact: true }).click()
   await authPage.getByRole('button', { name: 'Mostrar respuesta' }).waitFor()
   assert.equal(new URL(authPage.url()).pathname, '/')
-  await authPage.goto('http://127.0.0.1:4173/revisar')
+  await authPage.goto(`${testBaseUrl}/revisar`)
   await authPage.getByRole('heading', { name: 'Sin permiso', exact: true }).waitFor()
   assert.equal(new URL(authPage.url()).pathname, '/revisar')
   assert.equal(await authPage.getByRole('link', { name: 'Vista revisora' }).count(), 0)
@@ -101,7 +104,7 @@ try {
     assert.equal(await authPage.getByRole('link', { name: 'Aprobadas', exact: true }).count(), 0)
   }
   await assertLearnerNav()
-  await authPage.goto('http://127.0.0.1:4173/aprobadas')
+  await authPage.goto(`${testBaseUrl}/aprobadas`)
   await authPage.getByRole('heading', { name: 'Sin permiso', exact: true }).waitFor()
   await assertLearnerNav()
   await authPage.getByRole('button', { name: 'Volver a Hoy' }).click()
@@ -133,7 +136,7 @@ try {
   const cachedAuthContext = await browser.newContext({ serviceWorkers: 'allow' })
   await cachedAuthContext.route('**/api/auth/me', route => route.fulfill({ status: 401, json: { error: 'unauthorized' } }))
   const cachedAuthPage = await cachedAuthContext.newPage()
-  await cachedAuthPage.goto('http://127.0.0.1:4173/')
+  await cachedAuthPage.goto(`${testBaseUrl}/`)
   await cachedAuthPage.getByRole('button', { name: 'Iniciar sesión', exact: true }).waitFor()
   await cachedAuthPage.evaluate(async () => { await navigator.serviceWorker.ready; if (!navigator.serviceWorker.controller) await new Promise(resolve => navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true })) })
   await cachedAuthPage.reload()
@@ -147,7 +150,7 @@ try {
   const rawApi = await cachedAuthPage.evaluate(async () => { const response = await fetch('/api/raw401'); return { status: response.status, body: await response.text() } })
   assert.deepEqual(rawApi, { status: 401, body: 'Unauthorized test response' })
   await cachedAuthContext.route('**/api/auth/me', route => route.fulfill({ json: { username: 'demo', role: 'owner' } }))
-  const guarded = await cachedAuthPage.goto('http://127.0.0.1:4173/guarded-navigation')
+  const guarded = await cachedAuthPage.goto(`${testBaseUrl}/guarded-navigation`)
   assert.equal(guarded.status(), 401)
   assert.equal(await cachedAuthPage.locator('body').textContent(), 'Unauthorized test response')
   await cachedAuthContext.setOffline(true)
@@ -163,7 +166,7 @@ try {
     const errors = []; const apiRequests = []
     page.on('pageerror', error => errors.push(error.message))
     page.on('request', req => { const pathname = new URL(req.url()).pathname; if (pathname.startsWith('/api/')) apiRequests.push({ method: req.method(), pathname }) })
-    await page.goto('http://127.0.0.1:4173/')
+    await page.goto(`${testBaseUrl}/`)
     await page.evaluate(async () => { await navigator.serviceWorker.ready; if (!navigator.serviceWorker.controller) await new Promise(resolve => navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true })) })
     const measure = async () => page.evaluate(() => ({
       viewport: innerWidth, scroll: document.documentElement.scrollWidth,
@@ -191,7 +194,7 @@ try {
     await page.waitForFunction(() => document.activeElement === document.querySelector('.learn-session'))
     assert.equal(await page.locator('.learn-session').evaluate(el => el === document.activeElement), true)
     demoIdentity.role = 'reviewer'
-    await page.goto('http://127.0.0.1:4173/')
+    await page.goto(`${testBaseUrl}/`)
     await page.getByRole('button', { name: 'No ✗', exact: true }).first().waitFor()
     const reviewer = await measure(); assert.ok(reviewer.scroll <= viewport.width); assert.equal(reviewer.smallTargets, 0)
     assert.equal(reviewer.columns.split(' ').length, viewport.width >= 1536 ? 3 : 1)
@@ -211,10 +214,10 @@ try {
     await page.emulateMedia({ colorScheme: 'dark' })
     assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), 'dark')
     await context.setOffline(true)
-    await page.goto('http://127.0.0.1:4173/palabras')
+    await page.goto(`${testBaseUrl}/palabras`)
     await page.getByRole('heading', { name: 'Sin conexión' }).waitFor()
     await page.getByText('No se puede confirmar si has iniciado sesión. Conéctate para abrir Palabras.').waitFor()
-    await page.goto('http://127.0.0.1:4173/unknown-offline')
+    await page.goto(`${testBaseUrl}/unknown-offline`)
     await page.getByRole('heading', { name: 'Sin conexión' }).waitFor()
     assert.deepEqual(errors, [])
     // Two online app loads; both offline navigations serve signed-out-neutral fallback.
@@ -226,7 +229,7 @@ try {
   const updateContext = await browser.newContext()
   await mockSession(updateContext)
   const updatePage = await updateContext.newPage()
-  await updatePage.goto('http://127.0.0.1:4173/')
+  await updatePage.goto(`${testBaseUrl}/`)
   await updatePage.evaluate(async () => { await navigator.serviceWorker.ready; if (!navigator.serviceWorker.controller) await new Promise(resolve => navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true })) })
   await updatePage.getByRole('button', { name: 'Mostrar respuesta' }).click()
   swOverride = (await readFile(new URL('../dist/sw.js', import.meta.url), 'utf8')).replace(/palabras-shell-[a-f0-9]+/, 'palabras-shell-browser-update')
@@ -240,16 +243,16 @@ try {
   await mockSession(context)
   const page = await context.newPage()
   await page.addInitScript(() => { ServiceWorkerContainer.prototype.register = () => Promise.reject(new Error('Simulated registration failure')) })
-  await page.goto('http://127.0.0.1:4173/')
+  await page.goto(`${testBaseUrl}/`)
   await page.getByRole('link', { name: 'Ajustes', exact: true }).click()
   await page.getByText('Registro fallido; la app sigue funcionando en línea').waitFor()
   console.log('Registration failure: app/settings usable, auth backend mocked.')
-  const response = await page.request.get('http://127.0.0.1:4173/manifest.webmanifest')
+  const response = await page.request.get(`${testBaseUrl}/manifest.webmanifest`)
   assert.equal(response.status(), 200)
   assert.equal(response.headers()['cache-control'], 'no-cache')
   const manifest = await response.json()
-  for (const icon of manifest.icons) assert.equal((await page.request.get(`http://127.0.0.1:4173${icon.src}`)).status(), 200)
-  const sw = await page.request.get('http://127.0.0.1:4173/sw.js')
+  for (const icon of manifest.icons) assert.equal((await page.request.get(`${testBaseUrl}${icon.src}`)).status(), 200)
+  const sw = await page.request.get(`${testBaseUrl}/sw.js`)
   assert.equal(sw.status(), 200)
   assert.equal(sw.headers()['cache-control'], 'no-cache')
   console.log('Built preview public routes: manifest, all 4 icons and sw.js return 200; manifest/sw Cache-Control: no-cache. Production host not verified.')

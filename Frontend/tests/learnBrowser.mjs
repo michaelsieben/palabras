@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { testBaseUrl } from './browserConfig.mjs'
 
 export const browserPlan = (typed = false) => ({
   sessionId: 'b0cd98f1-dd5c-49ab-9ced-987865dd2100', generatedAtUtc: '2026-10-18T12:00:00Z', localDate: '2026-10-18',
@@ -53,7 +54,7 @@ export async function runLearnerBrowser(browser) {
     })
     let page = await context.newPage()
     page.on('pageerror', error => errors.push(error.message))
-    await page.goto('http://127.0.0.1:4173/sesion')
+    await page.goto(`${testBaseUrl}/sesion`)
     await page.getByLabel('Usuario', { exact: true }).fill('learner')
     await page.getByLabel('Contraseña', { exact: true }).fill('correct')
     await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click()
@@ -111,7 +112,7 @@ export async function runLearnerBrowser(browser) {
     page = await context.newPage()
     page.on('pageerror', error => errors.push(error.message))
     answer = page.getByLabel('Tu respuesta', { exact: true })
-    await page.goto('http://127.0.0.1:4173/sesion')
+    await page.goto(`${testBaseUrl}/sesion`)
     await answer.waitFor()
     await page.waitForFunction(() => new Promise(resolve => {
       const open = indexedDB.open('palabras-attempts:learner', 1)
@@ -125,7 +126,7 @@ export async function runLearnerBrowser(browser) {
     await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click()
     await page.getByRole('button', { name: 'No ✗', exact: true }).first().waitFor()
     const before = planRequests
-    await page.goto('http://127.0.0.1:4173/sesion')
+    await page.goto(`${testBaseUrl}/sesion`)
     await page.getByRole('navigation', { name: 'Navegación revisora' }).waitFor()
     assert.equal(new URL(page.url()).pathname, '/revisar')
     assert.equal(await answer.count(), 0); assert.equal(planRequests, before)
@@ -166,7 +167,7 @@ export async function runDayBrowser(browser) {
     let page = await context.newPage()
     await page.clock.install({ time: new Date('2026-10-18T21:58:00Z') })
     page.on('pageerror', error => errors.push(error.message))
-    await page.goto('http://127.0.0.1:4173/')
+    await page.goto(`${testBaseUrl}/`)
     await page.getByText('18 de octubre de 2026 · Racha: 3 días', { exact: true }).waitFor()
     await page.getByRole('button', { name: 'Saltar hoy', exact: true }).click()
     await page.getByText(/Ya has usado el salto. Puedes volver a saltar el 25 de octubre de 2026/).waitFor()
@@ -195,7 +196,7 @@ export async function runDayBrowser(browser) {
     page = await context.newPage(); page.on('pageerror', error => errors.push(error.message))
     await page.clock.install({ time: new Date('2026-10-18T22:02:00Z') })
     day = { ...day, localDate: '2026-10-19', status: null }
-    await page.goto('http://127.0.0.1:4173/')
+    await page.goto(`${testBaseUrl}/`)
     await page.getByText('19 de octubre de 2026 · Racha: 4 días', { exact: true }).waitFor()
     await page.getByText('Hoy, por completar', { exact: true }).waitFor()
     assert.equal(await page.getByRole('button', { name: 'Saltar hoy', exact: true }).isEnabled(), true)
@@ -250,7 +251,7 @@ export async function runDayAcceptanceBrowser(browser) {
     const page = await context.newPage()
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await page.clock.install({ time: new Date('2026-10-25T12:00:00Z') })
-    await page.goto('http://127.0.0.1:4173/')
+    await page.goto(`${testBaseUrl}/`)
     await page.getByText('Hoy puedes empezar otra racha', { exact: true }).waitFor()
     await page.getByText('25 de octubre de 2026 · Racha: 0 días', { exact: true }).waitFor()
     assert.equal(skips, 0); assert.equal(attempts, 0); assert.equal(completions, 0)

@@ -13,6 +13,7 @@ function formatDay(date: string): string {
 
 export function DayStatusPanel({ completionQueue }: { completionQueue: ReturnType<typeof getCompletionQueue> }) {
   const completion = useSyncExternalStore(completionQueue.subscribe, completionQueue.getSnapshot)
+  const completionKey = JSON.stringify(completion.last)
   const [day, setDay] = useState<DayStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -31,16 +32,17 @@ export function DayStatusPanel({ completionQueue }: { completionQueue: ReturnTyp
   useEffect(() => {
     const controller = new AbortController()
     void refresh(controller.signal)
-    const update = () => { setOnline(navigator.onLine); if (navigator.onLine) { setLoading(true); void refresh(controller.signal) } }
+    const update = (silent = false) => { setOnline(navigator.onLine); if (navigator.onLine) { if (!silent) setLoading(true); void refresh(controller.signal) } }
+    const activeUpdate = () => update()
     const visible = () => { if (document.visibilityState === 'visible') update() }
-    const timer = window.setInterval(visible, 60_000)
-    window.addEventListener('online', update); window.addEventListener('offline', update)
-    window.addEventListener('focus', update); document.addEventListener('visibilitychange', visible)
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') update(true) }, 60_000)
+    window.addEventListener('online', activeUpdate); window.addEventListener('offline', activeUpdate)
+    window.addEventListener('focus', activeUpdate); document.addEventListener('visibilitychange', visible)
     return () => {
-      controller.abort(); window.clearInterval(timer); window.removeEventListener('online', update); window.removeEventListener('offline', update)
-      window.removeEventListener('focus', update); document.removeEventListener('visibilitychange', visible)
+      controller.abort(); window.clearInterval(timer); window.removeEventListener('online', activeUpdate); window.removeEventListener('offline', activeUpdate)
+      window.removeEventListener('focus', activeUpdate); document.removeEventListener('visibilitychange', visible)
     }
-  }, [refresh, completion.last]) // Done's payload can be yesterday: always refetch today.
+  }, [refresh, completionKey]) // Done's payload can be yesterday: refetch today only when its data changes.
   async function skip() {
     if (!day || skipping) return
     ++requestId.current // An older status read must not overwrite this mutation.
@@ -62,7 +64,7 @@ export function DayStatusPanel({ completionQueue }: { completionQueue: ReturnTyp
   }
   return <section className="panel day-status" aria-label="Día y racha">
     <div className="day-status-heading">
-      <div>{day ? <><strong>{dayLabel(day.status)}</strong><span>{formatDay(day.localDate)} · Racha: {day.streak} {day.streak === 1 ? 'día' : 'días'}</span></> : <strong>{loading ? 'Consultando día y racha…' : 'Día y racha sin confirmar'}</strong>}</div>
+      <div role="status" aria-atomic="true">{day ? <><strong>{dayLabel(day.status)}</strong><span>{formatDay(day.localDate)} · Racha: {day.streak} {day.streak === 1 ? 'día' : 'días'}</span></> : <strong>{loading ? 'Consultando día y racha…' : 'Día y racha sin confirmar'}</strong>}</div>
       {day && !['done', 'skipped'].includes(day.status ?? '') && <button disabled={!online || loading || error || skipping || !day.skipAvailable || completion.pending > 0} onClick={() => void skip()}>{skipping ? 'Guardando salto…' : 'Saltar hoy'}</button>}
     </div>
     {day?.status === 'skipped' ? <p className="note">El salto conserva la racha, no añade un día. Puedes seguir practicando.</p> : day && !['done', 'skipped'].includes(day.status ?? '') && day.skipAvailable && <p className="note">Un salto cada 7 días conserva la racha. No cambia tus repasos.</p>}
