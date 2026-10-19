@@ -1,0 +1,24 @@
+{
+  "id": "es-humedo-01",
+  "headword": "húmedo",
+  "partOfSpeech": "adjective",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "damp, humid",
+      "example": "El aire está muy húmedo hoy.",
+      "exampleGloss": "The air is very damp today."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "mojado", "gloss": "wet", "reason": "Actually covered in water, not just damp air." },
+    { "kind": "different-sense", "value": "seco", "gloss": "dry", "reason": "The opposite weather condition." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "húmedo for air, climate, clothes; humedad is the noun. Feminine húmeda.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-enseguida-01",
+  "headword": "enseguida",
+  "partOfSpeech": "adverb",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "right away, in a moment",
+      "example": "Voy enseguida, espera un momento.",
+      "exampleGloss": "I am coming right away, wait a moment."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "en seguida", "gloss": "right away", "reason": "The two-word spelling, also correct." },
+    { "kind": "near-synonym", "value": "ahora mismo", "gloss": "right now", "reason": "Stronger and more immediate." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "One word is the usual spelling in Spain; en seguida is also accepted.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

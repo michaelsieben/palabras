@@ -1,0 +1,27 @@
+{
+  "id": "es-sorpresa-01",
+  "headword": "sorpresa",
+  "article": "la",
+  "plural": "sorpresas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk", "family"],
+  "senses": [
+    {
+      "gloss": "surprise",
+      "example": "Le he preparado una sorpresa a mi madre.",
+      "exampleGloss": "I have prepared a surprise for my mother."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el regalo", "gloss": "present", "reason": "If the surprise is a gift; not every surprise is one." },
+    { "kind": "different-sense", "value": "el asombro", "gloss": "astonishment", "reason": "The reaction, not the surprising thing." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine. de sorpresa = as a surprise; llevarse una sorpresa = to get a surprise.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

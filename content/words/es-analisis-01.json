@@ -1,0 +1,27 @@
+{
+  "id": "es-analisis-01",
+  "headword": "análisis",
+  "article": "el",
+  "plural": "análisis",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "test, analysis",
+      "example": "Me han hecho un análisis de sangre.",
+      "exampleGloss": "I have had a blood test."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la prueba", "gloss": "test", "reason": "General word for a medical test." },
+    { "kind": "different-sense", "value": "el estudio", "gloss": "study", "reason": "The \"analysis\" sense in academic or market contexts." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine and the same in singular and plural: el análisis, los análisis. análisis de sangre/orina.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

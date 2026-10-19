@@ -1,0 +1,24 @@
+{
+  "id": "es-alegrarse-01",
+  "headword": "alegrarse",
+  "partOfSpeech": "verb",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk", "family"],
+  "senses": [
+    {
+      "gloss": "to be glad",
+      "example": "Me alegro de que hayas venido.",
+      "exampleGloss": "I am glad you have come."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "alegrar", "gloss": "to cheer up", "reason": "The non-reflexive form: to make someone happy." },
+    { "kind": "near-synonym", "value": "estar contento", "gloss": "to be happy", "reason": "A state rather than a reaction to news." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "me alegro de que + subjunctive (hayas venido). me alegro de verte is the simpler pattern.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-reciclar-01",
+  "headword": "reciclar",
+  "partOfSpeech": "verb",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "household"],
+  "senses": [
+    {
+      "gloss": "to recycle",
+      "example": "En casa reciclamos el vidrio y el plástico.",
+      "exampleGloss": "At home we recycle glass and plastic."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "reutilizar", "gloss": "to reuse", "reason": "Using something again, not processing it as waste." },
+    { "kind": "near-synonym", "value": "separar", "gloss": "to sort (waste)", "reason": "The everyday act before recycling." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "reciclar papel/vidrio/plástico; reciclaje is the noun.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-plazo-01",
+  "headword": "plazo",
+  "article": "el",
+  "plural": "plazos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine", "time"],
+  "senses": [
+    {
+      "gloss": "deadline, time limit",
+      "example": "El plazo termina el viernes.",
+      "exampleGloss": "The deadline is on Friday."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la fecha límite", "gloss": "the deadline date", "reason": "The concrete date rather than the period allowed." },
+    { "kind": "different-sense", "value": "la cuota", "gloss": "instalment", "reason": "The \"payment in instalments\" sense of plazo." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "en el plazo de una semana = within a week; pagar a plazos = to pay in instalments.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

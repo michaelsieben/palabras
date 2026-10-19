@@ -1,0 +1,27 @@
+{
+  "id": "es-sueldo-01",
+  "headword": "sueldo",
+  "article": "el",
+  "plural": "sueldos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "salary, wage",
+      "example": "Mi sueldo no ha subido este año.",
+      "exampleGloss": "My salary has not gone up this year."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "el salario", "gloss": "salary", "reason": "Same meaning, more formal and technical." },
+    { "kind": "near-synonym", "value": "la paga", "gloss": "pay, pocket money", "reason": "Colloquial for the money you receive, often weekly." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "sueldo is the regular monthly pay; salario is the broader legal term.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

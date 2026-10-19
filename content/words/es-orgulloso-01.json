@@ -1,0 +1,24 @@
+{
+  "id": "es-orgulloso-01",
+  "headword": "orgulloso",
+  "partOfSpeech": "adjective",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk", "family"],
+  "senses": [
+    {
+      "gloss": "proud",
+      "example": "Estoy muy orgulloso de mi hermana.",
+      "exampleGloss": "I am very proud of my sister."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "satisfecho", "gloss": "pleased", "reason": "Less intense and more about a result." },
+    { "kind": "different-sense", "value": "arrogante", "gloss": "arrogant", "reason": "The negative side of orgulloso: thinking too highly of yourself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "orgulloso de alguien/algo. Feminine orgullosa; with estar for the feeling.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

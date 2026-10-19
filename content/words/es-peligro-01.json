@@ -1,0 +1,27 @@
+{
+  "id": "es-peligro-01",
+  "headword": "peligro",
+  "article": "el",
+  "plural": "peligros",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "weather"],
+  "senses": [
+    {
+      "gloss": "danger",
+      "example": "Hay peligro de nieve en la carretera.",
+      "exampleGloss": "There is a risk of snow on the road."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el riesgo", "gloss": "risk", "reason": "More about probability; peligro is the threat itself." },
+    { "kind": "near-synonym", "value": "la amenaza", "gloss": "threat", "reason": "Something actively threatening." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "hay peligro de + noun/infinitive. peligroso is the adjective.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

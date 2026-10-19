@@ -1,0 +1,26 @@
+{
+  "id": "es-carino-01",
+  "headword": "cariño",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family", "small-talk"],
+  "senses": [
+    {
+      "gloss": "affection, love",
+      "example": "Mi abuela me habla con mucho cariño.",
+      "exampleGloss": "My grandmother speaks to me with a lot of affection."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el afecto", "gloss": "affection", "reason": "More formal and less warm in tone." },
+    { "kind": "different-sense", "value": "el amor", "gloss": "love, darling", "reason": "The term of address: ¿qué tal, amor?" }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "con cariño; cariño is also what you call your partner or a child. Mass noun, no everyday plural.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

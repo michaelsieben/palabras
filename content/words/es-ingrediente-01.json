@@ -1,0 +1,27 @@
+{
+  "id": "es-ingrediente-01",
+  "headword": "ingrediente",
+  "article": "el",
+  "plural": "ingredientes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "ingredient",
+      "example": "Me faltan dos ingredientes para la tarta.",
+      "exampleGloss": "I am missing two ingredients for the cake."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el componente", "gloss": "component", "reason": "Technical and general, not cooking." },
+    { "kind": "near-synonym", "value": "el producto", "gloss": "product", "reason": "A shop product, not one part of a recipe." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine. ingredientes de una receta; also figurative: ingredientes de una historia.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

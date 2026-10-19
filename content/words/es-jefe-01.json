@@ -1,0 +1,27 @@
+{
+  "id": "es-jefe-01",
+  "headword": "jefe",
+  "article": "el",
+  "plural": "jefes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "boss",
+      "example": "Mi jefe me ha dado el día libre.",
+      "exampleGloss": "My boss has given me the day off."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la jefa", "gloss": "the female boss", "reason": "Feminine form for a woman in charge." },
+    { "kind": "near-synonym", "value": "el responsable", "gloss": "the person in charge", "reason": "More neutral and formal; not necessarily your line manager." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "jefa for a woman. ser el jefe, not estar. In compounds: jefe de equipo, jefe de cocina.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

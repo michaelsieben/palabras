@@ -1,0 +1,27 @@
+{
+  "id": "es-sintoma-01",
+  "headword": "síntoma",
+  "article": "el",
+  "plural": "síntomas",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "symptom",
+      "example": "¿Qué síntomas tienes desde ayer?",
+      "exampleGloss": "What symptoms have you had since yesterday?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la señal", "gloss": "sign", "reason": "General sign, not necessarily medical." },
+    { "kind": "near-synonym", "value": "el indicio", "gloss": "clue, indication", "reason": "A hint of something, more formal." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine despite the -a ending; plural síntomas. tener síntomas de algo.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

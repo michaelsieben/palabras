@@ -1,0 +1,26 @@
+{
+  "id": "es-paro-01",
+  "headword": "paro",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "unemployment",
+      "example": "Mi cuñado está en el paro desde marzo.",
+      "exampleGloss": "My brother-in-law has been unemployed since March."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "el desempleo", "gloss": "unemployment", "reason": "Official and formal; the word in statistics and news." },
+    { "kind": "different-sense", "value": "la huelga", "gloss": "strike", "reason": "paro also means a work stoppage; huelga is the everyday word for a strike." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "estar en el paro is the fixed Peninsular phrase. Also paro = stoppage (paro cardíaco, paro laboral).",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

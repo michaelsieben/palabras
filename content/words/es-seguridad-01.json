@@ -1,0 +1,26 @@
+{
+  "id": "es-seguridad-01",
+  "headword": "seguridad",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "safety, security",
+      "example": "La seguridad del barrio ha mejorado.",
+      "exampleGloss": "The safety of the neighbourhood has improved."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la certeza", "gloss": "certainty", "reason": "The \"sureness\" sense: con seguridad = for sure." },
+    { "kind": "near-synonym", "value": "la protección", "gloss": "protection", "reason": "Being protected rather than being safe." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Abstract feminine noun, no everyday plural. con seguridad = safely / for certain.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

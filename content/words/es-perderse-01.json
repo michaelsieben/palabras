@@ -1,0 +1,24 @@
+{
+  "id": "es-perderse-01",
+  "headword": "perderse",
+  "partOfSpeech": "verb",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "transport"],
+  "senses": [
+    {
+      "gloss": "to get lost",
+      "example": "Nos hemos perdido otra vez en el centro.",
+      "exampleGloss": "We have got lost in the centre again."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "perder", "gloss": "to lose", "reason": "Losing an object, not losing your way." },
+    { "kind": "near-synonym", "value": "extraviarse", "gloss": "to go astray", "reason": "Formal and mostly for objects." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "perderse = to get lost; perderse algo also = to miss out on something.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "es-urgencias-01",
+  "headword": "urgencias",
+  "article": "las",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "A&E, emergency department",
+      "example": "Lo llevamos a urgencias anoche.",
+      "exampleGloss": "We took him to A&E last night."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "el servicio de urgencias", "gloss": "the emergency department", "reason": "The full official name." },
+    { "kind": "regional", "value": "la emergencia", "gloss": "the emergency room", "reason": "LatAm form; in Spain urgencias is the place." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Plural-only in this sense: ir a urgencias. Feminine, takes las.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

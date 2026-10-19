@@ -1,0 +1,27 @@
+{
+  "id": "es-tobillo-01",
+  "headword": "tobillo",
+  "article": "el",
+  "plural": "tobillos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "ankle",
+      "example": "Me he torcido el tobillo bajando la escalera.",
+      "exampleGloss": "I have twisted my ankle coming down the stairs."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el empeine", "gloss": "instep", "reason": "The top of the foot, not the ankle joint." },
+    { "kind": "different-sense", "value": "la rodilla", "gloss": "knee", "reason": "The joint above, often confused when talking about injuries." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "torcerse el tobillo is the fixed injury collocation. Masculine.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

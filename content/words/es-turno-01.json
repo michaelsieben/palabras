@@ -1,0 +1,27 @@
+{
+  "id": "es-turno-01",
+  "headword": "turno",
+  "article": "el",
+  "plural": "turnos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "shift",
+      "example": "Esta semana tengo el turno de noche.",
+      "exampleGloss": "This week I have the night shift."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la vez", "gloss": "turn", "reason": "Your turn in a queue or game, not a work shift." },
+    { "kind": "near-synonym", "value": "la guardia", "gloss": "on-call duty", "reason": "A medical or emergency shift, more specific." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "turno de mañana/tarde/noche; also \"por turnos\" = in turns.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

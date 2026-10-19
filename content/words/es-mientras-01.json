@@ -1,0 +1,24 @@
+{
+  "id": "es-mientras-01",
+  "headword": "mientras",
+  "partOfSpeech": "conjunction",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "while",
+      "example": "Escucho la radio mientras cocino.",
+      "exampleGloss": "I listen to the radio while I cook."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "al mismo tiempo que", "gloss": "at the same time as", "reason": "More explicit but heavier." },
+    { "kind": "different-sense", "value": "siempre que", "gloss": "as long as", "reason": "The conditional sense of mientras (mientras pueda)." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "mientras + indicative for two simultaneous actions. mientras que = whereas, a contrast.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

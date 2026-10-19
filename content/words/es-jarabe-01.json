@@ -1,0 +1,27 @@
+{
+  "id": "es-jarabe-01",
+  "headword": "jarabe",
+  "article": "el",
+  "plural": "jarabes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health"],
+  "senses": [
+    {
+      "gloss": "syrup (medicine)",
+      "example": "Tómate el jarabe después de comer.",
+      "exampleGloss": "Take the syrup after lunch."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el sirope", "gloss": "syrup (for drinks)", "reason": "The sweet drink syrup, not medicine." },
+    { "kind": "near-synonym", "value": "el medicamento", "gloss": "medicine", "reason": "The general word for any medicine." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "jarabe para la tos = cough syrup. Masculine.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

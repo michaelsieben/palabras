@@ -1,0 +1,27 @@
+{
+  "id": "es-prevision-01",
+  "headword": "previsión",
+  "article": "la",
+  "plural": "previsiones",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["weather"],
+  "senses": [
+    {
+      "gloss": "forecast",
+      "example": "La previsión dice que va a nevar.",
+      "exampleGloss": "The forecast says it is going to snow."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el pronóstico", "gloss": "forecast", "reason": "More technical and common in weather apps." },
+    { "kind": "different-sense", "value": "la anticipación", "gloss": "foresight", "reason": "The \"planning ahead\" sense of previsión." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "la previsión del tiempo = the weather forecast. Feminine.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

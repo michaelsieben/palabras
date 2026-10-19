@@ -1,0 +1,27 @@
+{
+  "id": "es-pariente-01",
+  "headword": "pariente",
+  "article": "el",
+  "plural": "parientes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "relative",
+      "example": "Todos mis parientes viven en Navarra.",
+      "exampleGloss": "All my relatives live in Navarre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el familiar", "gloss": "family member", "reason": "Warmer and more everyday; pariente is broader." },
+    { "kind": "near-synonym", "value": "el miembro de la familia", "gloss": "family member", "reason": "Longer and more explicit." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Same form for a female relative (la pariente), but el pariente is the default. Includes distant relatives.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-transbordo-01",
+  "headword": "transbordo",
+  "article": "el",
+  "plural": "transbordos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport", "city"],
+  "senses": [
+    {
+      "gloss": "transfer, change (of line)",
+      "example": "Hay que hacer transbordo en la siguiente parada.",
+      "exampleGloss": "You have to change lines at the next stop."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el enlace", "gloss": "connection", "reason": "The connection between two services." },
+    { "kind": "near-synonym", "value": "el cambio", "gloss": "change", "reason": "General change; transbordo is specific to transport." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "hacer transbordo; also written trasbordo. Masculine.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

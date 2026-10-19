@@ -1,0 +1,27 @@
+{
+  "id": "es-contenedor-01",
+  "headword": "contenedor",
+  "article": "el",
+  "plural": "contenedores",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "household"],
+  "senses": [
+    {
+      "gloss": "container, rubbish bin",
+      "example": "El contenedor amarillo es para los plásticos.",
+      "exampleGloss": "The yellow bin is for plastic."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el contenedor de carga", "gloss": "shipping container", "reason": "The port/transport sense of contenedor." },
+    { "kind": "near-synonym", "value": "el cubo de basura", "gloss": "rubbish bin", "reason": "The small bin at home, not the street container." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Street recycling colours in Spain: amarillo plásticos, azul papel, verde vidrio, marrón orgánico.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-apoyo-01",
+  "headword": "apoyo",
+  "article": "el",
+  "plural": "apoyos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["family"],
+  "senses": [
+    {
+      "gloss": "support",
+      "example": "Mi familia me ha dado mucho apoyo.",
+      "exampleGloss": "My family has given me a lot of support."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el respaldo", "gloss": "backing", "reason": "More formal, often institutional." },
+    { "kind": "different-sense", "value": "el soporte", "gloss": "physical support", "reason": "A stand or base, not emotional support." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "apoyo emocional/económico; apoyar is the verb. Masculine.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

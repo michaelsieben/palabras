@@ -1,0 +1,27 @@
+{
+  "id": "es-excursion-01",
+  "headword": "excursión",
+  "article": "la",
+  "plural": "excursiones",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure", "transport"],
+  "senses": [
+    {
+      "gloss": "day trip, excursion",
+      "example": "El domingo hicimos una excursión a la sierra.",
+      "exampleGloss": "On Sunday we went on a trip to the mountains."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el viaje", "gloss": "trip", "reason": "Usually longer and with an overnight stay." },
+    { "kind": "near-synonym", "value": "el paseo", "gloss": "walk, stroll", "reason": "Shorter and on foot." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "hacer una excursión. Feminine; common for Sunday outings into the Navarrese hills.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

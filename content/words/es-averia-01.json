@@ -1,0 +1,27 @@
+{
+  "id": "es-averia-01",
+  "headword": "avería",
+  "article": "la",
+  "plural": "averías",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["household", "technology"],
+  "senses": [
+    {
+      "gloss": "breakdown, fault",
+      "example": "El ascensor tiene una avería.",
+      "exampleGloss": "The lift has broken down."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el fallo", "gloss": "fault", "reason": "A specific fault in one part, often software." },
+    { "kind": "near-synonym", "value": "el problema", "gloss": "problem", "reason": "General; avería is specifically mechanical." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "tener una avería; averiado = broken down. Feminine.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

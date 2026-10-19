@@ -1,0 +1,24 @@
+{
+  "id": "es-opinar-01",
+  "headword": "opinar",
+  "partOfSpeech": "verb",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "to give your opinion, to think",
+      "example": "¿Tú qué opinas de la nueva profesora?",
+      "exampleGloss": "What do you think of the new teacher?"
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "pensar", "gloss": "to think", "reason": "Broader and more common; opinar is specifically giving a view." },
+    { "kind": "near-synonym", "value": "parecer", "gloss": "to seem", "reason": "Used as ¿qué te parece? for a reaction rather than a reasoned opinion." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "opinar de / sobre algo; opinar que + indicative. Neutral in Peninsular Spanish.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

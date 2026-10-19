@@ -1,0 +1,24 @@
+{
+  "id": "es-apuntarse-01",
+  "headword": "apuntarse",
+  "partOfSpeech": "verb",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure"],
+  "senses": [
+    {
+      "gloss": "to sign up, to join in",
+      "example": "Me he apuntado al gimnasio del barrio.",
+      "exampleGloss": "I have signed up to the local gym."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "inscribirse", "gloss": "to register", "reason": "More formal, often for courses or races." },
+    { "kind": "different-sense", "value": "apuntar", "gloss": "to write down", "reason": "The non-reflexive sense: noting something down." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "apuntarse a algo = to sign up for something. Very common Peninsular everyday verb.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

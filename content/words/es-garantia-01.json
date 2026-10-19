@@ -1,0 +1,27 @@
+{
+  "id": "es-garantia-01",
+  "headword": "garantía",
+  "article": "la",
+  "plural": "garantías",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping", "technology"],
+  "senses": [
+    {
+      "gloss": "warranty, guarantee",
+      "example": "El móvil todavía está en garantía.",
+      "exampleGloss": "The mobile is still under warranty."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la seguridad", "gloss": "assurance, certainty", "reason": "The \"guarantee\" sense as confidence, not a shop warranty." },
+    { "kind": "near-synonym", "value": "la cobertura", "gloss": "cover", "reason": "What the warranty actually covers." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "en garantía / tener garantía; garantía de dos años is the legal minimum in Spain.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

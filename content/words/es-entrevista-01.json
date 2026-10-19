@@ -1,0 +1,27 @@
+{
+  "id": "es-entrevista-01",
+  "headword": "entrevista",
+  "article": "la",
+  "plural": "entrevistas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "interview",
+      "example": "Tengo una entrevista de trabajo el lunes.",
+      "exampleGloss": "I have a job interview on Monday."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la cita", "gloss": "appointment", "reason": "A general appointment, not the formal interview." },
+    { "kind": "near-synonym", "value": "la prueba", "gloss": "test", "reason": "The selection test that may follow the interview." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "entrevista de trabajo is the fixed collocation. Feminine.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

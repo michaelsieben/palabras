@@ -1,0 +1,26 @@
+{
+  "id": "es-obras-01",
+  "headword": "obras",
+  "article": "las",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "roadworks, building works",
+      "example": "Hay obras en mi calle desde abril.",
+      "exampleGloss": "There have been roadworks in my street since April."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "los trabajos", "gloss": "works", "reason": "More formal and general." },
+    { "kind": "different-sense", "value": "la obra de teatro", "gloss": "play", "reason": "The theatre sense of obra." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Plural las obras for building/road works; estar de obras = to be having work done.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

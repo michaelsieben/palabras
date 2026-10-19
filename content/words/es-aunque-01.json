@@ -1,0 +1,24 @@
+{
+  "id": "es-aunque-01",
+  "headword": "aunque",
+  "partOfSpeech": "conjunction",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "although, even though",
+      "example": "Aunque llueve, vamos a salir igual.",
+      "exampleGloss": "Even though it is raining, we are going out anyway."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "a pesar de que", "gloss": "despite the fact that", "reason": "More formal and heavier; same contrast." },
+    { "kind": "near-synonym", "value": "si bien", "gloss": "although", "reason": "Formal and mostly written." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "aunque + indicative for a real fact; aunque + subjunctive for a hypothetical (aunque llueva).",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

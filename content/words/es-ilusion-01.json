@@ -1,0 +1,27 @@
+{
+  "id": "es-ilusion-01",
+  "headword": "ilusión",
+  "article": "la",
+  "plural": "ilusiones",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk", "family"],
+  "senses": [
+    {
+      "gloss": "excitement, looking forward to something",
+      "example": "Me hace mucha ilusión verte.",
+      "exampleGloss": "I am really looking forward to seeing you."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "las ganas", "gloss": "eagerness", "reason": "More about wanting to do something than the happy anticipation." },
+    { "kind": "different-sense", "value": "el espejismo", "gloss": "mirage", "reason": "The \"illusion\" sense of ilusión, not the everyday feeling." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "hacer ilusión is the key Peninsular pattern: me hace ilusión. Not the English \"illusion\" in this sense.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

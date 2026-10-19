@@ -1,0 +1,24 @@
+{
+  "id": "es-sobre-todo-01",
+  "headword": "sobre todo",
+  "partOfSpeech": "phrase",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk", "food"],
+  "senses": [
+    {
+      "gloss": "above all, especially",
+      "example": "Me gusta la fruta, sobre todo la naranja.",
+      "exampleGloss": "I like fruit, especially oranges."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "especialmente", "gloss": "especially", "reason": "Same meaning, a little more formal." },
+    { "kind": "near-synonym", "value": "principalmente", "gloss": "mainly", "reason": "About the main part rather than a highlighted example." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Two words, no accent. Not the same as sobretodo (an overcoat).",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-opinion-01",
+  "headword": "opinión",
+  "article": "la",
+  "plural": "opiniones",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "opinion",
+      "example": "En mi opinión, el piso es demasiado caro.",
+      "exampleGloss": "In my opinion, the flat is too expensive."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "el punto de vista", "gloss": "point of view", "reason": "Same idea, slightly more concrete." },
+    { "kind": "near-synonym", "value": "el parecer", "gloss": "view, judgment", "reason": "More formal and less common in everyday speech." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine. En mi opinión is the fixed opener; cambiar de opinión is to change your mind.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

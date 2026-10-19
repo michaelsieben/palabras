@@ -1,0 +1,27 @@
+{
+  "id": "es-alojamiento-01",
+  "headword": "alojamiento",
+  "article": "el",
+  "plural": "alojamientos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport", "leisure"],
+  "senses": [
+    {
+      "gloss": "accommodation",
+      "example": "El alojamiento estaba cerca del centro.",
+      "exampleGloss": "The accommodation was near the centre."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "el hospedaje", "gloss": "lodging", "reason": "Less common in Spain but correct." },
+    { "kind": "near-synonym", "value": "el hotel", "gloss": "hotel", "reason": "One specific type of accommodation." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Uncountable in English but countable in Spanish: alojamientos. Common in booking sites.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

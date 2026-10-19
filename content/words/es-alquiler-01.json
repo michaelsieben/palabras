@@ -1,0 +1,27 @@
+{
+  "id": "es-alquiler-01",
+  "headword": "alquiler",
+  "article": "el",
+  "plural": "alquileres",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city", "household"],
+  "senses": [
+    {
+      "gloss": "rent",
+      "example": "El alquiler en el centro es carísimo.",
+      "exampleGloss": "Rent in the centre is very expensive."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el arrendamiento", "gloss": "tenancy, lease", "reason": "Legal and formal." },
+    { "kind": "different-sense", "value": "el alquiler de coches", "gloss": "car hire", "reason": "The rental of an object rather than housing." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "de alquiler = for rent; alquiler de coches = car hire. Masculine.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

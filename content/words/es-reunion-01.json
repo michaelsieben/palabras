@@ -1,0 +1,27 @@
+{
+  "id": "es-reunion-01",
+  "headword": "reunión",
+  "article": "la",
+  "plural": "reuniones",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "meeting",
+      "example": "La reunión empieza a las diez.",
+      "exampleGloss": "The meeting starts at ten."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el encuentro", "gloss": "meeting, encounter", "reason": "Less work-like; often social or accidental." },
+    { "kind": "different-sense", "value": "la asamblea", "gloss": "assembly", "reason": "A formal meeting of a whole group with voting." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Feminine. reunión de trabajo / de vecinos; tener una reunión.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

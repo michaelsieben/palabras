@@ -1,0 +1,24 @@
+{
+  "id": "es-desde-hace-01",
+  "headword": "desde hace",
+  "partOfSpeech": "phrase",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["time"],
+  "senses": [
+    {
+      "gloss": "for, since (a time ago)",
+      "example": "Vivo en Pamplona desde hace cinco años.",
+      "exampleGloss": "I have lived in Pamplona for five years."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "desde", "gloss": "since", "reason": "A starting point, not a duration: desde 2020." },
+    { "kind": "different-sense", "value": "hace", "gloss": "ago", "reason": "A finished point in the past: hace cinco años." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "desde hace + period = for. Spanish uses the present: vivo aquí desde hace cinco años.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "es-equipaje-01",
+  "headword": "equipaje",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "luggage",
+      "example": "Mi equipaje no ha llegado con el avión.",
+      "exampleGloss": "My luggage has not arrived with the plane."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "las maletas", "gloss": "the suitcases", "reason": "The everyday concrete word for your bags." },
+    { "kind": "different-sense", "value": "el equipamiento", "gloss": "equipment", "reason": "A different word: the gear for an activity." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Uncountable mass noun; equipaje de mano = hand luggage. Never \"equipajes\" in everyday use.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

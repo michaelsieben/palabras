@@ -1,0 +1,24 @@
+{
+  "id": "es-divertirse-01",
+  "headword": "divertirse",
+  "partOfSpeech": "verb",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["leisure"],
+  "senses": [
+    {
+      "gloss": "to have fun",
+      "example": "Nos divertimos mucho en la fiesta.",
+      "exampleGloss": "We had a lot of fun at the party."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "pasarlo bien", "gloss": "to have a good time", "reason": "More colloquial and very common in Spain." },
+    { "kind": "different-sense", "value": "divertir", "gloss": "to amuse", "reason": "Making someone else laugh, not enjoying yourself." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "divertirse con algo; me divierto. e-ie stem change: me divierto.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

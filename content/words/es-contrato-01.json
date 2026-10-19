@@ -1,0 +1,27 @@
+{
+  "id": "es-contrato-01",
+  "headword": "contrato",
+  "article": "el",
+  "plural": "contratos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "contract",
+      "example": "He firmado el contrato esta mañana.",
+      "exampleGloss": "I signed the contract this morning."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el acuerdo", "gloss": "agreement", "reason": "Broader; not necessarily a signed contract." },
+    { "kind": "near-synonym", "value": "el convenio", "gloss": "collective agreement", "reason": "A sector-wide agreement between unions and employers." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "firmar un contrato. Types: contrato indefinido, temporal, a tiempo parcial.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "es-quejarse-01",
+  "headword": "quejarse",
+  "partOfSpeech": "verb",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "to complain",
+      "example": "Siempre se queja del ruido de la calle.",
+      "exampleGloss": "He is always complaining about the noise from the street."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "protestar", "gloss": "to protest", "reason": "More public and forceful; quejarse can be quiet grumbling." },
+    { "kind": "near-synonym", "value": "lamentarse", "gloss": "to lament", "reason": "Literary or dramatic; not the everyday word." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "quejarse de algo/a alguien. Reflexive; the noun is queja.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-horario-01",
+  "headword": "horario",
+  "article": "el",
+  "plural": "horarios",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine", "time"],
+  "senses": [
+    {
+      "gloss": "timetable, schedule",
+      "example": "Mi horario cambia cada semana.",
+      "exampleGloss": "My timetable changes every week."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el plan", "gloss": "plan, rota", "reason": "Colloquial at work; not a printed timetable." },
+    { "kind": "different-sense", "value": "el horario de apertura", "gloss": "opening hours", "reason": "The hours a shop is open, one specific use of horario." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine. horario de trabajo / de clases; also the schedule of a shop or train.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

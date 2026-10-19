@@ -1,0 +1,24 @@
+{
+  "id": "es-enfadarse-01",
+  "headword": "enfadarse",
+  "partOfSpeech": "verb",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk", "family"],
+  "senses": [
+    {
+      "gloss": "to get angry",
+      "example": "Se ha enfadado conmigo sin motivo.",
+      "exampleGloss": "She has got angry with me for no reason."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "enojarse", "gloss": "to get angry", "reason": "LatAm form; in Spain it sounds literary or foreign." },
+    { "kind": "near-synonym", "value": "cabrearse", "gloss": "to get cross, to flip", "reason": "Colloquial and stronger; not for polite company." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "enfadarse con alguien. Peninsular everyday verb; enfadado is the adjective.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

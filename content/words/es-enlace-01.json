@@ -1,0 +1,27 @@
+{
+  "id": "es-enlace-01",
+  "headword": "enlace",
+  "article": "el",
+  "plural": "enlaces",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["technology"],
+  "senses": [
+    {
+      "gloss": "link",
+      "example": "Mándame el enlace por mensaje.",
+      "exampleGloss": "Send me the link by message."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la conexión", "gloss": "connection", "reason": "The transport or network connection, not a web link." },
+    { "kind": "near-synonym", "value": "el vínculo", "gloss": "bond, tie", "reason": "A personal or logical link, not a URL." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "enlace web = hyperlink; enlace also = connection between trains or people.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

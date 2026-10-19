@@ -1,0 +1,27 @@
+{
+  "id": "es-marca-01",
+  "headword": "marca",
+  "article": "la",
+  "plural": "marcas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping", "leisure"],
+  "senses": [
+    {
+      "gloss": "brand",
+      "example": "Prefiero esta marca de aceite.",
+      "exampleGloss": "I prefer this brand of oil."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "el récord", "gloss": "record", "reason": "The sports sense of marca: batir una marca." },
+    { "kind": "near-synonym", "value": "la firma", "gloss": "make, label", "reason": "More formal, often for fashion houses." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "marca de aceite/ropa; also a sport result and a physical mark.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

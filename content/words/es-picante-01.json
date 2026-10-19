@@ -1,0 +1,24 @@
+{
+  "id": "es-picante-01",
+  "headword": "picante",
+  "partOfSpeech": "adjective",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food"],
+  "senses": [
+    {
+      "gloss": "spicy, hot",
+      "example": "Este chorizo es demasiado picante para mí.",
+      "exampleGloss": "This chorizo is too spicy for me."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "fuerte", "gloss": "strong (flavour)", "reason": "General intensity of flavour, not specifically heat." },
+    { "kind": "different-sense", "value": "verde", "gloss": "risqué", "reason": "The \"spicy\" sense of a joke: un chiste verde." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Invariable in gender: un plato picante, una salsa picante. Standard in Peninsular Spanish.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

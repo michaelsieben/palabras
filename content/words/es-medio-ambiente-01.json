@@ -1,0 +1,26 @@
+{
+  "id": "es-medio-ambiente-01",
+  "headword": "medio ambiente",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["city"],
+  "senses": [
+    {
+      "gloss": "environment",
+      "example": "Hay que cuidar el medio ambiente.",
+      "exampleGloss": "We have to look after the environment."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la naturaleza", "gloss": "nature", "reason": "The natural world, not the environmental system as a whole." },
+    { "kind": "synonym", "value": "el medioambiente", "gloss": "environment", "reason": "The one-word spelling, also accepted by the RAE." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Usually two words in Spain, with the article: el medio ambiente. Masculine.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

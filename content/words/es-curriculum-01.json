@@ -1,0 +1,27 @@
+{
+  "id": "es-curriculum-01",
+  "headword": "currículum",
+  "article": "el",
+  "plural": "currículums",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["daily-routine"],
+  "senses": [
+    {
+      "gloss": "CV, résumé",
+      "example": "He mandado el currículum a tres empresas.",
+      "exampleGloss": "I have sent my CV to three companies."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "el CV", "gloss": "CV", "reason": "The everyday abbreviation in Spain." },
+    { "kind": "regional", "value": "la hoja de vida", "gloss": "CV", "reason": "LatAm form; not used in Peninsular Spanish." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Full form currículum vítae; plural currículums. Masculine.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

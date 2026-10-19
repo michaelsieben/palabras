@@ -1,0 +1,24 @@
+{
+  "id": "es-quiza-01",
+  "headword": "quizá",
+  "partOfSpeech": "adverb",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "maybe, perhaps",
+      "example": "Quizá vayamos al cine esta noche.",
+      "exampleGloss": "Maybe we will go to the cinema tonight."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "quizás", "gloss": "maybe", "reason": "Same word, slightly more common in speech." },
+    { "kind": "synonym", "value": "tal vez", "gloss": "perhaps", "reason": "Same meaning, two words." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "quizá/quizás + subjunctive for an uncertain future, as in quizá vayamos.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

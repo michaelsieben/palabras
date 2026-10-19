@@ -1,0 +1,24 @@
+{
+  "id": "es-gastar-01",
+  "headword": "gastar",
+  "partOfSpeech": "verb",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["shopping"],
+  "senses": [
+    {
+      "gloss": "to spend",
+      "example": "Gasto demasiado en café cada semana.",
+      "exampleGloss": "I spend too much on coffee every week."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "desgastar", "gloss": "to wear out", "reason": "The \"wear away\" sense of gastar." },
+    { "kind": "near-synonym", "value": "emplear", "gloss": "to use", "reason": "Spending time or effort rather than money." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "gastar dinero en algo; gastarse is common for spending your own money.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

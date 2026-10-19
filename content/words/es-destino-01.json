@@ -1,0 +1,27 @@
+{
+  "id": "es-destino-01",
+  "headword": "destino",
+  "article": "el",
+  "plural": "destinos",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport", "leisure"],
+  "senses": [
+    {
+      "gloss": "destination",
+      "example": "Nuestro destino es San Sebastián.",
+      "exampleGloss": "Our destination is San Sebastián."
+    }
+  ],
+  "alternatives": [
+    { "kind": "different-sense", "value": "la suerte", "gloss": "fate", "reason": "The \"destiny\" sense of destino." },
+    { "kind": "near-synonym", "value": "la parada", "gloss": "stop", "reason": "A stop on the way, not the final destination." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine. destino final = final destination; also fate/destiny.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

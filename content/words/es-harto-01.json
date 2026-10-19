@@ -1,0 +1,24 @@
+{
+  "id": "es-harto-01",
+  "headword": "harto",
+  "partOfSpeech": "adjective",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "colloquial",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "fed up",
+      "example": "Estoy harto de este ruido.",
+      "exampleGloss": "I am fed up with this noise."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "saturado", "gloss": "fed up, overwhelmed", "reason": "More formal; common in work contexts." },
+    { "kind": "near-synonym", "value": "cansado", "gloss": "tired", "reason": "Weaker: tired of something rather than at the end of your patience." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "harto de + noun/infinitive. Everyday Peninsular speech, safe with family. Also means full after eating.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

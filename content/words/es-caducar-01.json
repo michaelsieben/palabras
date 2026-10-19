@@ -1,0 +1,24 @@
+{
+  "id": "es-caducar-01",
+  "headword": "caducar",
+  "partOfSpeech": "verb",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["food", "shopping"],
+  "senses": [
+    {
+      "gloss": "to expire, to go off",
+      "example": "La leche ha caducado esta mañana.",
+      "exampleGloss": "The milk went off this morning."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "expirar", "gloss": "to expire", "reason": "Formal; used for documents more than food." },
+    { "kind": "different-sense", "value": "pasar", "gloss": "to pass", "reason": "Colloquial for food going past its date: ya ha pasado." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "caducar for food and documents. caducado = expired; fecha de caducidad = expiry date.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

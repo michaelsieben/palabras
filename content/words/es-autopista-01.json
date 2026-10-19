@@ -1,0 +1,27 @@
+{
+  "id": "es-autopista-01",
+  "headword": "autopista",
+  "article": "la",
+  "plural": "autopistas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "motorway",
+      "example": "La autopista estaba cortada por la nieve.",
+      "exampleGloss": "The motorway was closed because of the snow."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la autovía", "gloss": "dual carriageway", "reason": "A free high-speed road, usually without tolls." },
+    { "kind": "near-synonym", "value": "la vía rápida", "gloss": "express road", "reason": "A faster road, not necessarily a motorway." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "In Spain autopistas are often tolled, autovías usually free. Feminine.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

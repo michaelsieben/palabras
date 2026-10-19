@@ -1,0 +1,24 @@
+{
+  "id": "es-por-lo-menos-01",
+  "headword": "por lo menos",
+  "partOfSpeech": "phrase",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "at least",
+      "example": "Por lo menos ya hemos terminado.",
+      "exampleGloss": "At least we have already finished."
+    }
+  ],
+  "alternatives": [
+    { "kind": "synonym", "value": "al menos", "gloss": "at least", "reason": "Same meaning, slightly more formal." },
+    { "kind": "near-synonym", "value": "como mínimo", "gloss": "as a minimum", "reason": "Used with quantities rather than as a consolation." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Introduces a minimum or a small consolation. al menos is equally common.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "es-dieta-01",
+  "headword": "dieta",
+  "article": "la",
+  "plural": "dietas",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health", "food"],
+  "senses": [
+    {
+      "gloss": "diet",
+      "example": "Estoy a dieta desde el lunes.",
+      "exampleGloss": "I have been on a diet since Monday."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "el régimen", "gloss": "diet plan", "reason": "Slightly dated but still used for a prescribed diet." },
+    { "kind": "different-sense", "value": "el ayuno", "gloss": "fasting", "reason": "Not eating at all, not a controlled way of eating." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "estar a dieta is the fixed pattern; ponerse a dieta = to start a diet. Also per diem in expense claims.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

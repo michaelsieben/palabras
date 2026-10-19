@@ -1,0 +1,26 @@
+{
+  "id": "es-verguenza-01",
+  "headword": "vergüenza",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["small-talk"],
+  "senses": [
+    {
+      "gloss": "embarrassment, shame",
+      "example": "Me da vergüenza hablar delante de todos.",
+      "exampleGloss": "I am embarrassed to speak in front of everyone."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la timidez", "gloss": "shyness", "reason": "A personality trait rather than the feeling of the moment." },
+    { "kind": "near-synonym", "value": "el bochorno", "gloss": "public embarrassment", "reason": "Stronger and about a public moment." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "dar vergüenza is the fixed pattern: me da vergüenza. ¡Qué vergüenza! works for both shame and embarrassment.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "es-estres-01",
+  "headword": "estrés",
+  "article": "el",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["health", "daily-routine"],
+  "senses": [
+    {
+      "gloss": "stress",
+      "example": "Tengo mucho estrés en el trabajo.",
+      "exampleGloss": "I have a lot of stress at work."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la tensión", "gloss": "tension", "reason": "More about pressure than the medical/psychological state." },
+    { "kind": "near-synonym", "value": "el agobio", "gloss": "overwhelm", "reason": "Colloquial and more emotional." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "Masculine, no common plural in speech. estar estresado is the everyday adjective.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

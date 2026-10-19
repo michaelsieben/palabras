@@ -1,0 +1,26 @@
+{
+  "id": "es-gasolina-01",
+  "headword": "gasolina",
+  "article": "la",
+  "gender": "feminine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "petrol",
+      "example": "El precio de la gasolina ha subido otra vez.",
+      "exampleGloss": "The price of petrol has gone up again."
+    }
+  ],
+  "alternatives": [
+    { "kind": "regional", "value": "la nafta", "gloss": "petrol", "reason": "Argentine form; never Peninsular." },
+    { "kind": "different-sense", "value": "el gasóleo", "gloss": "diesel", "reason": "The other pump fuel, not petrol." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "gasolina = petrol; gasóleo or diésel = diesel. Feminine, no plural in everyday use.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}

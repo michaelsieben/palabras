@@ -1,0 +1,27 @@
+{
+  "id": "es-peaje-01",
+  "headword": "peaje",
+  "article": "el",
+  "plural": "peajes",
+  "gender": "masculine",
+  "partOfSpeech": "noun",
+  "cefr": "B1",
+  "region": { "variant": "es-ES", "scope": "peninsular-generic" },
+  "register": "neutral",
+  "topics": ["transport"],
+  "senses": [
+    {
+      "gloss": "toll",
+      "example": "Hay que pagar peaje en esa autopista.",
+      "exampleGloss": "You have to pay a toll on that motorway."
+    }
+  ],
+  "alternatives": [
+    { "kind": "near-synonym", "value": "la tarifa", "gloss": "rate, fare", "reason": "A general charge, not specifically a road toll." },
+    { "kind": "different-sense", "value": "la autopista de peaje", "gloss": "toll motorway", "reason": "The road itself rather than the charge." }
+  ],
+  "status": "pending_review",
+  "provenance": { "method": "hand-authored" },
+  "notes": "pagar peaje; autopista de peaje. Masculine.",
+  "createdAt": "2026-10-19T21:05:00Z"
+}
