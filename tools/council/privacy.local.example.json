@@ -1,0 +1,11 @@
+{
+  "schema": "palabras.council.privacy.local.v1",
+  "description": "Template for privacy.local.json. Copy this file to privacy.local.json (gitignored, never committed) and replace every placeholder with a string that must never leave this machine: real names, usernames, email addresses, the domain. Terms are matched case-insensitively and accent-folded, so 'Ána' and 'ana' are the same term.",
+  "terms": [
+    "REPLACE-real-name",
+    "REPLACE-second-real-name",
+    "REPLACE-username",
+    "REPLACE@example.invalid",
+    "REPLACE.example"
+  ]
+}

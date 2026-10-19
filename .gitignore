@@ -20,3 +20,6 @@ Backend/Palabras/wwwroot/*
 .opencode/
 # Council provider payloads are local debug data; bundles ship only manifest/candidates/dropped.
 content/council/**/raw/
+# The council CLI's plain-text privacy list holds real names and the domain. Only the example
+# file and the hash-only list are committed (design ΔH).
+tools/council/privacy.local.json

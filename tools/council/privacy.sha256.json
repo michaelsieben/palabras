@@ -1,0 +1,7 @@
+{
+  "schema": "palabras.council.privacy.sha256.v1",
+  "algorithm": "sha256",
+  "normalisation": "nfc+lower+nfd-strip-diacritics+collapse-whitespace",
+  "description": "Committed, hash-only counterpart of privacy.local.json (design ΔH): the guard can run in CI and in the lint against the style guide without the protected strings entering git. Each entry is the SHA-256 of the normalised term and its token count, so the scan can hash every n-gram of that width. Generate an entry with: node -e \"import('./dist/privacy.js').then(m=>{const n=m.normaliseTerm('the-term');console.log(JSON.stringify({tokens:m.tokenise(n).length,sha256:m.termHash(n)}))})\" from tools/council.",
+  "terms": []
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@palabras/council",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Offline council CLI for Palabras: bundle writer, bundle validator and privacy guard. Zero runtime dependencies, no network, never shipped in the image.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "type:check": "tsc -p tsconfig.json --noEmit",
+    "pretest": "npm run build",
+    "test": "node --test test/*.test.mjs",
+    "dry-run": "node dist/cli.js propose --dry-run"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "6.0.3"
+  }
+}
