@@ -23,7 +23,7 @@ public sealed class M5SrsSchemaTests
         using var response = await client.GetAsync("/healthz", CancellationToken.None);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         await using var database = new DatabaseSettings(factory.DatabasePath).CreateContext();
-        Assert.Equal(6, (await database.Database.GetAppliedMigrationsAsync(CancellationToken.None)).Count());
+        Assert.Equal(7, (await database.Database.GetAppliedMigrationsAsync(CancellationToken.None)).Count());
         Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_SrsCards", StringComparison.Ordinal));
         Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_DayStatusAndSkips", StringComparison.Ordinal));
         Assert.Contains(await database.Database.GetAppliedMigrationsAsync(CancellationToken.None), name => name.EndsWith("_RolloverCutoverMarker", StringComparison.Ordinal));

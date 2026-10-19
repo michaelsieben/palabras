@@ -20,6 +20,9 @@ internal sealed class PalabrasDbContext : DbContext
     public DbSet<PracticeSession> PracticeSessions => Set<PracticeSession>();
     public DbSet<AppMeta> AppMetas => Set<AppMeta>();
     public DbSet<WordReview> WordReviews => Set<WordReview>();
+    public DbSet<CouncilRun> CouncilRuns => Set<CouncilRun>();
+    public DbSet<CouncilModelResult> CouncilModelResults => Set<CouncilModelResult>();
+    public DbSet<WordProvenance> WordProvenances => Set<WordProvenance>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +53,8 @@ internal sealed class PalabrasDbContext : DbContext
             table.HasCheckConstraint("ck_words_status", "status IN ('draft', 'pending_review', 'approved', 'needs_change', 'rejected', 'retired')");
             // M4: NULL for every hand-authored word; only a council import sets a band (ΔF:563).
             table.HasCheckConstraint("ck_words_council_band", "council_band IN ('alta', 'media')");
+            // M3b: 'manual' is the corpus and the default, so an old image's INSERT still succeeds.
+            table.HasCheckConstraint("ck_words_source", "source IN ('council', 'manual', 'reviewer')");
         });
         word.HasKey(value => value.Id);
         word.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
@@ -76,6 +81,11 @@ internal sealed class PalabrasDbContext : DbContext
         word.Property(value => value.CouncilBand).HasColumnName("council_band");
         word.Property(value => value.ReducedConfidence).HasColumnName("reduced_confidence").HasDefaultValue(0);
         word.Property(value => value.LintWarnings).HasColumnName("lint_warnings");
+        word.Property(value => value.Source).HasColumnName("source").IsRequired().HasDefaultValue("manual");
+        word.Property(value => value.CouncilRunId).HasColumnName("council_run_id");
+        word.HasOne<CouncilRun>().WithMany().HasForeignKey(value => value.CouncilRunId)
+            .OnDelete(DeleteBehavior.NoAction);
+        word.HasIndex(value => value.CouncilRunId).HasDatabaseName("ix_words_council_run_id");
         word.Property(value => value.StatusChangedAt).HasColumnName("status_changed_at");
         word.Property(value => value.ApprovedVersion).HasColumnName("approved_version");
         word.Property(value => value.CreatedAt).HasColumnName("created_at");
@@ -98,7 +108,15 @@ internal sealed class PalabrasDbContext : DbContext
         sense.Property(value => value.Notes).HasColumnName("notes");
 
         var alternative = modelBuilder.Entity<WordAlternative>();
-        alternative.ToTable("word_alternatives");
+        alternative.ToTable("word_alternatives", table =>
+        {
+            // M3b alternatives v2 (ΔE.3). NULL passes a SQLite CHECK, so legacy rows stay valid.
+            table.HasCheckConstraint("ck_word_alternatives_field",
+                "field IN ('lemma', 'gloss', 'example', 'regional_note', 'regional_variant', 'register_variant')");
+            table.HasCheckConstraint("ck_word_alternatives_region", "region IN ('ES', 'ES-NA')");
+            table.HasCheckConstraint("ck_word_alternatives_register", "register IN ('neutral', 'colloquial', 'formal')");
+            table.HasCheckConstraint("ck_word_alternatives_source", "source IN ('council', 'reviewer', 'manual', 'previous')");
+        });
         alternative.HasKey(value => value.Id);
         alternative.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
         alternative.Property(value => value.WordId).HasColumnName("word_id");
@@ -110,6 +128,13 @@ internal sealed class PalabrasDbContext : DbContext
         alternative.Property(value => value.TargetKey).HasColumnName("target_key");
         alternative.Property(value => value.Example).HasColumnName("example");
         alternative.Property(value => value.Rank).HasColumnName("rank");
+        alternative.Property(value => value.Field).HasColumnName("field");
+        alternative.Property(value => value.Support).HasColumnName("support").HasDefaultValue(0);
+        alternative.Property(value => value.Models).HasColumnName("models");
+        alternative.Property(value => value.Region).HasColumnName("region");
+        alternative.Property(value => value.Register).HasColumnName("register");
+        alternative.Property(value => value.WordVersion).HasColumnName("word_version").HasDefaultValue(0);
+        alternative.Property(value => value.Source).HasColumnName("source").IsRequired().HasDefaultValue("manual");
 
         var topic = modelBuilder.Entity<WordTopic>();
         topic.ToTable("word_topics");
@@ -134,13 +159,15 @@ internal sealed class PalabrasDbContext : DbContext
         revision.Property(value => value.SnapshotJson).HasColumnName("snapshot_json").IsRequired();
         revision.Property(value => value.CreatedAt).HasColumnName("created_at");
         ConfigureReview(modelBuilder);
+        ConfigureCouncil(modelBuilder);
         ConfigureSrs(modelBuilder);
         ConfigureDayTracking(modelBuilder);
         ConfigureAppMeta(modelBuilder);
     }
 
-    // M4: word_reviews, the append-only reviewer verdict log (ΔF:609-618). No FK to council_runs in
-    // M4 — that table arrives with M3b, which rebuilds this one to add the constraint.
+    // M4: word_reviews, the append-only reviewer verdict log (ΔF:609-618). council_run_id is indexed
+    // but deliberately has no FK: runs are never deleted, the write path only supplies an id it just
+    // inserted, and adding the constraint would rebuild this table (Q-M3-3).
     private static void ConfigureReview(ModelBuilder modelBuilder)
     {
         var review = modelBuilder.Entity<WordReview>();
@@ -178,6 +205,80 @@ internal sealed class PalabrasDbContext : DbContext
         review.Property(value => value.DecisionMs).HasColumnName("decision_ms");
         review.Property(value => value.CreatedAt).HasColumnName("created_at");
         review.HasIndex(value => new { value.WordId, value.WordVersion });
+        review.HasIndex(value => value.CouncilRunId).HasDatabaseName("ix_word_reviews_council_run_id");
+    }
+
+    // M3b: the council import's three tables (design-amendment.md ΔF:556-583). Every row here is
+    // written by the council importer only; nothing in the learner or reviewer path reads them yet.
+    private static void ConfigureCouncil(ModelBuilder modelBuilder)
+    {
+        var run = modelBuilder.Entity<CouncilRun>();
+        run.ToTable("council_runs", table =>
+        {
+            table.HasCheckConstraint("ck_council_runs_mode", "mode IN ('propose', 'rework')");
+        });
+        run.HasKey(value => value.Id);
+        run.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
+        run.Property(value => value.RunId).HasColumnName("run_id").IsRequired();
+        run.HasIndex(value => value.RunId).IsUnique();
+        run.Property(value => value.Mode).HasColumnName("mode").IsRequired();
+        run.Property(value => value.PromptVersions).HasColumnName("prompt_versions").IsRequired();
+        run.Property(value => value.StyleGuideSha256).HasColumnName("style_guide_sha256").IsRequired();
+        run.Property(value => value.Topic).HasColumnName("topic");
+        run.Property(value => value.Cefr).HasColumnName("cefr");
+        run.Property(value => value.RequestedCount).HasColumnName("requested_count");
+        run.Property(value => value.ModelsRequested).HasColumnName("models_requested");
+        run.Property(value => value.ModelsSucceededPropose).HasColumnName("models_succeeded_propose");
+        run.Property(value => value.ModelsSucceededCritique).HasColumnName("models_succeeded_critique");
+        run.Property(value => value.ReducedConfidence).HasColumnName("reduced_confidence").HasDefaultValue(0);
+        run.Property(value => value.CandidatesCount).HasColumnName("candidates_count");
+        run.Property(value => value.DroppedCount).HasColumnName("dropped_count").HasDefaultValue(0);
+        run.Property(value => value.CandidatesSha256).HasColumnName("candidates_sha256").IsRequired();
+        run.Property(value => value.CreatedAt).HasColumnName("created_at");
+        run.Property(value => value.ImportedAt).HasColumnName("imported_at");
+        // The L2 report and the feedback export read runs by recency, never by surrogate id.
+        run.HasIndex(value => value.CreatedAt).HasDatabaseName("ix_council_runs_created_at");
+
+        var result = modelBuilder.Entity<CouncilModelResult>();
+        result.ToTable("council_model_results", table =>
+        {
+            table.HasCheckConstraint("ck_council_model_results_phase", "phase IN ('propose', 'critique', 'topup')");
+            table.HasCheckConstraint("ck_council_model_results_status", "status IN ('ok', 'failed', 'timeout', 'invalid')");
+        });
+        result.HasKey(value => value.Id);
+        result.Property(value => value.Id).HasColumnName("id").ValueGeneratedOnAdd();
+        result.Property(value => value.CouncilRunId).HasColumnName("council_run_id");
+        result.HasOne<CouncilRun>().WithMany().HasForeignKey(value => value.CouncilRunId)
+            .OnDelete(DeleteBehavior.Cascade);
+        result.Property(value => value.ModelId).HasColumnName("model_id").IsRequired();
+        result.Property(value => value.Phase).HasColumnName("phase").IsRequired();
+        result.Property(value => value.Status).HasColumnName("status").IsRequired();
+        result.Property(value => value.LatencyMs).HasColumnName("latency_ms");
+        result.Property(value => value.InputTokens).HasColumnName("input_tokens");
+        result.Property(value => value.OutputTokens).HasColumnName("output_tokens");
+        result.Property(value => value.CostUsdEst).HasColumnName("cost_usd_est");
+        result.Property(value => value.InvalidCount).HasColumnName("invalid_count").HasDefaultValue(0);
+        result.Property(value => value.Error).HasColumnName("error");
+        // One outcome per model per phase: a retried bundle cannot double-count a model.
+        result.HasIndex(value => new { value.CouncilRunId, value.ModelId, value.Phase }).IsUnique();
+
+        var provenance = modelBuilder.Entity<WordProvenance>();
+        provenance.ToTable("word_provenance", table =>
+        {
+            table.HasCheckConstraint("ck_word_provenance_role", "role IN ('proposed', 'critique_ok', 'critique_issue')");
+        });
+        provenance.HasKey(value => new { value.WordId, value.WordVersion, value.CouncilRunId, value.ModelId, value.Role });
+        provenance.Property(value => value.WordId).HasColumnName("word_id");
+        provenance.HasOne<Word>().WithMany().HasForeignKey(value => value.WordId).OnDelete(DeleteBehavior.Cascade);
+        provenance.Property(value => value.WordVersion).HasColumnName("word_version");
+        provenance.Property(value => value.CouncilRunId).HasColumnName("council_run_id");
+        provenance.HasOne<CouncilRun>().WithMany().HasForeignKey(value => value.CouncilRunId)
+            .OnDelete(DeleteBehavior.NoAction);
+        provenance.Property(value => value.ModelId).HasColumnName("model_id").IsRequired();
+        provenance.Property(value => value.Role).HasColumnName("role").IsRequired();
+        provenance.Property(value => value.Issues).HasColumnName("issues");
+        // The PK leads with word_id, so a per-run read would otherwise scan.
+        provenance.HasIndex(value => value.CouncilRunId).HasDatabaseName("ix_word_provenance_run");
     }
 
     // M7: day_status, day_skips and practice_sessions (design.md:103-120, design-amendment.md

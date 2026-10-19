@@ -29,6 +29,7 @@ public sealed class M2ContentSchemaTests
         // Each entry is name:type:not-null:default:primary-key-order, from the actual migrated DB.
         // ReviewGate rebuilds `words` in SQLite to add its CHECK constraint, and the rebuild lists
         // columns alphabetically (id first as the primary key); the field set is what matters.
+        // CouncilImport is additive-only, so its columns are appended in ALTER order.
         var expectedColumns = new Dictionary<string, string[]>
         {
             ["words"] = [
@@ -39,7 +40,8 @@ public sealed class M2ContentSchemaTests
                 "provenance_method:TEXT:1::0", "provenance_run:TEXT:0::0", "reduced_confidence:INTEGER:1:0:0",
                 "region_notes:TEXT:0::0", "region_scope:TEXT:1::0", "register:TEXT:1::0",
                 "register_notes:TEXT:0::0", "status:TEXT:1::0", "status_changed_at:INTEGER:0::0",
-                "updated_at:INTEGER:1::0", "version:INTEGER:1:1:0"],
+                "updated_at:INTEGER:1::0", "version:INTEGER:1:1:0",
+                "source:TEXT:1:'manual':0", "council_run_id:INTEGER:0::0"],
             ["senses"] = [
                 "id:INTEGER:1::1", "word_id:INTEGER:1::0", "sense_order:INTEGER:1::0", "en_gloss:TEXT:1::0",
                 "en_accepted:TEXT:1:'[]':0", "es_accepted:TEXT:1:'[]':0", "example_es:TEXT:1::0",
@@ -47,7 +49,9 @@ public sealed class M2ContentSchemaTests
             ["word_alternatives"] = [
                 "id:INTEGER:1::1", "word_id:INTEGER:1::0", "kind:TEXT:1::0", "value:TEXT:1::0",
                 "gloss:TEXT:0::0", "reason:TEXT:1::0", "target_key:TEXT:0::0", "example:TEXT:0::0",
-                "rank:INTEGER:1::0"],
+                "rank:INTEGER:1::0", "field:TEXT:0::0", "support:INTEGER:1:0:0", "models:TEXT:0::0",
+                "region:TEXT:0::0", "register:TEXT:0::0", "word_version:INTEGER:1:0:0",
+                "source:TEXT:1:'manual':0"],
             ["word_topics"] = ["word_id:INTEGER:1::1", "topic:TEXT:1::2"],
             ["word_revisions"] = [
                 "id:INTEGER:1::1", "action:TEXT:1::0", "actor_user_id:INTEGER:0::0", "created_at:INTEGER:1::0",

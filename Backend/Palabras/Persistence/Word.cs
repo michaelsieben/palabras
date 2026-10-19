@@ -26,6 +26,10 @@ internal sealed class Word
     public string? CouncilBand { get; set; }
     public int ReducedConfidence { get; set; }
     public string? LintWarnings { get; set; }
+    // M3b: the council run that produced this word version. 'manual' for the hand-authored corpus;
+    // the reviewer path does not change it in this milestone.
+    public string Source { get; set; } = "manual";
+    public int? CouncilRunId { get; set; }
     public long? StatusChangedAt { get; set; }
     public int? ApprovedVersion { get; set; }
     public long CreatedAt { get; set; }

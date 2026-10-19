@@ -140,6 +140,165 @@ namespace Palabras.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Palabras.Persistence.CouncilModelResult", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<double?>("CostUsdEst")
+                        .HasColumnType("REAL")
+                        .HasColumnName("cost_usd_est");
+
+                    b.Property<int>("CouncilRunId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("council_run_id");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("error");
+
+                    b.Property<int?>("InputTokens")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("input_tokens");
+
+                    b.Property<int>("InvalidCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("invalid_count");
+
+                    b.Property<int?>("LatencyMs")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("latency_ms");
+
+                    b.Property<string>("ModelId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("model_id");
+
+                    b.Property<int?>("OutputTokens")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("output_tokens");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("phase");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CouncilRunId", "ModelId", "Phase")
+                        .IsUnique();
+
+                    b.ToTable("council_model_results", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_council_model_results_phase", "phase IN ('propose', 'critique', 'topup')");
+
+                            t.HasCheckConstraint("ck_council_model_results_status", "status IN ('ok', 'failed', 'timeout', 'invalid')");
+                        });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.CouncilRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("id");
+
+                    b.Property<int>("CandidatesCount")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("candidates_count");
+
+                    b.Property<string>("CandidatesSha256")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("candidates_sha256");
+
+                    b.Property<string>("Cefr")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("cefr");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("DroppedCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("dropped_count");
+
+                    b.Property<long>("ImportedAt")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("imported_at");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("mode");
+
+                    b.Property<int>("ModelsRequested")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("models_requested");
+
+                    b.Property<int>("ModelsSucceededCritique")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("models_succeeded_critique");
+
+                    b.Property<int>("ModelsSucceededPropose")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("models_succeeded_propose");
+
+                    b.Property<string>("PromptVersions")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("prompt_versions");
+
+                    b.Property<int>("ReducedConfidence")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("reduced_confidence");
+
+                    b.Property<int?>("RequestedCount")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("requested_count");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("run_id");
+
+                    b.Property<string>("StyleGuideSha256")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("style_guide_sha256");
+
+                    b.Property<string>("Topic")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("topic");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_council_runs_created_at");
+
+                    b.HasIndex("RunId")
+                        .IsUnique();
+
+                    b.ToTable("council_runs", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_council_runs_mode", "mode IN ('propose', 'rework')");
+                        });
+                });
+
             modelBuilder.Entity("Palabras.Persistence.DaySkip", b =>
                 {
                     b.Property<int>("Id")
@@ -649,6 +808,10 @@ namespace Palabras.Persistence.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("council_band");
 
+                    b.Property<int?>("CouncilRunId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("council_run_id");
+
                     b.Property<long>("CreatedAt")
                         .HasColumnType("INTEGER")
                         .HasColumnName("created_at");
@@ -717,6 +880,13 @@ namespace Palabras.Persistence.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("register_notes");
 
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("manual")
+                        .HasColumnName("source");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("TEXT")
@@ -738,6 +908,9 @@ namespace Palabras.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CouncilRunId")
+                        .HasDatabaseName("ix_words_council_run_id");
+
                     b.HasIndex("Key")
                         .IsUnique();
 
@@ -750,6 +923,8 @@ namespace Palabras.Persistence.Migrations
                             t.HasCheckConstraint("ck_words_council_band", "council_band IN ('alta', 'media')");
 
                             t.HasCheckConstraint("ck_words_gender", "gender IN ('masculine', 'feminine', 'common', 'not_applicable')");
+
+                            t.HasCheckConstraint("ck_words_source", "source IN ('council', 'manual', 'reviewer')");
 
                             t.HasCheckConstraint("ck_words_status", "status IN ('draft', 'pending_review', 'approved', 'needs_change', 'rejected', 'retired')");
                         });
@@ -766,6 +941,10 @@ namespace Palabras.Persistence.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("example");
 
+                    b.Property<string>("Field")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("field");
+
                     b.Property<string>("Gloss")
                         .HasColumnType("TEXT")
                         .HasColumnName("gloss");
@@ -775,6 +954,10 @@ namespace Palabras.Persistence.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("kind");
 
+                    b.Property<string>("Models")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("models");
+
                     b.Property<int>("Rank")
                         .HasColumnType("INTEGER")
                         .HasColumnName("rank");
@@ -783,6 +966,27 @@ namespace Palabras.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT")
                         .HasColumnName("reason");
+
+                    b.Property<string>("Region")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("region");
+
+                    b.Property<string>("Register")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("register");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("manual")
+                        .HasColumnName("source");
+
+                    b.Property<int>("Support")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("support");
 
                     b.Property<string>("TargetKey")
                         .HasColumnType("TEXT")
@@ -797,11 +1001,63 @@ namespace Palabras.Persistence.Migrations
                         .HasColumnType("INTEGER")
                         .HasColumnName("word_id");
 
+                    b.Property<int>("WordVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0)
+                        .HasColumnName("word_version");
+
                     b.HasKey("Id");
 
                     b.HasIndex("WordId");
 
-                    b.ToTable("word_alternatives", (string)null);
+                    b.ToTable("word_alternatives", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_word_alternatives_field", "field IN ('lemma', 'gloss', 'example', 'regional_note', 'regional_variant', 'register_variant')");
+
+                            t.HasCheckConstraint("ck_word_alternatives_region", "region IN ('ES', 'ES-NA')");
+
+                            t.HasCheckConstraint("ck_word_alternatives_register", "register IN ('neutral', 'colloquial', 'formal')");
+
+                            t.HasCheckConstraint("ck_word_alternatives_source", "source IN ('council', 'reviewer', 'manual', 'previous')");
+                        });
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.WordProvenance", b =>
+                {
+                    b.Property<int>("WordId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("word_id");
+
+                    b.Property<int>("WordVersion")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("word_version");
+
+                    b.Property<int>("CouncilRunId")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("council_run_id");
+
+                    b.Property<string>("ModelId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("model_id");
+
+                    b.Property<string>("Role")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("role");
+
+                    b.Property<string>("Issues")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("issues");
+
+                    b.HasKey("WordId", "WordVersion", "CouncilRunId", "ModelId", "Role");
+
+                    b.HasIndex("CouncilRunId")
+                        .HasDatabaseName("ix_word_provenance_run");
+
+                    b.ToTable("word_provenance", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_word_provenance_role", "role IN ('proposed', 'critique_ok', 'critique_issue')");
+                        });
                 });
 
             modelBuilder.Entity("Palabras.Persistence.WordReview", b =>
@@ -881,6 +1137,9 @@ namespace Palabras.Persistence.Migrations
 
                     b.HasIndex("ClientReviewId")
                         .IsUnique();
+
+                    b.HasIndex("CouncilRunId")
+                        .HasDatabaseName("ix_word_reviews_council_run_id");
 
                     b.HasIndex("ReviewerId");
 
@@ -969,6 +1228,15 @@ namespace Palabras.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Palabras.Persistence.CouncilModelResult", b =>
+                {
+                    b.HasOne("Palabras.Persistence.CouncilRun", null)
+                        .WithMany()
+                        .HasForeignKey("CouncilRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Palabras.Persistence.DaySkip", b =>
                 {
                     b.HasOne("Palabras.Persistence.User", null)
@@ -1040,8 +1308,31 @@ namespace Palabras.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Palabras.Persistence.Word", b =>
+                {
+                    b.HasOne("Palabras.Persistence.CouncilRun", null)
+                        .WithMany()
+                        .HasForeignKey("CouncilRunId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
             modelBuilder.Entity("Palabras.Persistence.WordAlternative", b =>
                 {
+                    b.HasOne("Palabras.Persistence.Word", null)
+                        .WithMany()
+                        .HasForeignKey("WordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Palabras.Persistence.WordProvenance", b =>
+                {
+                    b.HasOne("Palabras.Persistence.CouncilRun", null)
+                        .WithMany()
+                        .HasForeignKey("CouncilRunId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
                     b.HasOne("Palabras.Persistence.Word", null)
                         .WithMany()
                         .HasForeignKey("WordId")
