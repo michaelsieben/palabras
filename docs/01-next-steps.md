@@ -46,9 +46,9 @@ unauthenticated request to a non-public route returns 401/redirect instead of re
 - SQLite in WAL mode at `/data/palabras.db`; EF Core model for content (words, sentences,
   translations, alternatives) with lifecycle `draft / pending_review / approved / needs_change /
   rejected / retired`, revisions, `suspended_reason` and `epoch` (ΔD).
-- Importer: `content/**/*.json` → DB as `pending_review`, idempotent (matches `design-amendment.md` ΔE.2.2, locked
-  2026-10-18). Owner-only CLI `content approve <key…|--all-pending>` ships here, ahead of M4, so approved words (and
-  later their cards) exist before the reviewer UI; it writes the same revision row the M4 UI will write.
+- Importer: `content/**/*.json` → DB approved by default with cards, except explicit drafts; idempotent
+  (trust-by-default supersedes `design-amendment.md` ΔE.2.2). Owner-only CLI
+  `content approve <key…|--all-pending>` remains for pending words and objection reversal; it writes an approval revision.
 - ~~Wire `tools/content-lint` into `.github/workflows/ci.yml`~~ Done: `Lint content` step at
   `.github/workflows/ci.yml:38-39`.
 - ~~Fix the schema enum typo~~ Done in T-20261017-1516: the misspelt scope `"paninsular-generic"`
@@ -93,10 +93,12 @@ boundary belong to M7 (ΔD test list, `design-amendment.md:672`), not to M6.
 
 ## 5. M3 + M4 — reviewer view (MVP)
 
-Content needs approval before M6 is useful, so start M4 right after M2 if possible.
+Corpus imports need no prior reviewer decision for M6; M4 is the objection surface. Council drafts remain review-gated.
 
 - M4: `/revisar` backed by the API: pick one of the pre-generated alternatives, edit, mark
-  `needs_change`, reject. Her decision is final; every change writes a revision.
+  `needs_change`, reject. Queue scopes are `pending|approved|rejected|all`, default `pending`.
+  Her decision is final; reject suspends cards and keeps history, re-approve restores fresh cards
+  (manual/leech pauses stay); every change writes a revision.
 - M3: council CLI in `tools/council` (offline, Vercel AI SDK, privacy guard ΔH) that produces
   alternatives as `pending_review` files for the importer.
 
@@ -104,9 +106,9 @@ Status: M4 backend and UI are implemented and code-reviewed (see the T-20261019-
 below); plan step 4 (reviewer edit vs re-import) shipped in `89657e4` (also Status below). M4 is **not accepted**
 until the attended phone/tablet check below has happened. M3 is not started.
 
-**Done when:** the reviewer approves a word on her phone and the learner sees it in the next
-session; a rejected word never reaches the learner (test the approved-only gate); a council run
-produces lint-clean files.
+**Done when:** the reviewer withdraws an imported word on her phone and it leaves learner sessions
+without losing history; re-approving restores fresh cards; approving a council proposal makes it eligible
+for the next session; a council run produces lint-clean files.
 
 ## 6. M8 — reminders and Web Push (MVP)
 
@@ -183,9 +185,10 @@ Appended below the queue so the line numbers above stay stable. Backend state as
   `playwright:v1.64.1-noble` container (`T-20261019-1606/20-review-browser-assertion.md`).
 - **M4 re-import / reviewer-edit conflict semantics shipped** (`89657e4`, local, not pushed; plan step 4; no
   migration): `content_hash` stays the last imported source hash, so re-importing an unchanged file keeps the
-  reviewer's edit, approval, version and verdict, while a changed source replaces content, bumps `version`, returns the
-  word to `pending_review` and suspends cards — keeping every historical revision and verdict and
-  `approved_version` as audit (`09-review-api.md`, `06-content-cli.md`). Reviewer edits are validated against the
+  reviewer's edit, approval, version and verdict. Under trust-by-default, a changed source replaces content and bumps
+  `version`: an approved word without a reviewer edit stays approved with an epoch bump; a reviewer-edited approved
+  word or any non-approved word returns to `pending_review` with suspended cards. Historical revisions and verdicts
+  survive; demotion keeps `approved_version` as audit (`09-review-api.md`, `06-content-cli.md`). Reviewer edits are validated against the
   import schema's field constraints; lexical lint remains deferred (Q-M4-4). 15 new tests
   (`M4ReviewReimportTests.cs`), suite 925/925 at that commit, and a real Kestrel + CLI + HTTP probe passed
   (`T-20261019-2013/00-m4-step4-reimport.md`). The two independent reviews found no blockers; their minors are the

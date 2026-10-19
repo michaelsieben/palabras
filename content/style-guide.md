@@ -11,8 +11,11 @@ Target variety: **European Spanish as spoken in Pamplona, Navarre** (`es-ES`). L
 (`es-419`) is never the taught form. Where a word is correct in both varieties it is kept and the sense
 is labelled — it is never dropped.
 
-A word enters the app only after review. The app itself must run with **zero LLM dependency**: nothing in
-this directory is generated at runtime, and no example, gloss or alternative may require a network call.
+Corpus imports are approved by default (except explicit drafts); the reviewer queue is a place to object,
+not a prerequisite for study. Rejecting suspends cards and keeps history; re-approving restores cards fresh
+unless they are manually or leech-paused. Council drafts remain review-gated. The app itself must run with
+**zero LLM dependency**: nothing in this directory is generated at runtime, and no example, gloss or
+alternative may require a network call.
 
 ---
 

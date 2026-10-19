@@ -64,7 +64,7 @@ request (`Frontend/src/api/review.ts`).
 
 ```ts
 { items: ReviewItem[]; pendingTotal: number; topics: { topic: string; pending: number }[];
-  approvedTotal: number; nextAfter?: number; rejectedTotal: number }
+  approvedTotal: number; nextAfter?: string; rejectedTotal: number }
 
 ReviewItem = {
   wordId: number; key: string; version: number; headword: string; article?: string; gender?: string;
@@ -96,24 +96,32 @@ ReviewItem = {
 
 #### Queue cursor
 
-`nextAfter` is the `wordId` of the last row on the page, present only while rows remain. Send it back as `after` with
-the same `status`. Walking `after=nextAfter` until `nextAfter` is absent returns every row of the scope exactly once
-for a corpus that does not change during the walk (`M4ReviewApiTests.QueueAllScope*`).
+`nextAfter` is an opaque cursor string: `p:<wordId>` for the pending block, `d:<wordId>` for the
+decided list. It is present only while rows remain. Send it back as `after` with the same `status`,
+unchanged: do not parse it, and never construct one. Walking `after=nextAfter` until `nextAfter` is
+absent returns every row of the scope exactly once for a corpus that does not change during the
+walk (`M4ReviewApiTests.QueueAllScope*`).
 
-- `approved` / `rejected`: `after` must name a word in that scope's decided list; the page continues after it.
-- `all`: one sequence — the pending block, then the decided list. The server tells the cursor kind from the id
-  alone: an id that is currently pending resumes the pending block after it (only needed when pending exceeds
-  `limit`), and the decided list then starts from its head with the remaining budget; any other id is looked up in
-  the decided list, which skips the pending block. When the pending block fills the page exactly, page one still
-  carries a cursor (its last pending id), so decided rows stay reachable.
-- Stale cursor: an `after` that is in neither list (for example the word became `needs_change`) is 400
-  `bad_request`; restart at page one without `after`. `after` that is not a positive integer is 400 in every scope.
-- **Cursor row decided between pages (`all` only).** If the row named by `nextAfter` was pending and is approved or
-  rejected before the next request, the id now resolves in the decided list: no 400, the page continues from the
-  decided list, and the pending rows after the old cursor are skipped silently. A client that decides rows while
-  walking `status=all` must restart at page one after acting, not follow the old `nextAfter`. A typed cursor that
-  distinguishes the two kinds is open work (`.opencode/runs/T-20261019-2100/42-pagination-recheck.md` finding 1);
-  it has not landed at `199768e`.
+- `approved` / `rejected`: only a `d:` cursor is valid; it must name a word in that scope's decided
+  list, and the page continues after it. A `p:` cursor on these scopes is 400 `bad_request`.
+- `all`: one sequence — the pending block first, then the decided list in `(DecidedAt, Id)` descending
+  order. A `p:` cursor resumes the pending block after that row (needed when pending exceeds `limit`),
+  and the decided list then starts from its head with the remaining budget. A `d:` cursor skips the
+  pending block. When the pending block fills the page exactly and decided rows remain, the page
+  still carries a `p:` cursor (its last pending id), handing off to the decided list on the next request.
+- Stale cursor: a `d:` cursor for a word that is not in a nonempty decided list (for example it became
+  `needs_change`), and a `p:` cursor for a word that is no longer pending (the reviewer approved or
+  rejected the last row of the previous page), are 400 `bad_request`. The client restarts at page
+  one without `after`. In `status=all`, this restart loses no rows: the acted-on row has moved to the
+  decided list, and the remaining pending rows are read again. A `d:` cursor for a word that is still
+  pending is also 400 when the decided list is nonempty. An `after` that is not `p:<positive integer>`
+  or `d:<positive integer>` is 400 in every scope; bare numeric ids, unknown or uppercase prefixes,
+  and malformed cursors are no longer accepted. An empty decided list returns an empty page even
+  for a syntactically valid stale `d:` cursor.
+- For paged scopes (`approved`, `rejected`, `all`), `nextAfter: null` internally means both selected
+  lists are exhausted; the wire omits the null member (`ReviewQueueResponse`). `status=pending` keeps
+  its single-page contract: valid cursors are ignored and no `nextAfter` is emitted, even if more pending rows exist.
+- Clients that decide rows while walking `status=all` restart at page one after acting.
 - Pending order is recomputed per request from the current pending set (topic counts), so deciding a pending row can
   reorder the rest; a pending cursor can then repeat or skip a row when pending exceeds `limit`. Same remedy:
   restart after acting.
@@ -381,8 +389,6 @@ Peninsular/register regression, and `lintWarnings` is not recomputed.
   import bumps the version and epoch-bumps the cards. An approved word without a reviewer edit stays approved; one
   with an edit, or any non-approved word, returns to `pending_review` with suspended cards. A reviewer edit is never
   lost.
-- Under `status=all` the cursor kind is inferred from the id, so deciding the cursor row between pages skips the rest
-  of the pending block without an error (see "Queue cursor").
 - Import-then-edit at the new version is not asserted end to end: after a changed-source import the tests check
   `stale_version` for the old version and the queue's new version, not a fresh `approve_edit` at that version (same
   transition code, already covered elsewhere).
