@@ -2,6 +2,7 @@
 
 Validates every `content/words/*.json` entry against `content/schema/word.schema.json`
 and against the Peninsular-Spanish denylist in `content/style-guide.lexicon.json`.
+Also lints every committed council bundle under `content/council/` (see below).
 
 - **Zero dependencies.** Plain Node (`fs`, `path`); no install step, no network, no LLM.
   The JSON-Schema validator in `validate.js` implements the draft 2020-12 subset that the
@@ -40,15 +41,25 @@ headword-only denylist hit for an explicitly allowlisted headword.
 Per-entry escape hatch: `"lint": { "exemptTerms": ["term"] }` skips that denylist term for
 that entry only; `notes` must explain why.
 
-## CI wiring (NOT wired here)
+## Council bundles
 
-`.github/workflows/ci.yml` belongs to another agent. The exact change to add — inside the
-existing `build` job, after the Frontend `npm run build` step and before
-"Build and smoke-test container" (Node 24 is already installed by that point):
+`index.js` also lints every bundle under `content/council/` with `candidates.js`: manifest and
+candidate schema, `candidates_sha256`, counts, unique keys, band/agreement, model ids,
+`proposed_by`, sense alternative counts, and the §4.3 size guard (2 MB per `candidates.jsonl`,
+10 MB for the directory). Contract problems fail the run; denylist hits in candidate text are
+warnings (they become reviewer chips, never an import refusal).
 
-```yaml
-      - name: Lint content
-        run: node tools/content-lint/index.js
+```bash
+node tools/content-lint/candidates.js              # lint content/council
+node tools/content-lint/candidates.js <dir>        # lint one bundle or a parent of bundles
+node tools/content-lint/candidates.js --self-test  # assert every tools/council fixture verdict
 ```
 
+The self-test is the CI proof that this linter rejects a deliberately broken bundle, over the same
+shared fixture set the C# validator and the council CLI use.
+
+## CI wiring
+
+Wired in `.github/workflows/ci.yml` inside the `build` job: `node tools/content-lint/index.js`
+after the Frontend build, and `node tools/content-lint/candidates.js --self-test` next to it.
 No `setup-node` change and no `npm install` are needed: the script has no dependencies.

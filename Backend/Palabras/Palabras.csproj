@@ -37,6 +37,10 @@
     <!-- The council bundle contract is committed once and validated by both the CLI and the importer. -->
     <Content Include="../../content/schema/council-manifest.schema.json" Link="content/schema/council-manifest.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../content/schema/council-candidate.schema.json" Link="content/schema/council-candidate.schema.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Council bundles are runtime data for ContentSyncService (startup sync, propose only). Raw
+         provider payloads are debug data and must never reach publish/ or the image. -->
+    <Content Include="../../content/council/**/*.json" Exclude="../../content/council/**/raw/**" Link="content/council/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../content/council/**/*.jsonl" Exclude="../../content/council/**/raw/**" Link="content/council/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- Local dotnet run and the test project keep the development settings; a published image must not ship them. -->
     <Content Update="appsettings.Development.json">
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>

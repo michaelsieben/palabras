@@ -18,3 +18,5 @@ Backend/Palabras/wwwroot/*
 *.suo
 *.log
 .opencode/
+# Council provider payloads are local debug data; bundles ship only manifest/candidates/dropped.
+content/council/**/raw/

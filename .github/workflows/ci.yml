@@ -53,6 +53,21 @@ jobs:
       # peninsular-vs-LatAm lexicon. Zero dependencies, so no install is needed.
       - name: Lint content
         run: node tools/content-lint/index.js
+      # Proves the council mode rejects a deliberately broken bundle, over the same fixtures the
+      # C# validator and the CLI use. Committed bundles themselves were linted by the step above.
+      - name: Lint council bundle fixtures
+        run: node tools/content-lint/candidates.js --self-test
+      # E.0 source half: no provider hostname or SDK marker may be reachable from the app's own
+      # source. The offline council CLI lives under tools/ and is never copied into the image.
+      - name: E.0 no LLM in the app source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E 'api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|openrouter\.ai|@ai-sdk' \
+            --include='*.cs' --include='*.ts' --include='*.tsx' --include='*.js' Backend Frontend/src; then
+            echo 'FAIL E.0: provider endpoint or SDK marker in app source'; exit 1
+          fi
+          echo 'E.0 source guard OK'
       - name: Build and smoke-test container
         shell: bash
         run: |
@@ -128,6 +143,38 @@ jobs:
           expect_auth_status /api/learn/words 200
           # A protected SPA route is served as the document once signed in: 200, not the 302 above.
           expect_auth_status /sesion 200
+      # E.0 hard invariant (design ΔE.0): the runtime image has no LLM dependency. Three checks on
+      # the image the smoke step already built: no keys/LLM env, no provider hostnames or SDK
+      # markers in binaries/wwwroot, and no council tooling or raw provider payloads on disk.
+      # Deliberately scoped to binaries + wwwroot: content/council carries model ids such as
+      # "anthropic:claude-..." as data, and the manifest is not code.
+      - name: E.0 no LLM in the image
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 1. No key or LLM-related variable in the container environment.
+          env_hits=$(docker run --rm --entrypoint env palabras:ci | grep -Eic 'openai|anthropic|gemini|openrouter|api_key' || true)
+          if [[ "$env_hits" != "0" ]]; then
+            echo "FAIL E.0 env: $env_hits matching variable(s)"
+            docker run --rm --entrypoint env palabras:ci | grep -Ei 'openai|anthropic|gemini|openrouter|api_key' || true
+            exit 1
+          fi
+          # 2. No provider endpoint or SDK marker in the app binaries or the web root.
+          if docker run --rm --entrypoint sh palabras:ci -c \
+            "grep -a -E 'api\\.openai\\.com|api\\.anthropic\\.com|generativelanguage\\.googleapis\\.com|openrouter\\.ai|@ai-sdk' -r /app/*.dll /app/wwwroot"; then
+            echo 'FAIL E.0 binaries: provider endpoint or SDK marker found'
+            exit 1
+          fi
+          # 3. No council tooling, no env files, no raw provider payloads. The council directory
+          #    itself must exist: it is the startup sync's default location.
+          docker run --rm --entrypoint sh palabras:ci -c '
+            set -e
+            test ! -e /app/tools
+            test -d /app/content/council
+            ! find /app -name ".env*" -print -quit | grep -q .
+            ! find /app/content/council -type d -name raw -print -quit | grep -q .
+          '
+          echo 'E.0 OK: no LLM runtime, keys or council tooling in palabras:ci'
       - name: Container logs and cleanup
         if: always()
         run: |

@@ -12,6 +12,8 @@
 const fs = require('fs');
 const path = require('path');
 const { validate } = require('./validate');
+const { norm, fold, containsTerm, countWords, loadLexicon } = require('./lexicon');
+const { lintCouncilDirectory } = require('./candidates');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SCHEMA_PATH = path.join(REPO_ROOT, 'content', 'schema', 'word.schema.json');
@@ -24,49 +26,14 @@ function loadJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-/** lower-case, accent-sensitive: "papa" stays distinct from "papá". */
-function norm(text) {
-  return String(text).toLowerCase();
-}
-
-/** lower-case, accent-folded ascii: "móvil" -> "movil". Used for allowlist ids. */
-function fold(text) {
-  return norm(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-/** Unicode-aware word tokens, punctuation dropped, accents kept. */
-function tokens(text) {
-  return norm(text)
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter(Boolean);
-}
-
-function containsTerm(text, term) {
-  const termTokens = tokens(term);
-  if (termTokens.length === 0) return false;
-  const textTokens = tokens(text);
-  for (let i = 0; i + termTokens.length <= textTokens.length; i += 1) {
-    let hit = true;
-    for (let j = 0; j < termTokens.length; j += 1) {
-      if (textTokens[i + j] !== termTokens[j]) { hit = false; break; }
-    }
-    if (hit) return true;
-  }
-  return false;
-}
-
-function countWords(text) {
-  return tokens(text).length;
-}
-
 function main() {
   const errors = [];
   const warnings = [];
 
   const schema = loadJson(SCHEMA_PATH);
-  const lexicon = loadJson(LEXICON_PATH);
-  const denylist = Array.isArray(lexicon.latamDenylist) ? lexicon.latamDenylist : [];
-  const allowlist = Array.isArray(lexicon.peninsularAllowlist) ? lexicon.peninsularAllowlist : [];
+  const lexicon = loadLexicon(LEXICON_PATH);
+  const denylist = lexicon.denylist;
+  const allowlist = lexicon.allowlist;
 
   const allowFolded = new Set(allowlist.map((a) => fold(a.term)));
 
@@ -190,15 +157,24 @@ function main() {
 
   errors.push(...denyHits);
 
+  // Council bundles are runtime data too (plan §4.2/§4.3): lint every committed bundle with the
+  // same contract the C# importer and the CLI enforce, plus the denylist on its text. The
+  // directory is committed even while empty, so a packaging regression fails here, not at startup.
+  const council = lintCouncilDirectory();
+  for (const warning of council.warnings) warnings.push(`council ${warning}`);
+  for (const issue of council.issues) {
+    errors.push(`council/${issue.bundle}: ${issue.location}: ${issue.message}`);
+  }
+
   for (const w of warnings) console.warn(`WARN ${w}`);
   for (const e of errors) console.error(`FAIL ${e}`);
 
   const wordCount = files.length;
   if (errors.length > 0) {
-    console.error(`\ncontent-lint: ${errors.length} error(s), ${warnings.length} warning(s) across ${wordCount} word file(s).`);
+    console.error(`\ncontent-lint: ${errors.length} error(s), ${warnings.length} warning(s) across ${wordCount} word file(s) and ${council.bundles.length} council bundle(s).`);
     process.exit(1);
   }
-  console.log(`content-lint: OK — ${wordCount} word file(s), 0 errors, ${warnings.length} warning(s).`);
+  console.log(`content-lint: OK — ${wordCount} word file(s) and ${council.bundles.length} council bundle(s), 0 errors, ${warnings.length} warning(s).`);
 }
 
 main();

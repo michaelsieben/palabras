@@ -16,6 +16,9 @@ COPY Backend/Palabras/Palabras.csproj Backend/Palabras/
 RUN dotnet restore Backend/Palabras/Palabras.csproj
 COPY Backend/Palabras/ Backend/Palabras/
 COPY content/schema/ content/schema/
+# Committed council bundles are runtime data for ContentSyncService. The .csproj content glob,
+# not this COPY, is what puts them in publish/: this line only makes the tree visible to MSBuild.
+COPY content/council/ content/council/
 RUN dotnet publish Backend/Palabras/Palabras.csproj -c Release --no-restore -p:UseAppHost=true -p:CommitSha="${COMMIT_SHA}" -o /app/publish
 COPY --from=frontend /src/Frontend/dist/ /app/publish/wwwroot/
 
@@ -30,6 +33,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && mkdir -p /data && chown app:app /data
 WORKDIR /app
 COPY --from=backend --chown=app:app /app/publish/ ./
+# ContentSyncService defaults to <BaseDirectory>/content/council. MSBuild does not publish an empty
+# directory, so keep the path present even before the first real bundle is committed.
+RUN mkdir -p /app/content/council
 ENV ASPNETCORE_URLS=http://+:18480
 ENV DATA_DIR=/data
 USER app
