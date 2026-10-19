@@ -413,9 +413,16 @@ What is special about this release:
   `MigrateAsync`, which sees every migration the old binary knows already in `__EFMigrationsHistory` and does nothing,
   leaving the extra history row and three tables alone (`DatabaseLifecycle.cs:7-13`). That is the intent; the proof
   must come from the drill in D.2, not from reasoning.
-- Because the rollover only writes rows if it is enabled, a rollback of the *image* never needs to remove M7 history:
-  with the kill-switch off the three tables are created empty and stay empty, so image rollback (option R-A) and
-  database restore (option R-B) both remain data-preserving for M6 progress.
+- The kill-switch gates only the background rollover, not the M7 tables. With it off, the job writes no `missed`
+  `day_status` row and no `app_meta` cutover (`DayRolloverService.cs:69-78`, `:124-129`), but the learner routes
+  `POST /api/learn/day/done` and `POST /api/learn/day/skip` are mapped unconditionally (`Program.cs:251`) and write
+  `practice_sessions`, `day_status` (`done`/`skipped`) and `day_skips` rows on every completed or skipped session
+  (`DayEndpoints.cs:117-133`, `:203-236`); the current frontend calls both (`Frontend/src/api/learn.ts:49-53`). So
+  once the upgraded app has served a session, those three tables hold real learner data with the switch off; only
+  `app_meta` and `missed` rows stay absent. A rollback never needs to remove M7 rows: R-A leaves them in place (the
+  old binary ignores them; a later upgrade sees them again), while R-B restores the pre-upgrade set and loses every
+  `day_status`/`day_skips`/`practice_sessions` row written since the snapshot, together with M6 card/review progress
+  from the same window. Record their counts before choosing R-B.
 
 ### D.1 Before push/deploy: pause, retain, prove disabled
 
@@ -440,14 +447,16 @@ Then, on a scratch copy taken the way A step 6 takes one (copy live files out, c
 WAL database with sqlite3):
 
 ```bash
-sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM day_status;'           # expect 0
-sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM day_skips;'            # expect 0
-sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM practice_sessions;'    # expect 0
+sqlite3 "$SAFE/scratch-after/palabras.db" "SELECT count(*) FROM day_status WHERE status='missed';"  # expect 0: no rollover rows while off
 sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM app_meta;'             # expect 0: no cutover while off
+sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM day_status;'           # record; grows with done/skip use
+sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM day_skips;'            # record; grows with skip use
+sqlite3 "$SAFE/scratch-after/palabras.db" 'SELECT count(*) FROM practice_sessions;'    # record; grows with completed sessions
 ```
 
-If these counts grow while the switch reads false — or after any restart — stop and treat the job as enabled; do not
-ship until the gate is proven.
+The last three counts are 0 only until the learner completes or skips a day; growth there is normal and not a gate
+signal. If a `missed` row or an `app_meta` row appears while the switch reads false — or after any restart — stop and
+treat the job as enabled; do not ship until the gate is proven.
 
 ### D.2 Old-image compatibility drill (mandatory for R-A on this release)
 
@@ -495,9 +504,10 @@ docker logs -f palabras                                 # watch startup finish; 
 
 Then the checks that prove healthy (see D.4). If they fail, proceed to R-B (restore the pre-upgrade database from
 `$SAFE/set/`, per the rollback section) — all M6 progress after the snapshot is lost, so with the rollover disabled
-the only data at risk is whatever progress accrued between snapshot and rollback. If `day_status`/`day_skips` ever
-held rows (gate misbehaved), those rows are lost with R-B too: preserve the failed state first (step 2 above), and
-record their counts before any restore.
+the only data at risk is whatever progress accrued between snapshot and rollback. That progress includes the
+`day_status`, `day_skips` and `practice_sessions` rows written by day done/skip since the upgrade (normal with the
+switch off, see D above); they are lost with R-B too: preserve the failed state first (step 2 above), and record
+their counts before any restore.
 
 ### D.4 The exact check that proves the app is healthy after an M7 rollback
 
