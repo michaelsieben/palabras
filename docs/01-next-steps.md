@@ -30,7 +30,7 @@ reference; the ordering in `00-handoff.md` §8 still describes the shipped edge.
   seeded from `.env`: follow `03-auth-bootstrap.md` (supersedes `design.md` `:212-213`).
   PBKDF2-SHA256 hashes; stored roles `owner` and `reviewer` (owner also authorizes as learner);
   `X-Palabras: 1` CSRF header. See `04-accounts.md` and `05-auth.md` for shipped contracts.
-- `/login` in the SPA; the mock routes are gated by role (`/revisar`, `/aprobadas` reviewer-only).
+- `/login` in the SPA; the reviewer routes stay gated by role (`/revisar`, `/aprobadas` reviewer-only).
 - Fix the edge items from `runs/09-m0-final-review.md` and `runs/10-m0-shouldfix.md` that are
   still open, including authenticated bare `/api` → 404 (anonymous → 401) and `index.html` no-cache.
 
@@ -100,6 +100,9 @@ Content needs approval before M6 is useful, so start M4 right after M2 if possib
 - M3: council CLI in `tools/council` (offline, Vercel AI SDK, privacy guard ΔH) that produces
   alternatives as `pending_review` files for the importer.
 
+Status: M4 backend and UI are implemented and code-reviewed (see the T-20261019-1606 bullets in Status
+below); M4 is **not accepted** until the attended phone/tablet check below has happened. M3 is not started.
+
 **Done when:** the reviewer approves a word on her phone and the learner sees it in the next
 session; a rejected word never reaches the learner (test the approved-only gate); a council run
 produces lint-clean files.
@@ -131,8 +134,8 @@ copy passes the M1 login test. Shipped contract: `07-learn-api.md`, `restore-dri
 
 ## Housekeeping (any time, owned by whoever touches the file)
 
-- Refresh `README.md`: mock UI exists, manifest/service worker exist, ΔG milestone numbers,
-  compose folder spelling.
+- Refresh `README.md`: the mock UI is gone (learner and reviewer screens run on the real API), manifest/service
+  worker exist, ΔG milestone numbers, compose folder spelling.
 - ~~Confirm the 8th backend test passes and record it in a report.~~ Done: `M0ApiTests.cs` has 9 tests; suite 854/0 at `3a6b4c9`.
 - Measure real CSS viewports on both devices (`runs/13-pwa-ultrawide.md`).
 
@@ -165,9 +168,20 @@ Appended below the queue so the line numbers above stay stable. Backend state as
 - **Health of `main` at `6e41d0f` (T-20261018-2005).** `dotnet build` green; `dotnet test` 790 passed, 0 failed;
   `npm ci`, `npm run lint`, `npm run build` green; content lint `OK — 58 word file(s), 0 errors`. `docker build`
   was not run in that pass.
-- **M4 backend implemented** (T-20261019-1606, local `main`, not pushed at `bb1a015`): migration `ReviewGate`
-  (`3565e75`, first table-rebuild migration, `08-upgrade-rollback.md` section G) and the reviewer API
-  `GET /api/review/queue`, `POST /api/review/actions`, `GET /api/review/approved` (`e75b850`, `bb1a015`;
-  `09-review-api.md`). Not done: reviewer UI on the API, re-import-after-edit tests, verdict export, and the §5
-  "done when" on the reviewer's phone.
+- **M4 backend implemented and reviewed** (T-20261019-1606, local `main`, not pushed): migration `ReviewGate`
+  (`3565e75`, sixth migration and first table-rebuild one, `08-upgrade-rollback.md` section G) and the reviewer API
+  `GET /api/review/queue`, `POST /api/review/actions`, `GET /api/review/approved` (`e75b850`, approved-list
+  `version` in `bb1a015`; `09-review-api.md`). The six-action state machine answers 200 with per-item outcomes;
+  every route needs the `reviewer` role, so the owner is refused 403 and the account is created with
+  `docker exec -it palabras /app/Palabras user create reviewer --username <name>`.
+- **M4 UI implemented and code-reviewed** (`3523351`, durability fixes `4a4cb3a`, browser assertion `ba6f977`;
+  local, not pushed): `/revisar` and `/aprobadas` on that API with an account-scoped durable retry queue (network
+  and 5xx stay pending and replay the same UUIDs, per-item 4xx rejections stay actionable), batch approve, approved
+  list with search/pagination and stale-cursor restart at page 1, automatic page-1 repair after `stale_version`,
+  and read-only regional/register variant chips. Unit 125/125 and both browser suites pass inside the
+  `playwright:v1.64.1-noble` container (`T-20261019-1606/20-review-browser-assertion.md`).
+- **M4 is not accepted yet.** Outstanding: attended visual/device acceptance on Android Chrome (OnePlus 15 and
+  Tab 3, §5 "done when"), re-import-after-edit tests (plan step 4), verdict export (step 5), and the deliberately
+  open minors — failed-row residue/asymmetric pruning, mixed-row "overall cap 50" coverage, one presence-only
+  editor assertion, `La palabra ha cambiado` no longer asserted on the approved panel.
 - Deployment of these commits is owner-run; nothing here claims the production container runs them.

@@ -4,7 +4,8 @@ Shipped in T-20261019-1606: the reviewer gate over `word_reviews` (`3565e75` sch
 `bb1a015` approved-list `version`). Code: `Backend/Palabras/Review/ReviewEndpoints.cs` (routes),
 `ReviewContracts.cs` (wire shapes), `ReviewTransitions.cs` (state machine shared with the CLI). The plan is
 `.opencode/runs/T-20261019-1508/10-m4-plan.md` §2; this file describes the shipped code. The reviewer UI (`/revisar`,
-`/aprobadas`) is not covered here. CLI approval: `06-content-cli.md`. Learner API conventions: `07-learn-api.md`.
+`/aprobadas`) is not covered here — its status and open acceptance items are in `00-handoff.md` §7 and
+`01-next-steps.md` Status. CLI approval: `06-content-cli.md`. Learner API conventions: `07-learn-api.md`.
 Migration and rollback: `08-upgrade-rollback.md` section G.
 
 ## Common rules
