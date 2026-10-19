@@ -64,7 +64,8 @@ the process sees it; inside the container that is a container path. The image sh
 2. **Upsert by key.** The key is the file `id` (for example `es-coger-01`). `content_hash` is the lowercase hex
    SHA-256 of a canonical JSON form: object keys sorted ordinally, string escapes decoded, and the top-level
    `status`, `review` and `updatedAt` excluded. So a status-only or timestamp-only edit is `unchanged`.
-   - Same hash → `unchanged`. Nothing is touched; an approved word stays approved.
+   - Same hash → `unchanged`. Nothing is touched; an approved word stays approved, and a reviewer edit survives
+     (section below).
    - New key → `created`, `version` 1, one `word_revisions` row with `action='import'`.
    - Different hash → `updated`: `version` + 1, a new `import` revision, status reset to `pending_review`, and every
      card of the word is invalidated (`epoch` + 1, `suspended_reason='word_not_approved'` unless a reason is already
@@ -75,6 +76,49 @@ the process sees it; inside the container that is a container path. The image sh
    otherwise the row stays (review history references it) and its cards get `suspended_reason='sense_removed'`
    unless they are already `manual` or `leech`. Alternatives are replaced; topics are synchronised.
 5. **A missing file never retires a word.** A partial directory must not retire the corpus. Use `content retire`.
+
+#### Re-import after a reviewer edit (Q-M4-3)
+
+Shipped in `89657e4` (run `T-20261019-2013` step 4). `content_hash` records the last **imported source file**, not the
+current database content. `approve_edit` and `approve_alt` never rewrite it, so the next import can still tell whether
+the file changed:
+
+- **Source unchanged** → `unchanged`, and the importer writes nothing at all: the reviewer's edit, the approved status,
+  `version`, `content_hash`, her verdict row, the alternatives and the card epochs stay exactly as they were.
+  Re-running the import changes nothing else.
+- **Source changed** → `updated`, and the source wins: current content is replaced, `version` + 1, status back to
+  `pending_review`, cards demoted (`epoch` + 1). Nothing historical is deleted or rewritten — the reviewer's edit
+  snapshot stays at its old version, her `word_reviews` verdict still names the version she saw, and `approved_version`
+  stays the last approved version (an audit fact, not approval of the new version). A reviewer action still queued
+  against the old version returns `stale_version`; the queue shows the new version (`09-review-api.md`).
+- **Repeating an import** is idempotent in both states: unchanged repeats stay `unchanged`, and a second run after a
+  changed import changes nothing further.
+
+The whole batch runs in one `BEGIN IMMEDIATE` transaction, the same lock a reviewer batch takes, so an import and a
+reviewer action serialise instead of acting on a stale read. No migration was added for this behaviour, so the rollback
+story in `08-upgrade-rollback.md` section D.2 is unchanged.
+
+What "unchanged" means: the hash covers content only. Object key order, JSON escapes and whitespace do not change it,
+and an edit to root-level `status`, `review` or `updatedAt` alone is still `unchanged`. Array order *is* part of the
+hash, including `topics` (caveat below).
+
+Reviewer edits are validated against the import schema's field constraints (lengths, enums, accepted-answer lists, the
+noun/phrase gender rule, and the 60-character headword limit even for a longer alternative value), so a reviewer cannot
+write a value the importer would reject. Lexical/style lint of edits is still deferred (Q-M4-4): no lexicon matcher
+runs, so an edit is not checked for Peninsular usage, register or LATAM forms, and `lintWarnings` is not recomputed.
+The consequence: a hand-edit can pass every server check and still be a style regression; the reviewer UI and her
+judgement are the only guard there.
+
+Known caveats of the import side (the reviewer-side ones — multi-edit rejection, the import-then-edit test gap,
+`lintWarnings` — are in `09-review-api.md` Known limitations):
+
+- Reordering the `topics` array changes the hash without changing meaning, so a topics-only re-export bumps the version
+  and sends the word back to `pending_review`. The safe direction — a reviewer edit is never lost — still holds.
+- The importer loads senses, alternatives and topics one word at a time inside the write lock (N+1); fine at this
+  corpus size, worth batching only if it grows.
+- `content approve` (`Content/ContentApproval.cs:17`) still opens its transaction deferred, so a CLI approval racing an
+  import can fail with SQLite `SQLITE_BUSY_SNAPSHOT` / "database is locked". Nothing is corrupted, nothing is partly
+  written, and the command can be re-run; aligning it with the `BEGIN IMMEDIATE` pattern is later work.
 
 Optional per-sense fields `acceptedEn`, `acceptedEs` and `accentsAreThePoint`, and the word field `plural`, are read
 when present. Without them the accepted English answers are the gloss split on `", "` and the accepted Spanish answer

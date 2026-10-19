@@ -101,7 +101,8 @@ Content needs approval before M6 is useful, so start M4 right after M2 if possib
   alternatives as `pending_review` files for the importer.
 
 Status: M4 backend and UI are implemented and code-reviewed (see the T-20261019-1606 bullets in Status
-below); M4 is **not accepted** until the attended phone/tablet check below has happened. M3 is not started.
+below); plan step 4 (reviewer edit vs re-import) shipped in `89657e4` (also Status below). M4 is **not accepted**
+until the attended phone/tablet check below has happened. M3 is not started.
 
 **Done when:** the reviewer approves a word on her phone and the learner sees it in the next
 session; a rejected word never reaches the learner (test the approved-only gate); a council run
@@ -180,8 +181,17 @@ Appended below the queue so the line numbers above stay stable. Backend state as
   list with search/pagination and stale-cursor restart at page 1, automatic page-1 repair after `stale_version`,
   and read-only regional/register variant chips. Unit 125/125 and both browser suites pass inside the
   `playwright:v1.64.1-noble` container (`T-20261019-1606/20-review-browser-assertion.md`).
+- **M4 re-import / reviewer-edit conflict semantics shipped** (`89657e4`, local, not pushed; plan step 4; no
+  migration): `content_hash` stays the last imported source hash, so re-importing an unchanged file keeps the
+  reviewer's edit, approval, version and verdict, while a changed source replaces content, bumps `version`, returns the
+  word to `pending_review` and suspends cards — keeping every historical revision and verdict and
+  `approved_version` as audit (`09-review-api.md`, `06-content-cli.md`). Reviewer edits are validated against the
+  import schema's field constraints; lexical lint remains deferred (Q-M4-4). 15 new tests
+  (`M4ReviewReimportTests.cs`), suite 925/925 at that commit, and a real Kestrel + CLI + HTTP probe passed
+  (`T-20261019-2013/00-m4-step4-reimport.md`). The two independent reviews found no blockers; their minors are the
+  caveats recorded in `09-review-api.md` Known limitations.
 - **M4 is not accepted yet.** Outstanding: attended visual/device acceptance on Android Chrome (OnePlus 15 and
-  Tab 3, §5 "done when"), re-import-after-edit tests (plan step 4), verdict export (step 5), and the deliberately
+  Tab 3, §5 "done when"), verdict export (step 5), the re-import minors above, and the deliberately
   open minors — failed-row residue/asymmetric pruning, mixed-row "overall cap 50" coverage, one presence-only
   editor assertion, `La palabra ha cambiado` no longer asserted on the approved panel.
 - Deployment of these commits is owner-run; nothing here claims the production container runs them.

@@ -187,10 +187,40 @@ No export endpoint reads `word_reviews` yet (plan step 5). A future export must 
   saw; the approved content is `version = word_version + 1`, `action = 'approve'`. `edit_diff` is the direct record of
   what changed.
 - Do not join `word_reviews.word_version` to `words.approved_version`: they differ by one for edit approvals,
-  `approved_version` is NULL for words approved before M4, and it keeps the last approved version after a demote.
+  `approved_version` is NULL for words approved before M4, and it keeps the last approved version after a demote or a
+  changed-source re-import.
 - `chosen_alternative_id` becomes NULL when a re-import replaces the word's alternatives (FK `SET NULL`); the verdict
   row and `edit_diff` survive. `previous_*` undo alternatives are also replaced by a re-import.
 - CLI approvals appear only as `word_revisions` rows with `actor_user_id` NULL, never in `word_reviews`.
+
+## Re-import after a reviewer decision (Q-M4-3)
+
+Shipped in `89657e4` (run `T-20261019-2013`, plan step 4). Tests: `M4ReviewReimportTests.cs` (15 cases). CLI behaviour
+and the hash definition: `06-content-cli.md`. This section covers only how a re-import interacts with verdicts and
+versions.
+
+- `content_hash` is the hash of the last imported **source** file. `approve_edit` and `approve_alt` never write it.
+- **Source unchanged since the last import** → the import is `unchanged` and performs no write at all: the reviewer's
+  content, `approved` status, `version`, hash, verdict row, alternatives and card epochs all survive. Both orderings
+  are covered (reviewer action → import, and repeated imports after it).
+- **Source changed** → the import wins: content replaced, `version` + 1, status `pending_review`, cards demoted
+  (`epoch` + 1, `suspended_reason` set to `word_not_approved` where it was empty). The reviewer's `edit`/`approve`
+  snapshots stay at their old versions, her `word_reviews` row still names the version she saw, and `approved_version`
+  stays the last approved version — an audit fact, not approval of the new version. No revision is deleted or
+  renumbered, so no verdict points at a vanished version. A queued action for the old version returns `stale_version`;
+  the queue exposes the new version.
+- Replaying the original action after the import returns `duplicate`, not `stale_version`: the duplicate check runs
+  first.
+- A changed-source import replaces the word's alternatives, so `chosen_alternative_id` becomes NULL (`ON DELETE SET
+  NULL`) while `edit_diff` and the snapshots keep the chosen value (see "Export and join semantics").
+- An unchanged re-import is idempotent; a second identical import after a changed one changes nothing further.
+- Import takes `BEGIN IMMEDIATE` before its first read, like `POST /api/review/actions`, so the two serialise.
+
+Reviewer edits are validated against the import schema's field constraints before any tracked entity changes
+(`Content/ReviewContentValidation.cs`): lengths, `article`/`gender` enums, accepted-answer lists, the noun/phrase gender
+condition, and the 60-character headword limit even when the alternative's own limit is 80. Lexical/style lint is still
+deferred (Q-M4-4): no lexicon matcher runs on edits, so an edit can pass every server check and still be a
+Peninsular/register regression, and `lintWarnings` is not recomputed.
 
 ## Known limitations
 
@@ -202,9 +232,21 @@ No export endpoint reads `word_reviews` yet (plan step 5). A future export must 
 - The GET routes read without a transaction; a concurrent write can show a just-decided word once. Acting on it
   returns `invalid_transition` or `stale_version`.
 - Queue and approved list load every matching word and page in memory; fine for a corpus of hundreds of words.
-- Concurrency safety rests on SQLite's write lock (`BEGIN IMMEDIATE`); no test sends concurrent requests.
-- Not covered by tests yet (plan step 4): re-import of a file after a reviewer edit (unchanged file keeps the edit;
-  changed file overwrites it, Q-M4-3), and a learner attempt queued against a demoted card.
-- `lintWarnings` is not recomputed for reviewer edits (Q-M4-4).
+- Concurrency safety rests on SQLite's write lock (`BEGIN IMMEDIATE`); no test sends concurrent requests. Import uses
+  the same lock (see the section above), and the orderings are tested serially in both directions.
+- An `approve_edit` batch that sets both `article` and `gender` on a noun can be rejected even though the result is
+  valid: each edit is validated against the pre-edit article. Editing the article first works. Rejects valid input
+  only.
+- Reordering the `topics` array in the source file changes the import hash though the meaning is unchanged; the next
+  import bumps the version, demotes cards and returns the word to `pending_review`. A reviewer edit is never lost.
+- Import-then-edit at the new version is not asserted end to end: after a changed-source import the tests check
+  `stale_version` for the old version and the queue's new version, not a fresh `approve_edit` at that version (same
+  transition code, already covered elsewhere).
+- `content approve` (CLI) still opens a deferred transaction (`Content/ContentApproval.cs:17`); racing an import can
+  fail with `SQLITE_BUSY_SNAPSHOT` / "database is locked". No corruption, rerunnable; align to `IMMEDIATE` later.
+- The FK-clean and dangling-verdict assertions for the changed-source path are in the probe
+  (`.opencode/runs/T-20261019-2013/00-reimport-probe.mjs:85,88`), not in the unit tests.
+- `lintWarnings` is not recomputed for reviewer edits (Q-M4-4). Edits do face the import schema's field constraints
+  (`Content/ReviewContentValidation.cs`); lexical/style lint does not run.
 - `regional_variant`/`register_variant` chips replacing the headword is an implementation choice not defined in the
   plan; confirm with the reviewer UI design.
