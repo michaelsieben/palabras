@@ -39,8 +39,16 @@ internal static class ReviewEndpoints
     // adopted the new field gets exactly the pre-change page. The objection UI opts into approved
     // rows explicitly with `status=all` (or `status=approved`); rendering an approved row as a
     // pending card would offer "approve" for a word that is already approved.
-    // Approved rows are keyset-paged with `after`/`nextAfter` (the cursor is a word id), matching
-    // /api/review/approved.
+    //
+    // Objection discoverability (T-20261019-2100 step 36): `rejected` is a scope of its own and
+    // `all` is the union of all three statuses, so a withdrawn word never becomes unreachable. A
+    // rejected row is a full ReviewItem (wordId, version, status), which is exactly what `approve`
+    // needs to lift the objection. The three scopes stay mutually exclusive.
+    //
+    // Decided rows (approved + rejected) share one ordering: newest decision first, keyset-paged
+    // by word id through `after`/`nextAfter`. The cursor addresses the decided list of the
+    // selected scope, so `status=approved`, `status=rejected` and the decided part of `all` page
+    // the same way.
     private static async Task<IResult> QueueAsync(DatabaseSettings settings, string? limit, string? status,
         string? after, CancellationToken cancellationToken)
     {
@@ -48,7 +56,7 @@ internal static class ReviewEndpoints
         {
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         }
-        if (!TryQueueScope(status, out var includePending, out var includeApproved))
+        if (!TryQueueScope(status, out var includePending, out var includeApproved, out var includeRejected))
         {
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         }
@@ -65,26 +73,27 @@ internal static class ReviewEndpoints
         var pending = includePending
             ? await LoadPendingQueueAsync(database, take, cancellationToken)
             : new PendingQueue([], 0, []);
-        var approved = includeApproved
-            ? await LoadApprovedQueueAsync(database, take - pending.Words.Count, cursor, cancellationToken)
-            : new ApprovedQueue([], 0, null, false);
-        if (approved.InvalidCursor)
+        var decided = includeApproved || includeRejected
+            ? await LoadDecidedQueueAsync(database, includeApproved, includeRejected,
+                take - pending.Words.Count, cursor, cancellationToken)
+            : new DecidedQueue([], 0, 0, null, false);
+        if (decided.InvalidCursor)
         {
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         }
-        var pageWords = pending.Words.Concat(approved.Words).ToArray();
+        var pageWords = pending.Words.Concat(decided.Words).ToArray();
         var items = pageWords.Length == 0
             ? []
             : await BuildQueueItemsAsync(database, pageWords, cancellationToken);
         return Results.Ok(new ReviewQueueResponse(items, pending.Total, pending.Topics,
-            approved.Total, approved.NextAfter));
+            decided.ApprovedTotal, decided.NextAfter, decided.RejectedTotal));
     }
 
     private sealed record PendingQueue(IReadOnlyList<Word> Words, int Total,
         IReadOnlyList<ReviewTopicCount> Topics);
 
-    private sealed record ApprovedQueue(IReadOnlyList<Word> Words, int Total, int? NextAfter,
-        bool InvalidCursor);
+    private sealed record DecidedQueue(IReadOnlyList<Word> Words, int ApprovedTotal, int RejectedTotal,
+        int? NextAfter, bool InvalidCursor);
 
     private static async Task<PendingQueue> LoadPendingQueueAsync(PalabrasDbContext database, int take,
         CancellationToken cancellationToken)
@@ -115,38 +124,52 @@ internal static class ReviewEndpoints
         return new PendingQueue(ordered, pending.Count, topics);
     }
 
-    // Approved rows are ordered by the same approvedAt rule /api/review/approved uses, then keyset
-    // paged by word id. The cursor is resolved against the full ordered list, so a non-existent id
-    // is a bad_request rather than a silently empty page.
-    private static async Task<ApprovedQueue> LoadApprovedQueueAsync(PalabrasDbContext database, int take,
-        int? cursor, CancellationToken cancellationToken)
+    // Decided rows (approved and rejected) are ordered by the same "decision time" rule
+    // /api/review/approved uses, then keyset paged by word id. status_changed_at is authoritative;
+    // pre-M4 approvals fall back to the newest approve revision, then updated_at/created_at. The
+    // cursor is resolved against the full ordered list, so a non-existent id is a bad_request
+    // rather than a silently empty page.
+    private static async Task<DecidedQueue> LoadDecidedQueueAsync(PalabrasDbContext database,
+        bool includeApproved, bool includeRejected, int take, int? cursor, CancellationToken cancellationToken)
     {
+        var statuses = new List<string>(2);
+        if (includeApproved)
+        {
+            statuses.Add("approved");
+        }
+        if (includeRejected)
+        {
+            statuses.Add("rejected");
+        }
         var words = await database.Words.AsNoTracking()
-            .Where(word => word.Status == "approved").ToListAsync(cancellationToken);
+            .Where(word => statuses.Contains(word.Status)).ToListAsync(cancellationToken);
+        var approvedTotal = words.Count(word => word.Status == "approved");
+        var rejectedTotal = words.Count(word => word.Status == "rejected");
         if (words.Count == 0)
         {
-            return new ApprovedQueue([], 0, null, false);
+            return new DecidedQueue([], 0, 0, null, false);
         }
         var wordIds = words.Select(word => word.Id).ToArray();
-        var approvals = await database.WordRevisions.AsNoTracking()
-            .Where(revision => wordIds.Contains(revision.WordId) && revision.Action == "approve")
+        var decisions = await database.WordRevisions.AsNoTracking()
+            .Where(revision => wordIds.Contains(revision.WordId)
+                && (revision.Action == "approve" || revision.Action == "reject"))
             .OrderByDescending(revision => revision.Id)
             .Select(revision => new { revision.WordId, revision.CreatedAt })
             .ToListAsync(cancellationToken);
-        var lastApproval = new Dictionary<int, long>();
-        foreach (var approval in approvals)
+        var lastDecision = new Dictionary<int, long>();
+        foreach (var decision in decisions)
         {
-            lastApproval.TryAdd(approval.WordId, approval.CreatedAt);
+            lastDecision.TryAdd(decision.WordId, decision.CreatedAt);
         }
         var ordered = words
             .Select(word => new
             {
                 Word = word,
-                ApprovedAt = word.StatusChangedAt
-                    ?? (lastApproval.TryGetValue(word.Id, out var approvalMs) ? approvalMs : (long?)null)
+                DecidedAt = word.StatusChangedAt
+                    ?? (lastDecision.TryGetValue(word.Id, out var decisionMs) ? decisionMs : (long?)null)
                     ?? (word.UpdatedAt != 0 ? word.UpdatedAt : word.CreatedAt)
             })
-            .OrderByDescending(row => row.ApprovedAt)
+            .OrderByDescending(row => row.DecidedAt)
             .ThenByDescending(row => row.Word.Id)
             .ToList();
         var start = 0;
@@ -155,14 +178,14 @@ internal static class ReviewEndpoints
             var index = ordered.FindIndex(row => row.Word.Id == afterId);
             if (index < 0)
             {
-                return new ApprovedQueue([], words.Count, null, true);
+                return new DecidedQueue([], approvedTotal, rejectedTotal, null, true);
             }
             start = index + 1;
         }
         var remaining = ordered.Skip(start).ToList();
         var page = remaining.Take(Math.Max(take, 0)).Select(row => row.Word).ToArray();
         var nextAfter = take > 0 && remaining.Count > take ? page[^1].Id : (int?)null;
-        return new ApprovedQueue(page, words.Count, nextAfter, false);
+        return new DecidedQueue(page, approvedTotal, rejectedTotal, nextAfter, false);
     }
 
     private static async Task<ReviewItem[]> BuildQueueItemsAsync(PalabrasDbContext database,
@@ -552,10 +575,14 @@ internal static class ReviewEndpoints
         return values.Count > 0 ? values : [json];
     }
 
-    private static bool TryQueueScope(string? raw, out bool includePending, out bool includeApproved)
+    private static bool TryQueueScope(string? raw, out bool includePending, out bool includeApproved,
+        out bool includeRejected)
     {
+        // Default stays `pending` (commit 37e1371): a caller that never adopted `status` keeps the
+        // exact pre-change page.
         includePending = true;
         includeApproved = false;
+        includeRejected = false;
         if (string.IsNullOrWhiteSpace(raw))
         {
             return true;
@@ -563,14 +590,18 @@ internal static class ReviewEndpoints
         switch (raw.Trim())
         {
             case "pending":
-                includeApproved = false;
                 return true;
             case "approved":
                 includePending = false;
                 includeApproved = true;
                 return true;
+            case "rejected":
+                includePending = false;
+                includeRejected = true;
+                return true;
             case "all":
                 includeApproved = true;
+                includeRejected = true;
                 return true;
             default:
                 return false;

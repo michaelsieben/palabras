@@ -59,14 +59,17 @@ internal sealed record ReviewItem(
 
 internal sealed record ReviewTopicCount(string Topic, int Pending);
 
-// `approvedTotal` and `nextAfter` are additive: a caller that ignored them before keeps working,
-// and the default scope (`status=pending`) is exactly the pre-trust-by-default page.
+// `approvedTotal`, `nextAfter` and `rejectedTotal` are additive: a caller that ignored them before
+// keeps working, and the default scope (`status=pending`) is exactly the pre-trust-by-default page.
+// `rejectedTotal` is the withdrawn-word count for the selected scope (`status=rejected` and
+// `status=all`), so the objection UI can show "Retiradas (n)" without another request.
 internal sealed record ReviewQueueResponse(
     IReadOnlyList<ReviewItem> Items,
     int PendingTotal,
     IReadOnlyList<ReviewTopicCount> Topics,
     int ApprovedTotal = 0,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? NextAfter = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? NextAfter = null,
+    int RejectedTotal = 0);
 
 internal sealed record ReviewEditRequest(string? Field, int? SenseOrder, string? After);
 

@@ -156,6 +156,186 @@ public sealed partial class M4ReviewApiTests
     }
 
     [Fact]
+    public async Task QueueScopesAreMutuallyExclusiveAndAllIncludesRejectedRows()
+    {
+        using var factory = new ReviewApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela", status: "approved",
+                statusChangedAt: Now.AddHours(-1).ToUnixTimeMilliseconds(), approvedVersion: 1);
+            AddWord(database, 2, "es-pan-02", "pan", status: "rejected", topic: "food",
+                statusChangedAt: Now.AddHours(-2).ToUnixTimeMilliseconds());
+            AddWord(database, 3, "es-tia-03", "tía");
+            AddWord(database, 4, "es-mesa-04", "mesa", status: "rejected", topic: "household",
+                statusChangedAt: Now.AddHours(-3).ToUnixTimeMilliseconds());
+            AddWord(database, 5, "es-casa-05", "casa", status: "approved", topic: "household",
+                statusChangedAt: Now.AddHours(-4).ToUnixTimeMilliseconds(), approvedVersion: 1);
+        });
+        using var client = await LoginAsync(factory, "reviewer");
+
+        // The default stays pending-only; `status=pending` is the same page spelled out.
+        foreach (var path in new[] { "/api/review/queue", "/api/review/queue?status=pending" })
+        {
+            using var body = await JsonAsync(await client.GetAsync(path));
+            var item = Assert.Single(body.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal("es-tia-03", item.GetProperty("key").GetString());
+            Assert.Equal(1, body.RootElement.GetProperty("pendingTotal").GetInt32());
+            Assert.Equal(0, body.RootElement.GetProperty("approvedTotal").GetInt32());
+            Assert.Equal(0, body.RootElement.GetProperty("rejectedTotal").GetInt32());
+        }
+
+        using (var approved = await JsonAsync(await client.GetAsync("/api/review/queue?status=approved")))
+        {
+            var items = approved.RootElement.GetProperty("items").EnumerateArray().ToArray();
+            Assert.Equal(new[] { "es-abuela-01", "es-casa-05" },
+                items.Select(item => item.GetProperty("key").GetString()).ToArray());
+            Assert.All(items, item => Assert.Equal("approved", item.GetProperty("status").GetString()));
+            Assert.Equal(0, approved.RootElement.GetProperty("pendingTotal").GetInt32());
+            Assert.Equal(2, approved.RootElement.GetProperty("approvedTotal").GetInt32());
+            Assert.Equal(0, approved.RootElement.GetProperty("rejectedTotal").GetInt32());
+        }
+
+        // `status=rejected` is the withdrawn list the objection UI needs: newest decision first,
+        // and each row carries the action contract (wordId + version), so re-approving needs no guess.
+        using (var rejected = await JsonAsync(await client.GetAsync("/api/review/queue?status=rejected")))
+        {
+            var items = rejected.RootElement.GetProperty("items").EnumerateArray().ToArray();
+            Assert.Equal(new[] { "es-pan-02", "es-mesa-04" },
+                items.Select(item => item.GetProperty("key").GetString()).ToArray());
+            Assert.All(items, item => Assert.Equal("rejected", item.GetProperty("status").GetString()));
+            Assert.Equal(2, items[0].GetProperty("wordId").GetInt32());
+            Assert.Equal(1, items[0].GetProperty("version").GetInt32());
+            Assert.Equal(0, rejected.RootElement.GetProperty("pendingTotal").GetInt32());
+            Assert.Equal(0, rejected.RootElement.GetProperty("approvedTotal").GetInt32());
+            Assert.Equal(2, rejected.RootElement.GetProperty("rejectedTotal").GetInt32());
+            Assert.Equal(0, rejected.RootElement.GetProperty("topics").GetArrayLength());
+        }
+
+        // `all` is the union of the three statuses, pending first and then newest decision first.
+        using (var all = await JsonAsync(await client.GetAsync("/api/review/queue?status=all")))
+        {
+            var items = all.RootElement.GetProperty("items").EnumerateArray().ToArray();
+            Assert.Equal(new[] { "es-tia-03", "es-abuela-01", "es-pan-02", "es-mesa-04", "es-casa-05" },
+                items.Select(item => item.GetProperty("key").GetString()).ToArray());
+            Assert.Equal(new[] { "pending_review", "approved", "rejected", "rejected", "approved" },
+                items.Select(item => item.GetProperty("status").GetString()).ToArray());
+            Assert.Equal(1, all.RootElement.GetProperty("pendingTotal").GetInt32());
+            Assert.Equal(2, all.RootElement.GetProperty("approvedTotal").GetInt32());
+            Assert.Equal(2, all.RootElement.GetProperty("rejectedTotal").GetInt32());
+        }
+
+        // The rejected scope pages with the same keyset cursor as the approved scope.
+        using (var page = await JsonAsync(await client.GetAsync("/api/review/queue?status=rejected&limit=1")))
+        {
+            var item = Assert.Single(page.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal("es-pan-02", item.GetProperty("key").GetString());
+            Assert.Equal(2, page.RootElement.GetProperty("nextAfter").GetInt32());
+        }
+        using (var rest = await JsonAsync(await client.GetAsync("/api/review/queue?status=rejected&after=2")))
+        {
+            var item = Assert.Single(rest.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal("es-mesa-04", item.GetProperty("key").GetString());
+            Assert.False(rest.RootElement.TryGetProperty("nextAfter", out _));
+        }
+
+        foreach (var bad in new[] { "bogus", "draft", "retired", "ALL" })
+        {
+            using var response = await client.GetAsync("/api/review/queue?status=" + bad, CancellationToken.None);
+            await AssertJsonErrorAsync(response, HttpStatusCode.BadRequest, "bad_request");
+        }
+    }
+
+    [Fact]
+    public async Task RejectedWordIsDiscoverableInTheQueueAndCanBeReapprovedFromThatRow()
+    {
+        using var factory = new ReviewApplicationFactory(Now, database =>
+        {
+            AddWord(database, 1, "es-abuela-01", "abuela", status: "approved", article: "la",
+                gender: "feminine", statusChangedAt: Now.AddDays(-3).ToUnixTimeMilliseconds(),
+                approvedVersion: 1);
+            AddCard(database, 10, state: CardState.Review, epoch: 0, reps: 4, lapses: 1, stability: 12.5,
+                difficulty: 6.2, dueMs: Now.AddDays(2).ToUnixTimeMilliseconds(),
+                lastReviewMs: Now.AddDays(-1).ToUnixTimeMilliseconds());
+        });
+        using var client = await LoginAsync(factory, "reviewer");
+        await using (var database = factory.OpenDatabase())
+        {
+            database.ReviewLogs.Add(new ReviewLog
+            {
+                UserId = 1, WordId = 1, CardId = (await database.Cards.OrderBy(card => card.Id)
+                    .Select(card => card.Id).FirstAsync()), CardEpoch = 0,
+                ClientAttemptId = "before-objection", Rating = Rating.Good,
+                ReviewedAtMs = Now.AddDays(-1).ToUnixTimeMilliseconds(),
+                ReceivedAtMs = Now.AddDays(-1).ToUnixTimeMilliseconds(), CountsForSrs = true
+            });
+            await database.SaveChangesAsync();
+        }
+
+        // 1) The reviewer objects to the approved word.
+        using (var response = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[] { Action(Guid.NewGuid().ToString(), 1, "reject", note: "No es peninsular") }
+        }))
+        {
+            using var body = await JsonAsync(response);
+            Assert.Equal("applied", Assert.Single(body.RootElement.GetProperty("results").EnumerateArray())
+                .GetProperty("result").GetString());
+        }
+
+        // 2) The withdrawn word is reachable on both server-backed scopes, with the current version.
+        int wordId;
+        int version;
+        using (var rejected = await JsonAsync(await client.GetAsync("/api/review/queue?status=rejected")))
+        {
+            var item = Assert.Single(rejected.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal("rejected", item.GetProperty("status").GetString());
+            Assert.Equal("es-abuela-01", item.GetProperty("key").GetString());
+            wordId = item.GetProperty("wordId").GetInt32();
+            version = item.GetProperty("version").GetInt32();
+            Assert.Equal(1, rejected.RootElement.GetProperty("rejectedTotal").GetInt32());
+        }
+        using (var all = await JsonAsync(await client.GetAsync("/api/review/queue?status=all")))
+        {
+            var item = Assert.Single(all.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal("rejected", item.GetProperty("status").GetString());
+            Assert.Equal(wordId, item.GetProperty("wordId").GetInt32());
+            Assert.Equal(version, item.GetProperty("version").GetInt32());
+        }
+
+        // 3) approve with the version the rejected row handed out: the objection is lifted.
+        using (var response = await PostAsync(client, "/api/review/actions", new
+        {
+            actions = new[] { Action(Guid.NewGuid().ToString(), wordId, "approve", wordVersion: version) }
+        }))
+        {
+            using var body = await JsonAsync(response);
+            var result = Assert.Single(body.RootElement.GetProperty("results").EnumerateArray());
+            Assert.Equal("applied", result.GetProperty("result").GetString());
+            Assert.Equal("approved", result.GetProperty("word").GetProperty("status").GetString());
+        }
+        await using (var database = factory.OpenDatabase())
+        {
+            Assert.Equal("approved", (await database.Words.SingleAsync()).Status);
+            // The pre-objection card is reset; the missing direction is created fresh by the approval.
+            var cards = await database.Cards.OrderBy(card => card.Id).ToListAsync();
+            Assert.Equal(2, cards.Count);
+            var card = cards[0];
+            Assert.Null(card.SuspendedReason);
+            Assert.Equal(2, card.Epoch); // rejection +1, objection-withdrawn reset +1
+            Assert.Equal(CardState.New, card.State);
+            Assert.Equal(0, card.Reps);
+            Assert.Null(card.Stability);
+            Assert.Equal(Now.ToUnixTimeMilliseconds(), card.DueMs);
+            Assert.Null(cards[1].SuspendedReason);
+            // No history deleted and both verdicts still recorded.
+            Assert.Single(await database.ReviewLogs.ToListAsync());
+            Assert.Equal(new[] { "reject", "approve" },
+                (await database.WordReviews.OrderBy(review => review.Id).ToListAsync())
+                    .Select(review => review.Action).ToArray());
+            Assert.Empty(await database.Words.Where(word => word.Status == "rejected").ToListAsync());
+        }
+    }
+
+    [Fact]
     public async Task QueueShowsBandLintAndTheLastNeedsChangeFlag()
     {
         using var factory = new ReviewApplicationFactory(Now, database =>
