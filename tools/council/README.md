@@ -260,21 +260,46 @@ Two lists, normalised identically (NFC, lower-case, accent-folded, whitespace co
 
 - `privacy.local.json` - gitignored; template in `privacy.local.example.json`. Real names,
   usernames, email, the domain. Matched as normalised substrings, so an address stays one hit.
-  **Every non-dry run requires it present and non-empty**; this list is the real guard.
-- `privacy.sha256.json` - committed and **hash-only**. Unsalted SHA-256 hashes of names can be
-  reversed with a dictionary: the committed list is a CI tripwire, not secrecy. Anything you commit
-  there is effectively public. Keep it empty unless the owner accepts that. It is optional for a
-  real run.
+  **Every non-dry run requires a genuine, complete, non-empty copy**; this list is the real guard.
+  A real run without it exits 1 before any provider call. The CLI checks only that the list is
+  non-empty, never that it is complete: nothing else protects a name you did not list, so keeping
+  it complete is the owner's responsibility.
+- `privacy.sha256.json` - committed, **hash-only and optional**. It is empty by default and that is
+  a supported state. Unsalted SHA-256 hashes of names can be reversed with a name list, so anything
+  committed there is effectively public; publishing it is an owner decision, and an empty list
+  implies no consent to publish personal data. This list is CI defence-in-depth only, separate from
+  the runtime guard, and never required for a real run.
 
 The committed file uses hash format v2 and lists `{tokens, sha256}` entries; its version,
 normalisation and algorithm must match the loader. A v1 file is refused. Regenerate it from the
-local list instead of migrating old hashes:
+local list instead of migrating old hashes. Export refuses any term whose token count falls outside
+1-8, and then writes no document at all:
 
 ```
 node dist/cli.js privacy hash --privacy privacy.local.json > privacy.sha256.json
 ```
 
-The output is sorted and deduplicated and contains no clear text. Review it before committing.
+If the owner does choose to publish hashes, never redirect straight at the committed file: the shell
+truncates it before the export can fail. Export to a private temporary path outside the repository,
+confirm exit 0 and a valid non-empty document, compare it privately against the intended local
+terms, then replace `privacy.sha256.json`. The output is sorted and deduplicated and contains no
+clear text.
+
+The CI step `Council committed privacy hash guard` (`npm run privacy:check`) scans `content/` and
+`prompts/` against the committed list and never reads the local list:
+
+| Result | Condition |
+| --- | --- |
+| pass, exit 0 | valid v2 document, including `terms: []`; the empty case prints an explicit NOTICE |
+| pass, exit 0 | non-empty list and no hit in any scanned `.json`, `.jsonl` or `.md` file |
+| fail, exit 1 | missing file, or JSON that cannot be parsed |
+| fail, exit 1 | missing or unknown `schema`, `algorithm` or `normalisation` version |
+| fail, exit 1 | any plaintext term, or an entry with a property other than `tokens`/`sha256` |
+| fail, exit 1 | one hash given two different token counts |
+| fail, exit 1 | malformed hash: `tokens` not an integer 1-8, or `sha256` not 64 lower-case hex |
+
+An empty committed list therefore never turns CI red; it only means the hash backstop protects
+nothing until the owner populates it.
 
 A hit aborts before any provider call and the message names the dirty field and the list index,
 never the term. A term shorter than three characters after normalisation is refused: it would

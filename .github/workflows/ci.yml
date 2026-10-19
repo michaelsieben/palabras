@@ -65,7 +65,10 @@ jobs:
         run: |
           npm ci
           npm test
-      # Fail closed until owner exports a non-empty hash-only policy. Never read local terms.
+      # Optional hash-only defence-in-depth; never reads local terms. An empty committed list is a
+      # supported state: the guard prints a NOTICE and passes, because publishing hashes is an owner
+      # decision. Unparsable JSON, a missing/unknown version, any plaintext term, one hash with two
+      # token counts, or a malformed hash still fails closed.
       - name: Council committed privacy hash guard
         working-directory: tools/council
         run: npm run privacy:check
