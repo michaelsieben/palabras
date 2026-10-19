@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Json.Schema;
@@ -68,7 +67,7 @@ internal sealed class ContentImporter
                     rejected.Add(Path.GetFileName(path) + ": createdAt cannot be represented as a database timestamp");
                     continue;
                 }
-                entries.Add(new Entry(root, key, Convert.ToHexStringLower(SHA256.HashData(CanonicalBytes(root))), createdAt.ToUnixTimeMilliseconds()));
+                entries.Add(new Entry(root, key, CanonicalJson.Sha256Hex(CanonicalJson.ContentBytes(root)), createdAt.ToUnixTimeMilliseconds()));
             }
             catch (Exception exception) when (exception is JsonException or ArgumentException or FormatException or IOException or UnauthorizedAccessException)
             {
@@ -229,59 +228,6 @@ internal sealed class ContentImporter
     }
 
     private static string? Text(JsonNode node, string property) => node[property]?.GetValue<string>();
-
-    private static byte[] CanonicalBytes(JsonNode root)
-    {
-        using var stream = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream))
-        {
-            WriteCanonical(writer, root, true);
-        }
-        return stream.ToArray();
-    }
-
-    private static void WriteCanonical(Utf8JsonWriter writer, JsonNode? node, bool isRoot = false)
-    {
-        if (node is JsonObject obj)
-        {
-            writer.WriteStartObject();
-            foreach (var property in obj.OrderBy(property => property.Key, StringComparer.Ordinal))
-            {
-                if (isRoot && property.Key is "status" or "review" or "updatedAt")
-                {
-                    continue;
-                }
-                writer.WritePropertyName(property.Key);
-                WriteCanonical(writer, property.Value);
-            }
-            writer.WriteEndObject();
-        }
-        else if (node is JsonArray array)
-        {
-            writer.WriteStartArray();
-            foreach (var item in array)
-            {
-                WriteCanonical(writer, item);
-            }
-            writer.WriteEndArray();
-        }
-        else if (node == null)
-        {
-            writer.WriteNullValue();
-        }
-        else
-        {
-            // Decode strings before writing so literal UTF-8 and equivalent JSON escapes hash identically.
-            if (node.GetValueKind() == JsonValueKind.String)
-            {
-                writer.WriteStringValue(node.GetValue<string>());
-            }
-            else
-            {
-                node.WriteTo(writer);
-            }
-        }
-    }
 
     private static void RejectDuplicateProperties(JsonElement element)
     {

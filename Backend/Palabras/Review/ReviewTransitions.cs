@@ -137,10 +137,13 @@ internal static class ReviewTransitions
         return snapshots;
     }
 
-    // Legacy word_alternatives carry `kind`, not the ΔF `field`. These are the only kinds the
-    // reviewer sheet can offer; `previous_*` rows are undo data and are never shown as chips.
+    // Legacy word_alternatives carry a v1 `kind`; M3b council rows store the ΔF field name in `kind`
+    // (and `field`). Both vocabularies resolve here, so a council chip is visible even before the
+    // endpoint's `field` preference lands (C4). `regional_note` is deliberately absent: the sheet has
+    // no swap target for a note, and approve_alt would otherwise write it as an example.
     internal static string? FieldForAlternativeKind(string kind) => kind switch
     {
+        "lemma" or "gloss" or "example" or "regional_variant" or "register_variant" => kind,
         "synonym" or "near-synonym" or "different-sense" or "previous_lemma" => ReviewFieldNames.Lemma,
         "regional" => ReviewFieldNames.RegionalVariant,
         "register" => ReviewFieldNames.RegisterVariant,

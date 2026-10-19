@@ -156,7 +156,7 @@ internal static class CouncilBundleValidator
         }
         foreach (var entry in parsed)
         {
-            ValidateCandidateSemantics(entry, manifest, resolvable, issues);
+            ValidateCandidateSemantics(entry, manifest, resolvable, knownWordKeys != null, issues);
         }
         return new(manifest, parsed, issues);
     }
@@ -202,6 +202,7 @@ internal static class CouncilBundleValidator
         CouncilBundleCandidate entry,
         CouncilManifest manifest,
         IReadOnlySet<string> resolvableKeys,
+        bool hasKnownWordKeys,
         List<CouncilBundleIssue> issues)
     {
         var at = $"{CandidatesFileName}:{entry.Line}";
@@ -267,8 +268,12 @@ internal static class CouncilBundleValidator
             }
             if (alternative.TargetKey is { } targetKey && !resolvableKeys.Contains(targetKey))
             {
-                issues.Add(new(altAt,
-                    $"target_key '{targetKey}' does not resolve to a word in this bundle or the known lexicon"));
+                // Distinguish "this key is unknown" from "the caller never supplied its lexicon":
+                // a caller that forgets to wire the words table would otherwise see a misleading
+                // "unknown word" for a reference to a word that exists.
+                issues.Add(new(altAt, hasKnownWordKeys
+                    ? $"target_key '{targetKey}' does not resolve to a word in this bundle or the known lexicon"
+                    : $"target_key '{targetKey}' does not resolve to a word in this bundle; no known-key set was supplied, so a reference to an existing word cannot be checked"));
             }
             var identity = $"{alternative.Field}|{alternative.SenseIndex}|{alternative.Es}|{alternative.En}";
             if (!seenAlternatives.Add(identity))

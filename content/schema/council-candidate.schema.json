@@ -190,7 +190,7 @@
       "properties": {
         "field": {
           "enum": ["lemma", "gloss", "example", "regional_note", "regional_variant", "register_variant"],
-          "description": "Also written to word_alternatives.kind, so it must stay inside that column's CHECK vocabulary. The v1 kinds synonym/near-synonym/different-sense/regional/register are not valid here."
+          "description": "Also written to word_alternatives.field, which is the column constrained to this vocabulary. The importer copies it into kind too (kind has no CHECK; the legacy reviewer-chip resolver understands both). The v1 kinds synonym/near-synonym/different-sense/regional/register are not valid here."
         },
         "sense": {
           "type": "integer",

@@ -6,8 +6,9 @@ namespace Palabras.Content;
 
 // Canonical JSON used as the identity of a content document: object keys sorted ordinally, strings
 // decoded before writing (so literal UTF-8 and equivalent \u escapes hash identically), array order
-// preserved. ContentImporter still carries its private copy of the same algorithm until the council
-// importer lands (C3); the two must never drift, so ContentBytes is the shape ContentImporter needs.
+// preserved. Both importers share this one implementation; M3CouncilImportTests keeps a frozen copy
+// of the retired ContentImporter canonicaliser and asserts the bytes still match, so the shared
+// hasher cannot silently change every stored content_hash.
 internal static class CanonicalJson
 {
     private static readonly string[] MutableContentRootProperties = ["review", "status", "updatedAt"];

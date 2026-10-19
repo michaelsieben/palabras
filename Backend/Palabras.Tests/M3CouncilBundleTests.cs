@@ -146,6 +146,16 @@ public sealed class M3CouncilBundleTests : IDisposable
     }
 
     [Fact]
+    public async Task DanglingReferenceSaysWhenNoKnownKeySetWasSuppliedAsync()
+    {
+        var result = await ValidateFixtureAsync("dangling-alternative-reference");
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Issues,
+            issue => issue.Message.Contains("no known-key set was supplied", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task AlternativeFieldOutsideTheWordAlternativeVocabularyIsRefusedAsync()
     {
         var result = await ValidateFixtureAsync("invalid-alternative-field");
