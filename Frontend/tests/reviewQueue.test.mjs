@@ -9,6 +9,29 @@ import { createReviewStorage, reviewDatabaseName } from '../src/review/storage.t
 import { reviewWord, reviewAction, memoryReviewStore, appliedReviews } from './reviewFixtures.mjs'
 const tick = () => new Promise(resolve => setImmediate(resolve))
 const row = n => ({ action: reviewAction(n), word: reviewWord(n), state: 'pending' })
+test('refresh cleanup preserves durable pending rows even when another tab has not published its retry', async () => {
+  const store = memoryReviewStore(); const queue = createReviewQueue(store, { online: () => false })
+  const failed = { ...row(7), state: 'failed', result: 'invalid' }
+  await store.put(failed); await queue.flush()
+  await store.put({ ...failed, state: 'pending', result: undefined })
+  assert.equal(queue.getSnapshot().rows[0].state, 'failed', 'simulate stale tab snapshot')
+  await queue.discard(failed.action.clientReviewId, true)
+  assert.equal((await store.list())[0].state, 'pending')
+  await queue.discard(failed.action.clientReviewId)
+  assert.deepEqual(await store.list(), [], 'explicit discard remains deliberate')
+})
+test('invalid_transition stays durably failed across flush, explicit retry and recreation until refreshed or discarded', async () => {
+  const store = memoryReviewStore(); const action = reviewAction(7, { action: 'reject' }); let calls = 0
+  await store.put({ action, word: reviewWord(7, { status: 'approved' }), state: 'pending' })
+  const options = { online: () => true, send: async () => { calls++; return { results: [{ clientReviewId: action.clientReviewId, result: 'invalid_transition' }] } } }
+  const queue = createReviewQueue(store, options); queue.start(); await queue.flush()
+  await queue.retry(action.clientReviewId); await queue.flush(); queue.stop()
+  const reloaded = createReviewQueue(store, options); reloaded.start(); await reloaded.flush(); await reloaded.retry(action.clientReviewId); await reloaded.flush(); reloaded.stop()
+  assert.equal(calls, 1)
+  assert.equal(reloaded.getSnapshot().rows[0].state, 'failed')
+  assert.equal(reloaded.getSnapshot().rows[0].result, 'invalid_transition')
+  assert.deepEqual(reloaded.getSnapshot().rows[0].action, action)
+})
 for (const action of ['reject', 'approve']) test(`objection ${action} survives offline recreation and retry with original UUID/version`, async () => {
   const store = memoryReviewStore(); const sent = []; const original = reviewWord(9, { status: action === 'reject' ? 'approved' : 'rejected', version: 14 })
   const verdict = reviewAction(9, { action, wordVersion: original.version })

@@ -82,10 +82,14 @@ export function createReviewQueue(store: ReviewStore, options: { send?: typeof p
       trigger()
     },
     async retry(id: string) {
-      await mutate(async () => { const row = (await store.list()).find(r => r.action.clientReviewId === id); if (row && row.state !== 'applied') await store.put({ ...row, state: 'pending', error: undefined, result: undefined }) })
+      await mutate(async () => { const row = (await store.list()).find(r => r.action.clientReviewId === id); if (row && row.state !== 'applied' && row.result !== 'invalid_transition') await store.put({ ...row, state: 'pending', error: undefined, result: undefined }) })
       trigger()
     },
-    discard: (id: string) => mutate(() => store.remove(id)),
+    // Implicit refresh cleanup must check durable state under the same cross-tab write lock.
+    discard: (id: string, preservePending = false) => mutate(async () => {
+      if (preservePending && (await store.list()).some(r => r.action.clientReviewId === id && r.state === 'pending')) return
+      await store.remove(id)
+    }),
     flush, trigger,
     start() { active = true; trigger() },
     stop() { active = false },

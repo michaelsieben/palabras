@@ -34,6 +34,105 @@ function text(tree) {
 const button = (tree, label) => nodes(tree).find(n => n.type === 'button' && text(n) === label)
 const tick = () => new Promise(resolve => setImmediate(resolve))
 const emptyQueue = () => ({ getSnapshot: () => ({ rows: [], storageError: false }), subscribe: () => () => {}, flush: async () => {}, discard: async () => {} })
+test('pending decisions disable word refresh and stale refresh handlers cannot discard unsent outbox entries', async () => {
+  let row = { action: reviewAction(7), word: approvedWord(7), state: 'failed', result: 'invalid' }
+  let calls = 0; const discarded = []
+  const queue = { ...emptyQueue(), getSnapshot: () => ({ rows: [row], storageError: false }), discard: async id => discarded.push(id) }
+  const h = component('../src/review/ApprovedPanel.tsx', { '../api/review': { getApprovedWords: async () => { calls++; return { items: [approvedWord(7)] } } }, './ReviewRowStatus': { ReviewRowStatus: 'RowStatus' } })
+  const render = () => h.render(e => e.ApprovedPanel({ queue }))
+  render(); h.hydrate(); await tick()
+  const staleRefresh = nodes(render()).find(n => n.type === 'RowStatus').props.refresh
+  row = { ...row, state: 'pending', result: undefined }
+  await staleRefresh(); await tick()
+  assert.equal(calls, 1); assert.deepEqual(discarded, [])
+  const status = component('../src/review/ReviewRowStatus.tsx').exports.ReviewRowStatus({ ...nodes(render()).find(n => n.type === 'RowStatus').props })
+  assert.equal(button(status, 'Actualización bloqueada: decisión pendiente').props.disabled, true)
+  assert.equal(button(status, 'Descartar decisión local'), undefined)
+  assert.equal(row.action.clientReviewId, reviewAction(7).clientReviewId)
+})
+test('failed new search cannot expose the previous query next cursor after loading ends', async () => {
+  const calls = []
+  const h = component('../src/review/ApprovedPanel.tsx', { '../api/client': { ApiError }, '../api/review': { getApprovedWords: async (q, after) => {
+    calls.push({ q, after })
+    if (q) throw new ApiError('network')
+    return { items: [approvedWord(7)], nextCursor: 'old-query-cursor' }
+  } } })
+  const render = () => h.render(e => e.ApprovedPanel({ queue: emptyQueue() }))
+  render(); h.hydrate(); await tick()
+  button(render(), 'Siguiente').props.onClick(); render(); h.hydrate(); await tick()
+  assert.match(text(render()), /Página 2/)
+  nodes(render()).find(n => n.type === 'input').props.onChange({ target: { value: 'nuevo' } })
+  nodes(render()).find(n => n.type === 'form').props.onSubmit({ preventDefault() {} })
+  render(); h.hydrate(); await tick()
+  assert.deepEqual(calls.at(-1), { q: 'nuevo', after: undefined })
+  assert.match(text(render()), /Página 1/)
+  assert.match(text(render()), /No se han podido cargar/)
+  assert.equal(button(render(), 'Siguiente').props.disabled, true, 'failed search must not reuse an old next cursor')
+  assert.equal(button(render(), 'Anterior').props.disabled, true)
+})
+test('new and repeated search walks reset page and next before a deferred outbox flush, invalidating older reads', async () => {
+  const calls = []; let releaseFlush; let releaseRead
+  const queue = { ...emptyQueue(), flush: async () => { if (releaseFlush === null) await new Promise(resolve => { releaseFlush = resolve }) } }
+  const h = component('../src/review/ApprovedPanel.tsx', { '../api/review': { getApprovedWords: async (q, after) => {
+    calls.push({ q, after })
+    if (after) return new Promise(resolve => { releaseRead = resolve })
+    return { items: [approvedWord(7)], nextCursor: '7' }
+  } } })
+  const render = () => h.render(e => e.ApprovedPanel({ queue }))
+  render(); h.hydrate(); await tick()
+  button(render(), 'Siguiente').props.onClick(); render(); h.hydrate(); await tick()
+  nodes(render()).find(n => n.type === 'input').props.onChange({ target: { value: ' café ' } })
+  nodes(render()).find(n => n.type === 'form').props.onSubmit({ preventDefault() {} })
+  assert.equal(button(render(), 'Siguiente').props.disabled, true)
+  assert.equal(button(render(), 'Anterior').props.disabled, true)
+  releaseRead({ items: [], nextCursor: 'old-cursor' }); await tick()
+  assert.equal(button(render(), 'Siguiente').props.disabled, true)
+  releaseFlush = null; render(); h.hydrate(); await tick()
+  assert.equal(calls.length, 2)
+  assert.equal(button(render(), 'Siguiente').props.disabled, true)
+  releaseFlush(); await tick()
+  assert.deepEqual(calls.at(-1), { q: 'café', after: undefined })
+  assert.match(text(render()), /Página 1/)
+  nodes(render()).find(n => n.type === 'form').props.onSubmit({ preventDefault() {} })
+  assert.equal(button(render(), 'Siguiente').props.disabled, true)
+  render(); h.hydrate(); await tick()
+  assert.deepEqual(calls.slice(-2), [{ q: 'café', after: undefined }, { q: 'café', after: undefined }])
+  assert.match(text(render()), /Página 1/)
+})
+for (const outcome of ['approved', 'rejected', 'pending_review', 'missing', 'network']) test(`invalid_transition refresh is on demand, nonretryable, and ${outcome} recovery is authoritative`, async () => {
+  const row = { action: reviewAction(7, { action: 'reject' }), word: approvedWord(7), state: 'failed', result: 'invalid_transition' }
+  let rows = [row]; const calls = []; const discarded = []
+  const queue = { ...emptyQueue(), getSnapshot: () => ({ rows, storageError: false }), discard: async id => { discarded.push(id); rows = [] } }
+  const h = component('../src/review/ApprovedPanel.tsx', { '../api/review': {
+    getApprovedWords: async () => ({ items: [] }),
+    getReviewQueue: async (_signal, scope, after) => {
+      calls.push({ scope, after })
+      if (outcome === 'network') throw new ApiError('network')
+      return after ? { items: outcome === 'missing' ? [] : [reviewWord(7, { status: outcome, version: 12 })] } : { items: [reviewWord(1, { status: 'rejected' })], nextAfter: 'd:1' }
+    },
+  }, './ReviewRowStatus': { ReviewRowStatus: 'RowStatus' } })
+  const render = () => h.render(e => e.ApprovedPanel({ queue }))
+  render(); h.hydrate(); await tick(); render(); h.effect(1); await tick()
+  assert.deepEqual(calls, [], 'conflict must not auto-fetch')
+  const props = nodes(render()).find(n => n.type === 'RowStatus').props
+  const status = component('../src/review/ReviewRowStatus.tsx').exports.ReviewRowStatus(props)
+  assert.equal(button(status, 'Reintentar envío'), undefined)
+  button(status, 'Actualizar palabra').props.onClick(); await tick()
+  assert.deepEqual(calls, outcome === 'network' ? [{ scope: 'all', after: undefined }] : [{ scope: 'all', after: undefined }, { scope: 'all', after: 'd:1' }])
+  if (['missing', 'network'].includes(outcome)) {
+    assert.deepEqual(discarded, []); assert.equal(rows[0], row)
+    assert.ok(nodes(render()).some(n => n.type === 'RowStatus'))
+  } else {
+    assert.deepEqual(discarded, [row.action.clientReviewId])
+    const tree = render(); assert.match(text(tree), /versión 12/)
+    assert.match(text(tree), outcome === 'approved' ? /Aprobada/ : outcome === 'rejected' ? /Retirada/ : /Pendiente/)
+    assert.equal(nodes(tree).some(n => n.type === 'RowStatus'), false)
+    assert.equal(!!button(tree, 'Retirar'), outcome === 'approved')
+    assert.equal(!!button(tree, 'Volver a incluir'), outcome === 'rejected')
+  }
+  render(); h.effect(1); await tick()
+  assert.equal(calls.length, outcome === 'network' ? 1 : 2, 'no conflict refresh loop')
+})
 async function cursorRestartScenario(scope, transform) {
   const calls = []; const actions = []; let changed = false
   const queue = { ...emptyQueue(), enqueue: async a => { actions.push(a) }, flush: async () => { if (actions.length) changed = true } }
@@ -58,6 +157,8 @@ async function cursorRestartScenario(scope, transform) {
   button(render(), 'Siguiente').props.onClick(); render()
   // Concurrent refreshes share the generation guard; only latest failure can reset the walk.
   h.hydrate(); h.hydrate(); await tick()
+  if (transform) return { calls, previousDisabled: button(render(), 'Anterior').props.disabled, failed: text(render()).includes('No se han podido cargar') }
+  assert.equal(button(render(), 'Anterior').props.disabled, true, 'recovery must reset the walk to page1')
   assert.match(text(render()), /Volvemos a la página 1/)
   h.hydrate(); await tick()
   assert.equal(calls.filter(c => c.after === undefined).length, 1)
@@ -75,12 +176,18 @@ for (const scope of ['approved', 'rejected']) test(`${scope} cursor400 after mut
   const calls = await cursorRestartScenario(scope)
   assert.ok(calls.some(c => c.after === (scope === 'approved' ? '7' : 'd:7')))
 })
-test('mutation check: disabling cursor400 restart fails both real panel recovery scenarios', async () => {
-  for (const scope of ['approved', 'rejected']) await assert.rejects(cursorRestartScenario(scope, source => {
+test('disabled cursor400 recovery leaves page2 error with no page1 request in both scopes', async () => {
+  for (const scope of ['approved', 'rejected']) {
+    const observed = await cursorRestartScenario(scope, source => {
     const branch = 'failure instanceof ApiError && failure.status === 400 && after'
     assert.ok(source.includes(branch))
     return source.replace(branch, 'false')
-  }), /Volvemos a la página 1/)
+    })
+    assert.equal(observed.previousDisabled, false)
+    assert.equal(observed.failed, true)
+    assert.equal(observed.calls.filter(c => c.after === undefined).length, 0)
+    assert.ok(observed.calls.every(c => c.after === (scope === 'approved' ? '7' : 'd:7')))
+  }
 })
 test('real row status renders each result locally, preserves actionable retry/refresh/discard and success confirmation', () => {
   const h = component('../src/review/ReviewRowStatus.tsx'); let retries = 0; let refreshes = 0; let discards = 0
@@ -88,10 +195,10 @@ test('real row status renders each result locally, preserves actionable retry/re
     const row = { state: ['applied', 'duplicate'].includes(result) ? 'applied' : 'failed', result }
     const tree = h.exports.ReviewRowStatus({ row, retry: () => retries++, refresh: () => refreshes++, discard: () => discards++ })
     assert.equal(tree.props.role, 'status')
-    if (row.state === 'failed') { button(tree, 'Reintentar envío').props.onClick(); button(tree, 'Actualizar palabra').props.onClick(); button(tree, 'Descartar decisión local').props.onClick() }
+    if (row.state === 'failed') { if (result === 'invalid_transition') assert.equal(button(tree, 'Reintentar envío'), undefined); else button(tree, 'Reintentar envío').props.onClick(); button(tree, 'Actualizar palabra').props.onClick(); button(tree, 'Descartar decisión local').props.onClick() }
     else { assert.match(text(tree), /confirmada/); assert.equal(nodes(tree).filter(n => n.type === 'button').length, 0) }
   }
-  assert.equal(retries, 3); assert.equal(refreshes, 3); assert.equal(discards, 3)
+  assert.equal(retries, 2); assert.equal(refreshes, 3); assert.equal(discards, 3)
 })
 test('real approved pagination resets stale cursor400 to page1 and demote echoes freshly loaded version', async () => {
   const calls = []; const actions = []; const queue = { ...emptyQueue(), enqueue: async a => { actions.push(a) } }

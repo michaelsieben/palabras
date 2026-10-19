@@ -18,6 +18,7 @@ export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQue
   const [scope, setScope] = useState<'approved' | 'rejected'>('approved')
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState('')
+  const [walk, setWalk] = useState(0)
   const [items, setItems] = useState<Word[]>([])
   const [cursors, setCursors] = useState<(string | undefined)[]>([undefined])
   const [next, setNext] = useState<string>()
@@ -63,7 +64,7 @@ export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQue
     const controller = new AbortController()
     queueMicrotask(() => { if (!controller.signal.aborted) void refresh(controller.signal) })
     return () => controller.abort()
-  }, [refresh])
+  }, [refresh, walk])
   async function decide(word: Word, action: 'demote' | 'reject' | 'approve') {
     if (mutationBusy.current) return
     mutationBusy.current = true
@@ -76,17 +77,40 @@ export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQue
     finally { mutationBusy.current = false; setBusy(undefined) }
   }
   const renew = useCallback(async (decisions: { id: string; wordId: number }[], signal?: AbortSignal) => {
+    // Outbox is authoritative: refresh must never cancel an unsent decision, even from an old handler.
+    if (queue.getSnapshot().rows.some(r => r.state === 'pending' && decisions.some(d => d.id === r.action.clientReviewId))) return
     // Return to first page; preserve failed decision until a fresh version is actually fetched.
     const request = ++requestId.current
     try {
       const result = await loadWords(scope, search, undefined, signal)
+      // A status-only conflict can leave this scope without changing version. Look up its real
+      // state across scopes only on explicit refresh, following opaque cursors without a loop.
+      const conflicts = queue.getSnapshot().rows.filter(r => r.result === 'invalid_transition' && decisions.some(d => d.id === r.action.clientReviewId))
+      if (conflicts.length) {
+        result.items = result.items.filter(w => !conflicts.some(r => r.action.wordId === w.wordId))
+        let cursor: string | undefined
+        const seen = new Set<string>()
+        const remaining = new Set(conflicts.map(r => r.action.wordId))
+        do {
+          if (request !== requestId.current || signal?.aborted) return
+          const page = await getReviewQueue(signal, 'all', cursor)
+          for (const word of page.items) if (remaining.delete(word.wordId)) {
+            result.items = [...result.items.filter(w => w.wordId !== word.wordId), word]
+          }
+          cursor = page.nextAfter ?? undefined
+          if (cursor && seen.has(cursor)) throw new Error('Repeated review cursor')
+          if (cursor) seen.add(cursor)
+        } while (remaining.size && cursor)
+      }
       if (request !== requestId.current || signal?.aborted) return
       const wasStale = queue.getSnapshot().rows.some(r => r.result === 'stale_version' && decisions.some(d => d.id === r.action.clientReviewId))
       setItems(result.items); setNext(result.nextCursor); setCursors(c => c.length === 1 ? c : [undefined]); setError(''); setLoading(false); setNotice(`${wasStale ? 'La palabra ha cambiado. ' : ''}Palabras actualizadas desde la página 1. Revisa el estado y el contenido antes de decidir otra vez.`)
       for (const { id, wordId } of decisions) {
+        const current = queue.getSnapshot().rows.find(r => r.action.clientReviewId === id)
+        if (!current || current.state === 'pending') continue
         if (result.items.some(w => w.wordId === wordId)) {
           const stale = queue.getSnapshot().rows.some(r => r.action.clientReviewId === id && r.result === 'stale_version')
-          await queue.discard(id)
+          await queue.discard(id, true)
           setRowErrors(e => ({ ...e, [wordId]: stale ? 'La palabra ha cambiado. Contenido actualizado; revísalo antes de decidir otra vez.' : '' }))
         }
         else setNotice('Palabra no encontrada en esta página. La decisión local sigue disponible; comprueba las aprobadas y las retiradas o continúa a la siguiente página.')
@@ -116,7 +140,7 @@ export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQue
   const detached = rows.filter(r => !items.some(w => w.wordId === r.word.wordId))
   return <section className="review-section" aria-label="Palabras aprobadas y retiradas">
     <div className="field-tabs" role="group" aria-label="Estado de las palabras">{(['approved', 'rejected'] as const).map(value => <button key={value} aria-pressed={scope === value} disabled={busy !== undefined} onClick={() => { if (value === scope) return; ++requestId.current; setScope(value); setItems([]); setNext(undefined); setCursors([undefined]); setLoading(true); setError(''); setNotice('') }}>{value === 'approved' ? 'Aprobadas' : 'Retiradas'}</button>)}</div>
-    {scope === 'approved' && <form className="review-search" onSubmit={e => { e.preventDefault(); setSearch(query.trim()); setCursors([undefined]) }}><label>Buscar aprobadas<input type="search" value={query} onChange={e => setQuery(e.target.value)} /></label><button type="submit">Buscar</button></form>}
+    {scope === 'approved' && <form className="review-search" onSubmit={e => { e.preventDefault(); ++requestId.current; setSearch(query.trim()); setNext(undefined); setCursors([undefined]); setLoading(true); setWalk(w => w + 1) }}><label>Buscar aprobadas<input type="search" value={query} onChange={e => setQuery(e.target.value)} /></label><button type="submit">Buscar</button></form>}
     <p className="note">{scope === 'approved' ? 'Retirar: la palabra dejará de aparecer en el aprendizaje. Se pausarán sus tarjetas; el historial se conservará.' : 'Volver a incluir: las tarjetas pausadas por la retirada volverán como nuevas. El historial se conservará.'}</p>
     <p role="status">{loading ? `Cargando ${scopeLabel}…` : `Página ${cursors.length}`}{notice && ` · ${notice}`}</p>
     {snapshot.storageError && <p className="note" role="status">Almacenamiento sin confirmar. Conserva esta vista y reintenta.</p>}
