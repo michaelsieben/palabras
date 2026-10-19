@@ -54,6 +54,9 @@ progress from a JSON export in `restore-drill.md`; CLI behaviour in `06-content-
 - `SrsCards.Down` is **not a data-preserving rollback.** It drops `review_log`, `user_settings` and `cards` and the
   `users.timezone` column (`Backend/Palabras/Persistence/Migrations/20261018000241_SrsCards.cs:189-203`). Never run a
   down-migration to roll back. Roll back by restoring files and image, as below.
+- `ReviewGate` (`20261019140735_ReviewGate.cs`, M4) is the **first migration that rebuilds existing tables**
+  (`words`, `word_revisions`). Part of it runs outside any transaction, so an interrupted run can leave a partly
+  migrated database that the next start cannot finish. Its `Down` is not data-preserving either. Section G.
 
 Tools needed on the host: `docker`, `sha256sum`, `pgrep`, and a `sqlite3` CLI. Whether the Unraid host has `sqlite3`
 was not checked; provide one before starting. This runbook does not install anything.
@@ -272,10 +275,11 @@ A row is abandoned only when no app, `docker exec` CLI or host CLI process exist
 4. Preserve the database, sidecars and keys exactly as in A step 6 (`set/`, `set.sha256`, `scratch/`).
 5. On `scratch/`: run `PRAGMA integrity_check;` (must be `ok`), list `__EFMigrationsHistory`, and run
    `SELECT * FROM "__EFMigrationsLock";`. Compare the history with the migration files of the image being started
-   (`Backend/Palabras/Persistence/Migrations/`; on `main` at `c3ce543`: `InitialAccounts`, `ContentSchema`, `SrsCards`, `DayStatusAndSkips`, `RolloverCutoverMarker`). A
-   committed prefix is expected: each migration runs in a transaction, so an interrupted one is rolled back and
-   re-applied on the next start. If the integrity check fails or the history contains IDs the image does not know,
-   do not clear the lock; use rollback R-B.
+   (`Backend/Palabras/Persistence/Migrations/`; on `main` at `c3ce543`: `InitialAccounts`, `ContentSchema`, `SrsCards`, `DayStatusAndSkips`, `RolloverCutoverMarker`; `ReviewGate` added in `3565e75`). A
+   committed prefix is expected: each of the first five migrations runs in one transaction, so an interrupted one is
+   rolled back and re-applied on the next start. `ReviewGate` does not: if it is missing from the history, run the
+   G.3 checks before clearing anything. If the integrity check fails or the history contains IDs the image does not
+   know, do not clear the lock; use rollback R-B.
 6. Confirm the live files are still the verified ones: `(cd "$DATA" && sha256sum -c "$SAFE/set.sha256")` must
    report `OK` for every file. Then clear the row on that database, with every process still stopped and the
    sidecars in place:
@@ -689,7 +693,8 @@ accounts guard; order per `deploy/unraid-deploy.sh:637-671`): a **jump of at lea
 at `3a6b4c9`; local `main` has
 moved on since, so count again from the running image's source commit in E.1, e.g.
 `git rev-list --count a4fe119..main`) **carrying five migrations** (`InitialAccounts`, `ContentSchema`, `SrsCards`,
-`DayStatusAndSkips`, `RolloverCutoverMarker`), the M6 frontend and service worker, and the M7 service. The poll now
+`DayStatusAndSkips`, `RolloverCutoverMarker`; local `main` carries a sixth, `ReviewGate`, since `3565e75`, see
+section G), the M6 frontend and service worker, and the M7 service. The poll now
 also rebuilds when the running image id differs from the recorded one (E.3 item 3), so it does not stay on the old
 image silently. A small fix pushed on top of `origin/main` without the M7 commits was measured as a ~32-commit jump
 with three migrations (`12-prod-drift.md` §3). This changes the risk relative to a small increment:
@@ -934,3 +939,114 @@ A step 6 set (database, its own `-wal`/`-shm`, and `keys/`, with the app stopped
 whose integrity check prints `ok`, recorded with its path, migration list and account count. The poll's guard-2
 copy is taken with the app running and is not a substitute for an upgrade (Facts, guard 2). Files under
 `$DATA/backups/` sit inside the data directory and do not contain `keys/` (D.7).
+
+## G. M4 (`ReviewGate`) table-rebuild migration
+
+Owner-run addendum for the first deploy containing `20261019140735_ReviewGate` (commit `3565e75`, M4 reviewer gate;
+API in `09-review-api.md`). Not deployed and not run against production as of 2026-10-19. Follow section A in full;
+this section adds what is different.
+
+### G.1 What the migration does
+
+`Up` (`20261019140735_ReviewGate.cs:11-130`) adds six columns to `words` (`approved_version`, `council_agreement`,
+`council_band`, `lint_warnings`, `reduced_confidence` NOT NULL DEFAULT 0, `status_changed_at`; the other five are
+nullable), creates `word_reviews` with four indexes, adds the CHECK `ck_words_council_band`, and widens
+`ck_word_revisions_action` to include `demote`. Nothing is dropped or renamed, and the new CHECK value set is a
+superset of the old one, so every existing row is copied.
+
+SQLite cannot add or change a CHECK on an existing table, so EF Core rebuilds `words` and `word_revisions`: create
+`ef_temp_<table>`, copy the rows with an explicit column list, drop the old table, rename the copy, recreate its
+indexes. The repo pins parts of the generated script (`M4ReviewSchemaTests.cs:130-137`).
+
+**This is the repo's first table-rebuild migration.** `InitialAccounts`, `ContentSchema`, `DayStatusAndSkips` and
+`RolloverCutoverMarker` only create tables (their CHECKs are on new tables). `SrsCards` is purely additive: one
+`ALTER TABLE "users" ADD "timezone"` plus new tables, and its script contains no `DROP`
+(`M5SrsSchemaTests.cs:111-114`). The exposure below is therefore new with M4, not an accepted pre-existing pattern.
+
+### G.2 Why it is not one transaction
+
+The rebuild needs `PRAGMA foreign_keys = 0`, which SQLite ignores inside a transaction. EF marks that statement and
+`PRAGMA foreign_keys = 1` as transaction-suppressed and logs at apply time: "The migration operation 'PRAGMA
+foreign_keys = 0;' from migration 'ReviewGate' cannot be executed in a transaction. If the app is terminated or an
+unrecoverable error occurs while this operation is being executed then the migration will be left in a partially
+applied state and would need to be reverted manually before it can be applied again."
+(`.opencode/runs/T-20261019-1606/00-reviewgate-migration.log:39-40`).
+
+EF's migration executor commits the open transaction before each suppressed statement and opens a new one after it.
+From the EF Core generator and executor source (read on the `main` branch; the repo pins 10.0.13, not checked
+line-by-line against that tag), the migration therefore commits in three parts:
+
+1. Transaction 1: the `ALTER TABLE "words" ADD …` statements and other operations before the rebuild, then
+   `CREATE TABLE "ef_temp_words"`, `"ef_temp_word_revisions"` and the row copies. Commit.
+2. `PRAGMA foreign_keys = 0`, outside a transaction.
+3. Transaction 2: `DROP TABLE "words"`, rename `ef_temp_words` to `words`, the same for `word_revisions`. Commit.
+4. `PRAGMA foreign_keys = 1`, outside a transaction.
+5. Transaction 3: recreate the indexes of both rebuilt tables, then insert the `ReviewGate` row into
+   `__EFMigrationsHistory`. Commit.
+
+The rebuild is expected to take well under a second on this database; the window is small, not zero. A SIGKILL
+(container recreate past the stop timeout, section B), host crash or disk-full during it is the risk.
+
+### G.3 Crash-window consequences and what to check
+
+In every partial state, `ReviewGate` is **not** in `__EFMigrationsHistory`, so the next start re-runs `Up` from the
+first statement and fails on what already exists (for example a duplicate `approved_version` column, or
+`ef_temp_words` already existing). The app then never reaches `/healthz`. If the poll ran the deploy, its health gate
+restores the previous image (section F), but the database stays partly migrated and the old image starts on it.
+
+| Interrupted | State left on disk |
+| --- | --- |
+| inside transaction 1, 2 or 3 | that transaction is rolled back by SQLite; earlier committed parts stay |
+| after transaction 1 committed | `words` has the six new columns; orphaned `ef_temp_words` and `ef_temp_word_revisions` hold full copies; originals intact; no history row |
+| after transaction 2 committed | `words` and `word_revisions` are the rebuilt tables, but their indexes (including unique ones) are missing; no history row |
+| between `DROP TABLE "words"` and the rename | `words` missing, its rows only in `ef_temp_words`. Drop and rename share transaction 2, so a crash should roll this back; check for it anyway, because the app cannot start in this state |
+
+After a failed or interrupted upgrade, stop the app (rollback step 1), preserve the failed state (rollback step 2),
+and run on a scratch copy of it (never on the live WAL database):
+
+```bash
+DB="$SAFE/failed-<stamp>/scratch/palabras.db"     # scratch copy of the failed state
+sqlite3 "$DB" 'PRAGMA integrity_check;'                                            # must print ok
+sqlite3 "$DB" 'SELECT MigrationId FROM "__EFMigrationsHistory" ORDER BY 1;'        # is 20261019140735_ReviewGate present?
+sqlite3 "$DB" "SELECT name FROM sqlite_master WHERE type='table' AND name GLOB 'ef_temp_*';"   # must print nothing
+sqlite3 "$DB" "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('words','word_revisions','word_reviews') ORDER BY 1;"
+sqlite3 "$DB" "SELECT count(*) FROM pragma_table_info('words') WHERE name='approved_version';"  # 1 = transaction 1 committed
+sqlite3 "$DB" "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name IN ('words','word_revisions') ORDER BY 1;"
+sqlite3 "$DB" 'PRAGMA foreign_key_check;'                                          # must print nothing
+sqlite3 "$DB" 'SELECT count(*) FROM words; SELECT count(*) FROM word_revisions;'   # compare with $SAFE/scratch (pre-upgrade)
+```
+
+Compare the index list with the same query on the drill copy from A step 7, which ran the migration to completion.
+
+- **Complete:** history contains `ReviewGate`, no `ef_temp_*` table, all three tables present, integrity `ok`, no
+  foreign-key violations, counts equal the pre-upgrade copy, index list equals the drill copy. The migration is not
+  the cause; use the normal rollback.
+- **Anything else is a partial migration.** Do not hand-repair the live database and do not leave the old image
+  serving it. Use rollback **R-B** (pre-upgrade set from A step 6 plus the retained image). R-A is not allowed on a
+  partial migration. Keep the failed set and the query output with the upgrade record.
+
+### G.4 Rollback rules for this release
+
+- **Never run `ReviewGate.Down`.** It drops `word_reviews` (every reviewer verdict) and the six `words` columns, and
+  it rebuilds `word_revisions` with the old CHECK, which fails as soon as any `word_revisions` row has
+  `action = 'demote'` (`20261019140735_ReviewGate.cs:133-174`).
+- **R-A (old image on the migrated database)** is expected to work: the old binary maps none of the new columns or
+  tables, the new columns are nullable or default 0, and the widened CHECK accepts every value the old binary writes.
+  That is reasoning only; R-A is allowed only after the A step 7 drill passed for this release. Under the old image
+  the reviewer API is the old stub again, and words it approves through the CLI keep `status_changed_at` and
+  `approved_version` NULL, which the M4 code already handles for pre-M4 rows.
+- **R-B** loses every verdict, reviewer edit and learner progress written after the A step 6 snapshot. Record the
+  `word_reviews` count before choosing it.
+
+### G.5 Before the deploy
+
+- A step 6 set (app stopped, database with its own sidecars, `keys/`) is mandatory: the app takes no backup before
+  migrating, and a crash inside the rebuild is recovered only by restoring it.
+- Run the A step 7 drill: it proves the migration completes on a copy of the real data and gives the reference index
+  list for G.3.
+- Upgrade by hand with the poll paused (A step 8). Do not stop or recreate the container until the log shows the
+  migrations finished.
+- Acceptance as in A, plus: on a scratch copy after the upgrade, `__EFMigrationsHistory` lists six migrations ending
+  in `20261019140735_ReviewGate`, no `ef_temp_*` table exists, and `words` / `word_revisions` counts equal the
+  pre-upgrade copy. The backup service's schema check does not look at `word_reviews` (`BackupService.cs:99-101`);
+  check the first published backup's table list as in A acceptance.

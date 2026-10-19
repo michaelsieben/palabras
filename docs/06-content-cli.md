@@ -95,9 +95,10 @@ stays `pending_review`, no cards exist, and the learner queue is empty.
 - `--all-pending` approves every `pending_review` word. `draft` words are not included. It also re-runs card
   creation for all already-approved words, which back-fills cards for words approved before `SrsCards` existed.
 - Per approved word it writes a `word_revisions` row with `action='approve'`, the current `version`, and the
-  current-version snapshot with `status` and `updatedAt` updated. `version` and `content_hash` do not change. This is
-  the same revision row the M4 reviewer UI is to write; the CLI sets `actor_user_id` to NULL because it has no
-  authenticated user.
+  current-version snapshot with `status` and `updatedAt` updated. `version` and `content_hash` do not change. Since
+  `ReviewGate` it also sets `words.status_changed_at` and `words.approved_version`. This is the same revision row the
+  M4 reviewer API writes (same code, `09-review-api.md`); the CLI sets `actor_user_id` to NULL because it has no
+  authenticated user, and writes no `word_reviews` verdict row.
 
 **Card creation happens on approval, not on import.** For every active sense of the word and every account that has
 the `learner` role (today only the owner), two cards are created: `es_en` and `en_es`, state New, due now. Existing

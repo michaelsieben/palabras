@@ -165,4 +165,9 @@ Appended below the queue so the line numbers above stay stable. Backend state as
 - **Health of `main` at `6e41d0f` (T-20261018-2005).** `dotnet build` green; `dotnet test` 790 passed, 0 failed;
   `npm ci`, `npm run lint`, `npm run build` green; content lint `OK — 58 word file(s), 0 errors`. `docker build`
   was not run in that pass.
+- **M4 backend implemented** (T-20261019-1606, local `main`, not pushed at `bb1a015`): migration `ReviewGate`
+  (`3565e75`, first table-rebuild migration, `08-upgrade-rollback.md` section G) and the reviewer API
+  `GET /api/review/queue`, `POST /api/review/actions`, `GET /api/review/approved` (`e75b850`, `bb1a015`;
+  `09-review-api.md`). Not done: reviewer UI on the API, re-import-after-edit tests, verdict export, and the §5
+  "done when" on the reviewer's phone.
 - Deployment of these commits is owner-run; nothing here claims the production container runs them.
