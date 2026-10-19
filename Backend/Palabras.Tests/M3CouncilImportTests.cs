@@ -538,6 +538,54 @@ public sealed class M3CouncilImportTests : IDisposable
         Assert.False(File.Exists(_settings.FilePath));
     }
 
+    [Fact]
+    public async Task OrderOnlyChangeInProposedByIsNotAContentChangeAsync()
+    {
+        Assert.Equal(2, (await ImportAsync(CopyFixture("valid-propose"))).Created);
+        var first = ReworkBundle("01JAB5R0NEWRUN000000000005", BundleAfterReview.ToString("O"), changeContent: true);
+        var updated = await ImportAsync(first);
+        Assert.Equal(1, updated.Updated);
+        int revisions;
+        await using (var database = _settings.CreateContext())
+        {
+            revisions = await database.WordRevisions.CountAsync();
+        }
+
+        // Same content, same roster, only the order of the proposer set differs. CanonicalJson keeps
+        // array order, so the importer sorts the set-valued lists before hashing; otherwise this
+        // rework would bump and demote an approved word for no content change.
+        var second = ReworkBundle("01JAB5R0NEWRUN000000000006", BundleAfterReview.ToString("O"), changeContent: true);
+        var lines = ReadCandidates(second);
+        foreach (var line in lines)
+        {
+            var council = line["council"]!.AsObject();
+            var proposed = council["proposed_by"]!.AsArray().Select(model => model!.GetValue<string>()).Reverse();
+            council["proposed_by"] = new JsonArray(proposed.Select(model => (JsonNode?)JsonValue.Create(model)).ToArray());
+        }
+        WriteCandidates(second, lines);
+
+        var unchanged = await ImportAsync(second);
+
+        Assert.Empty(unchanged.Refusals);
+        Assert.Equal(1, unchanged.Unchanged);
+        Assert.Equal(0, unchanged.Updated);
+        await using var after = _settings.CreateContext();
+        var nevera = await after.Words.SingleAsync(word => word.Key == "es-nevera-01");
+        Assert.Equal(2, nevera.Version);
+        Assert.Equal(revisions, await after.WordRevisions.CountAsync());
+    }
+
+    // Pins the reason the importer normalises set-valued arrays: the shared canonicaliser does not.
+    [Fact]
+    public void CanonicalJsonPreservesArrayOrderSoSetValuedListsMustBeNormalisedBeforeHashing()
+    {
+        var first = JsonNode.Parse("""{"proposed_by":["anthropic:one","openai:two"]}""")!;
+        var second = JsonNode.Parse("""{"proposed_by":["openai:two","anthropic:one"]}""")!;
+
+        Assert.NotEqual(CanonicalJson.Sha256Hex(CanonicalJson.ContentBytes(first)),
+            CanonicalJson.Sha256Hex(CanonicalJson.ContentBytes(second)));
+    }
+
     // The retired ContentImporter canonicaliser (deleted in C3) kept as a frozen reference: if
     // CanonicalJson ever stops producing the same bytes, every stored content_hash would change on
     // the next corpus import.

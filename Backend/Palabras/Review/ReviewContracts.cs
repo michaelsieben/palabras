@@ -17,7 +17,8 @@ internal sealed record ReviewSenseItem(
 
 // `field` uses the ΔF reviewer vocabulary, not the legacy `word_alternatives.kind`:
 // synonym/near-synonym/different-sense -> lemma, regional -> regional_variant,
-// register -> register_variant. `support` has no column in M4 (M3b fills it).
+// register -> register_variant. `support` is "<proposing models>/<models_requested>" for a council
+// word (T-12, e.g. "2/4") and omitted for a legacy row, whose support column is the default 0.
 internal sealed record ReviewAlternativeChip(
     int Id,
     string Field,

@@ -138,13 +138,12 @@ internal static class ReviewTransitions
     }
 
     // Legacy word_alternatives carry a v1 `kind`; M3b council rows store the ΔF field name in `kind`
-    // (and `field`). Both vocabularies resolve here, so a council chip is visible even before the
-    // endpoint's `field` preference lands (C4). `regional_note` is deliberately absent, and that is
-    // a recorded decision rather than an omission: the note is stored (word_alternatives with
-    // field='regional_note', and in the revision snapshot) but not offered as a chip, because the
-    // sheet has no regional_note tab and approve_alt has no swap target for a note (it would fall
-    // through to ExampleEs and corrupt the example). Revisiting it means a UI decision, not a bug
-    // fix.
+    // (and `field`). Both vocabularies resolve here, and the queue prefers `field` through
+    // ChipFieldFor. `regional_note` is deliberately absent, and that is a recorded decision rather
+    // than an omission: the note is stored (word_alternatives with field='regional_note', and in
+    // the revision snapshot) but not offered as a chip, because the sheet has no regional_note tab
+    // and approve_alt has no swap target for a note (it would fall through to ExampleEs and corrupt
+    // the example). Revisiting it means a UI decision, not a bug fix.
     internal static string? FieldForAlternativeKind(string kind) => kind switch
     {
         "lemma" or "gloss" or "example" or "regional_variant" or "register_variant" => kind,
@@ -155,6 +154,18 @@ internal static class ReviewTransitions
         "previous_example" => ReviewFieldNames.Example,
         _ => null
     };
+
+    // The M3b `field` column wins over the legacy `kind` vocabulary when it is present; `previous_*`
+    // rows still resolve through `kind` because only they are written without a field. The
+    // regional_note exclusion survives the preference: council rows carry field='regional_note' and
+    // kind='regional_note', and offering either would give approve_alt an example swap target that
+    // corrupts the sense (see FieldForAlternativeKind above).
+    internal static string? ChipFieldFor(string? field, string kind)
+    {
+        ArgumentNullException.ThrowIfNull(kind);
+        var resolved = field ?? FieldForAlternativeKind(kind);
+        return resolved == ReviewFieldNames.RegionalNote ? null : resolved;
+    }
 
     private static async Task<ReviewTransitionOutcome> ApproveAsync(PalabrasDbContext database, Word word,
         JsonObject snapshot, int? actorUserId, long nowMs, bool applyCardEffects, bool contentChanged,
@@ -195,7 +206,7 @@ internal static class ReviewTransitions
         // Validate the whole edit list before touching a tracked entity: an item that fails later in
         // the same batch must not leave half an edit for the next SaveChanges to persist.
         var changes = new List<EditChange>(request.Edits.Count);
-        var previous = new Dictionary<(string Field, int? SenseOrder), string>();
+        var previous = new Dictionary<(string Field, int? SenseOrder), (string Value, string? Gloss)>();
         var diff = new JsonArray();
         foreach (var edit in request.Edits)
         {
@@ -205,6 +216,7 @@ internal static class ReviewTransitions
             }
             var after = edit.After;
             string before;
+            string? previousGloss = null;
             Sense? sense = null;
             JsonObject? source = null;
             IReadOnlyList<string>? accepted = null;
@@ -248,6 +260,10 @@ internal static class ReviewTransitions
                     else if (edit.Field == ReviewFieldNames.Example)
                     {
                         before = sense.ExampleEs;
+                        // The sheet has no English field for an example, so the old translation is
+                        // kept on the undo row (word_alternatives.gloss) instead of being left to
+                        // describe the sentence the edit replaces.
+                        previousGloss = sense.ExampleEn;
                     }
                     else
                     {
@@ -272,7 +288,7 @@ internal static class ReviewTransitions
                 return new(ReviewResults.Invalid);
             }
             changes.Add(new EditChange(edit.Field!, edit.SenseOrder, before, after, sense, source, accepted));
-            previous.TryAdd((edit.Field!, edit.SenseOrder), before);
+            previous.TryAdd((edit.Field!, edit.SenseOrder), (before, previousGloss));
             diff.Add(new JsonObject
             {
                 ["field"] = edit.Field,
@@ -311,6 +327,11 @@ internal static class ReviewTransitions
                 case ReviewFieldNames.Example:
                     change.Sense!.ExampleEs = change.After;
                     change.Source!["example"] = change.After;
+                    // No English input exists on this path, so the previous translation is cleared
+                    // rather than kept: a stale example_en would describe the sentence just
+                    // replaced. The undo row carries the old English in `gloss`.
+                    change.Sense.ExampleEn = "";
+                    change.Source!["exampleGloss"] = "";
                     break;
                 default:
                     change.Sense!.EsAccepted = JsonSerializer.Serialize(change.Accepted);
@@ -341,12 +362,12 @@ internal static class ReviewTransitions
         {
             return new(ReviewResults.Invalid);
         }
-        var field = FieldForAlternativeKind(alternative.Kind);
+        var field = ChipFieldFor(alternative.Field, alternative.Kind);
         if (field is null || (request.Field is { } requested && !string.Equals(requested, field, StringComparison.Ordinal)))
         {
             return new(ReviewResults.Invalid);
         }
-        var previous = new Dictionary<(string Field, int? SenseOrder), string>();
+        var previous = new Dictionary<(string Field, int? SenseOrder), (string Value, string? Gloss)>();
         var diff = new JsonArray();
         // Resolve the target and its current value before mutating anything, so an invalid chip
         // leaves the tracked entity untouched for the rest of the batch.
@@ -355,6 +376,9 @@ internal static class ReviewTransitions
         Sense? sense = null;
         JsonObject? source = null;
         string before;
+        // An example swap changes the English sentence too, so the old one is kept on the undo row
+        // (word_alternatives.gloss) or undo could only restore half of the pair.
+        string? beforeGloss = null;
         if (swapsHeadword)
         {
             before = word.Headword;
@@ -377,6 +401,7 @@ internal static class ReviewTransitions
             source = snapshotSenses[order]?.AsObject()
                 ?? throw new InvalidOperationException("Invalid sense snapshot for word: " + word.Key + ".");
             before = field == ReviewFieldNames.Gloss ? sense.EnGloss : sense.ExampleEs;
+            beforeGloss = field == ReviewFieldNames.Example ? sense.ExampleEn : null;
         }
         if (string.Equals(before, alternative.Value, StringComparison.Ordinal))
         {
@@ -411,7 +436,7 @@ internal static class ReviewTransitions
                 source!["exampleGloss"] = alternative.Gloss;
             }
         }
-        previous[(field, request.SenseOrder)] = before;
+        previous[(field, request.SenseOrder)] = (before, beforeGloss);
         diff.Add(new JsonObject
         {
             ["field"] = field,
@@ -426,7 +451,8 @@ internal static class ReviewTransitions
     // approve_edit / approve_alt: version++, edit revision on the new version, then the shared
     // approval core (status + approve revision at the same new version + card effects).
     private static async Task<ReviewTransitionOutcome> CommitEditedApprovalAsync(PalabrasDbContext database,
-        Word word, JsonObject snapshot, IReadOnlyDictionary<(string Field, int? SenseOrder), string> previous,
+        Word word, JsonObject snapshot,
+        IReadOnlyDictionary<(string Field, int? SenseOrder), (string Value, string? Gloss)> previous,
         JsonArray diff, string field, int? alternativeId, int? actorUserId, long nowMs, bool applyCardEffects,
         CancellationToken cancellationToken)
     {
@@ -435,7 +461,10 @@ internal static class ReviewTransitions
         snapshot["updatedAt"] = Timestamp(nowMs);
         database.WordRevisions.Add(Revision(word, "edit", snapshot, actorUserId, nowMs));
         // Q-M4-2 default: keep the replaced value as an undo alternative. The legacy alternatives
-        // shape has no field column, so the field rides in `kind` (`previous_gloss`, ...).
+        // shape has no field column, so the field rides in `kind` (`previous_gloss`, ...). For an
+        // example, `gloss` also carries the replaced English sentence: undo is another
+        // approve_alt on this row, and without it the round trip would restore the Spanish example
+        // while leaving the translation that belongs to the swapped one.
         var rank = await database.WordAlternatives.Where(candidate => candidate.WordId == word.Id)
             .Select(candidate => (int?)candidate.Rank).MaxAsync(cancellationToken) ?? -1;
         foreach (var change in previous)
@@ -444,7 +473,8 @@ internal static class ReviewTransitions
             {
                 WordId = word.Id,
                 Kind = "previous_" + change.Key.Field,
-                Value = change.Value,
+                Value = change.Value.Value,
+                Gloss = change.Value.Gloss,
                 Reason = "Valor anterior",
                 Rank = ++rank
             });

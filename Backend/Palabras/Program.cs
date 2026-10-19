@@ -12,11 +12,12 @@ using Palabras.Accounts;
 using Palabras.Learn;
 using Palabras.Persistence;
 using Palabras.Content;
+using Palabras.Content.Council;
 using Palabras.Review;
 using Palabras.Srs;
 using Palabras.Backup;
 
-if (args.Length > 0 && args[0] is "user" or "import" or "content" or "learn" or "restore-progress")
+if (args.Length > 0 && args[0] is "user" or "import" or "import-council" or "content" or "learn" or "restore-progress")
 {
     var cliConfiguration = new ConfigurationBuilder().SetBasePath(AppContext.BaseDirectory)
         .AddJsonFile("appsettings.json", optional: true).AddEnvironmentVariables().Build();
@@ -29,6 +30,8 @@ if (args.Length > 0 && args[0] is "user" or "import" or "content" or "learn" or 
             ? await RestoreProgressCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
             : args[0] == "import"
             ? await ContentImportCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
+            : args[0] == "import-council"
+            ? await CouncilImportCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
             : args[0] == "content"
             ? await ContentCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
             : args[0] == "learn"
@@ -81,6 +84,10 @@ builder.Services.AddHostedService<BackupService>();
 // missed-day row is written until M7:DayRolloverEnabled (env M7__DayRolloverEnabled) is true.
 builder.Services.AddSingleton(DayRolloverSettings.FromConfiguration(builder.Configuration));
 builder.Services.AddHostedService<DayRolloverService>();
+// M3b council sync: one startup scan of committed bundles, propose bundles only (Q-M3-7). Missing
+// directory (the shipped default) is a successful no-op, so the app starts exactly as before.
+builder.Services.AddSingleton(ContentSyncSettings.FromConfiguration(builder.Configuration));
+builder.Services.AddHostedService<ContentSyncService>();
 builder.Services.AddSingleton<IScheduler, FsrsSharpScheduler>();
 var keysPath = builder.Configuration["DataProtection:KeysPath"];
 if (string.IsNullOrWhiteSpace(keysPath))

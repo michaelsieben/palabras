@@ -72,6 +72,15 @@ internal static class ReviewEndpoints
             .Where(alternative => pageIds.Contains(alternative.WordId))
             .OrderBy(alternative => alternative.Rank).ThenBy(alternative => alternative.Id)
             .ToListAsync(cancellationToken);
+        // The chip support denominator is the run's requested roster (plan §2.5, T-12): one query
+        // for the runs behind this page, not one per word. A word without a run (legacy corpus row)
+        // keeps support=null, exactly as before M3b.
+        var runIds = ordered.Where(word => word.CouncilRunId is not null)
+            .Select(word => word.CouncilRunId!.Value).Distinct().ToArray();
+        var modelsRequested = runIds.Length == 0
+            ? new Dictionary<int, int>()
+            : await database.CouncilRuns.AsNoTracking().Where(run => runIds.Contains(run.Id))
+                .ToDictionaryAsync(run => run.Id, run => run.ModelsRequested, cancellationToken);
         // "Cambiar ⚑" leaves a note so a reworked entry shows the reviewer's last flag again.
         var flags = await database.WordReviews.AsNoTracking()
             .Where(review => pageIds.Contains(review.WordId) && review.Action == "needs_change")
@@ -96,11 +105,18 @@ internal static class ReviewEndpoints
                     ParseStringArray(sense.EnAccepted), ParseStringArray(sense.EsAccepted),
                     sense.ExampleEs, sense.ExampleEn, sense.Notes))
                 .ToArray();
+            var denominator = word.CouncilRunId is { } runId ? modelsRequested.GetValueOrDefault(runId) : 0;
             var chips = alternatives.Where(alternative => alternative.WordId == word.Id
                     && !alternative.Kind.StartsWith("previous_", StringComparison.Ordinal))
-                .Select(alternative => ReviewTransitions.FieldForAlternativeKind(alternative.Kind) is { } field
+                // `field` (M3b) wins over the legacy `kind` vocabulary; the resolver also keeps
+                // regional_note out of the chip list on both routes.
+                .Select(alternative => ReviewTransitions.ChipFieldFor(alternative.Field, alternative.Kind) is { } field
                     ? new ReviewAlternativeChip(alternative.Id, field, alternative.Value, alternative.Gloss,
-                        alternative.Reason, null)
+                        alternative.Reason,
+                        denominator > 0
+                            ? alternative.Support.ToString(CultureInfo.InvariantCulture) + "/"
+                                + denominator.ToString(CultureInfo.InvariantCulture)
+                            : null)
                     : null)
                 .Where(chip => chip is not null)
                 .Select(chip => chip!)

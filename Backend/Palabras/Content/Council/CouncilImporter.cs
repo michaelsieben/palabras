@@ -224,14 +224,46 @@ internal sealed class CouncilImporter
     // Run identity is provenance, not source content: a rework run always carries a new run_id, so
     // hashing it would make the §3.3(1) "same source" case unreachable and bump (then demote) an
     // approved word on every re-run that produced identical content.
+    //
+    // `proposed_by` is a set (the schema makes it unique) and `models` on an alternative is one too;
+    // CanonicalJson preserves array order, so sorting them here keeps an order-only permutation of
+    // the same roster from faking a content change and demoting an approved word.
     private static string ContentHash(JsonNode raw)
     {
         var content = raw.DeepClone();
         if (content["council"] is JsonObject council)
         {
             council.Remove("run_id");
+            NormalizeSet(council["proposed_by"]);
+        }
+        if (content["alternatives"] is JsonArray alternatives)
+        {
+            foreach (var alternative in alternatives)
+            {
+                if (alternative is JsonObject alternativeObject)
+                {
+                    NormalizeSet(alternativeObject["models"]);
+                }
+            }
         }
         return CanonicalJson.Sha256Hex(CanonicalJson.ContentBytes(content));
+    }
+
+    private static void NormalizeSet(JsonNode? node)
+    {
+        if (node is not JsonArray array || array.Count < 2)
+        {
+            return;
+        }
+        var values = array.Select(item => item?.GetValue<string>()
+                ?? throw new InvalidOperationException("A council model list may only contain model ids."))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        array.Clear();
+        foreach (var value in values)
+        {
+            array.Add(value);
+        }
     }
 
     // -- dry run ---------------------------------------------------------------------------------
