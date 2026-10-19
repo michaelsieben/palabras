@@ -23,7 +23,9 @@ jobs:
         with:
           node-version: '24.21.0'
           cache: npm
-          cache-dependency-path: Frontend/package-lock.json
+          cache-dependency-path: |
+            Frontend/package-lock.json
+            tools/council/package-lock.json
       - run: dotnet restore Backend/Palabras.slnx
       - run: dotnet build Backend/Palabras.slnx --no-restore -c Release
       - run: dotnet test Backend/Palabras.slnx --no-build -c Release
@@ -57,6 +59,12 @@ jobs:
       # C# validator and the CLI use. Committed bundles themselves were linted by the step above.
       - name: Lint council bundle fixtures
         run: node tools/content-lint/candidates.js --self-test
+      # Offline producer: pretest builds; replay tests need no keys or network.
+      - name: Council CLI (build and unit tests)
+        working-directory: tools/council
+        run: |
+          npm ci
+          npm test
       # E.0 source half: no provider hostname or SDK marker may be reachable from the app's own
       # source. The offline council CLI lives under tools/ and is never copied into the image.
       - name: E.0 no LLM in the app source

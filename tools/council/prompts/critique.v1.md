@@ -6,6 +6,10 @@ preferences, and answer for every candidate you are given.
 
 ## Input
 
+### Request
+
+{{REQUEST}}
+
 ### Style guide
 
 {{STYLE_GUIDE}}

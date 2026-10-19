@@ -2,7 +2,7 @@
   "name": "@palabras/council",
   "private": true,
   "version": "0.1.0",
-  "description": "Offline council CLI for Palabras: bundle writer, bundle validator and privacy guard. Zero runtime dependencies, no network, never shipped in the image.",
+  "description": "Local council producer CLI for Palabras: propose, critique, merge, lint, bundle and validate. Zero runtime dependencies; never shipped in the image.",
   "license": "UNLICENSED",
   "type": "module",
   "engines": {

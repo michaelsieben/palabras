@@ -19,6 +19,8 @@ import { sha256Hex } from './bundle.js';
 
 const MIN_TERM_LENGTH = 3;
 const MAX_HASHED_TOKENS = 8;
+export const PRIVACY_SCHEMA = 'palabras.council.privacy.sha256.v2';
+export const PRIVACY_NORMALISATION = 'nfc+lower+nfd-strip-diacritics+collapse-whitespace+coarse-trim+fine-tokens';
 
 export interface HashedTerm {
   tokens: number;
@@ -75,14 +77,34 @@ export function termHash(normalisedText: string): string {
 }
 
 export function tokenise(normalisedText: string): string[] {
-  return normalisedText.split(/[^\p{L}\p{N}@._-]+/u).filter((token) => token !== '');
+  return normalisedText.split(/[^\p{L}\p{N}@._-]+/u)
+    .map((token) => token.replace(/^[._@-]+|[._@-]+$/g, '')).filter(Boolean);
+}
+
+export function fineTokens(normalisedText: string): string[] {
+  return normalisedText.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+}
+
+export function privacyHashDocument(localFile: string): object {
+  const terms = new Map<string, HashedTerm>();
+  for (const term of readLocalTerms(localFile)) {
+    const words = /[@.]/.test(term) ? tokenise(term) : fineTokens(term);
+    if (words.length < 1 || words.length > MAX_HASHED_TOKENS) {
+      throw new PrivacyConfigError('privacy term token count must be 1-8');
+    }
+    const sha256 = termHash(words.join(' '));
+    terms.set(sha256, { tokens: words.length, sha256 });
+  }
+  return { schema: PRIVACY_SCHEMA, algorithm: 'sha256', normalisation: PRIVACY_NORMALISATION,
+    terms: [...terms.values()].sort((a, b) => a.sha256.localeCompare(b.sha256)) };
 }
 
 function readJson(file: string): unknown {
   try {
     return JSON.parse(readFileSync(file, 'utf8'));
-  } catch (error) {
-    throw new PrivacyConfigError(`${file} is not valid JSON: ${(error as Error).message}`);
+  } catch {
+    // JSON parser messages can contain secret source fragments.
+    throw new PrivacyConfigError(`${file} is not readable JSON`);
   }
 }
 
@@ -90,7 +112,7 @@ function readLocalTerms(file: string): string[] {
   const document = readJson(file);
   const raw = Array.isArray(document)
     ? document
-    : (document as { terms?: unknown }).terms;
+    : (document as { terms?: unknown } | null)?.terms;
   if (!Array.isArray(raw)) {
     throw new PrivacyConfigError(`${file} must be an object with a "terms" array (or a bare array of strings)`);
   }
@@ -116,23 +138,26 @@ function readLocalTerms(file: string): string[] {
 }
 
 function readHashedTerms(file: string): HashedTerm[] {
-  const document = readJson(file) as { algorithm?: unknown; terms?: unknown };
-  if (document.algorithm !== undefined && document.algorithm !== 'sha256') {
-    throw new PrivacyConfigError(`${file}: algorithm must be "sha256", got ${JSON.stringify(document.algorithm)}`);
+  const document = readJson(file) as { schema?: unknown; normalisation?: unknown; algorithm?: unknown; terms?: unknown } | null;
+  if (document?.schema !== PRIVACY_SCHEMA || document?.normalisation !== PRIVACY_NORMALISATION || document?.algorithm !== 'sha256') {
+    throw new PrivacyConfigError(`${file}: unsupported privacy hash format; regenerate with council privacy hash (v2)`);
   }
   if (!Array.isArray(document.terms)) {
     throw new PrivacyConfigError(`${file} must be an object with a "terms" array of {tokens, sha256} entries`);
   }
   const terms: HashedTerm[] = [];
   for (const [index, value] of document.terms.entries()) {
-    const entry = value as { tokens?: unknown; sha256?: unknown };
-    const tokens = entry.tokens;
-    const sha256 = entry.sha256;
+    const entry = value as { tokens?: unknown; sha256?: unknown } | null;
+    const tokens = entry?.tokens;
+    const sha256 = entry?.sha256;
     if (typeof tokens !== 'number' || !Number.isInteger(tokens) || tokens < 1 || tokens > MAX_HASHED_TOKENS) {
       throw new PrivacyConfigError(`${file}: terms[${index}].tokens must be an integer 1-${MAX_HASHED_TOKENS}`);
     }
     if (typeof sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(sha256)) {
       throw new PrivacyConfigError(`${file}: terms[${index}].sha256 must be 64 lower-case hex characters`);
+    }
+    if (terms.some((term) => term.sha256 === sha256 && term.tokens !== tokens)) {
+      throw new PrivacyConfigError(`${file}: conflicting token counts for one hash`);
     }
     terms.push({ tokens, sha256 });
   }
@@ -173,26 +198,24 @@ export function scanForPrivateTerms(policy: PrivacyPolicy, inputs: PrivacyScanIn
     if (normalised === '') {
       continue;
     }
+    const sequences = [tokenise(normalised), fineTokens(normalised)];
     for (const [index, term] of policy.localTerms.entries()) {
-      if (normalised.includes(term)) {
+      const words = /[@.]/.test(term) ? tokenise(term) : fineTokens(term);
+      const hash = termHash(words.join(' '));
+      const tokenHit = words.length > 0 && sequences.some((tokens) => tokens.some((_token, start) =>
+        start + words.length <= tokens.length && termHash(tokens.slice(start, start + words.length).join(' ')) === hash));
+      if (normalised.includes(term) || tokenHit) {
         hits.push({ field: input.field, source: 'local', index: index + 1 });
       }
     }
     if (policy.hashedTerms.length === 0) {
       continue;
     }
-    const tokens = tokenise(normalised);
     for (const [index, term] of policy.hashedTerms.entries()) {
       let found = false;
-      for (let start = 0; start + term.tokens <= tokens.length && !found; start += 1) {
-        const window = tokens.slice(start, start + term.tokens).join(' ');
-        if (termHash(window) === term.sha256) {
-          found = true;
-        }
-        // An address or a domain with a separator stays one token, so a single-token entry also
-        // has to be compared against each token rather than only against joined windows.
-        if (!found && term.tokens === 1 && termHash(tokens[start] as string) === term.sha256) {
-          found = true;
+      for (const tokens of sequences) {
+        for (let start = 0; start + term.tokens <= tokens.length && !found; start += 1) {
+          if (termHash(tokens.slice(start, start + term.tokens).join(' ')) === term.sha256) found = true;
         }
       }
       if (found) {

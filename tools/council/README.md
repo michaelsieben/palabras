@@ -4,7 +4,7 @@ The producer side of the council workflow (design ΔE/ΔF/ΔH). It is a **local,
 never runs in the image, never ships to the server, and nothing under `tools/` is copied into the
 container (`/app/tools` is asserted absent by the E.0 check).
 
-M3 C6 ships the skeleton:
+Implemented producer pieces:
 
 | Piece | State |
 | --- | --- |
@@ -12,13 +12,15 @@ M3 C6 ships the skeleton:
 | `src/bundle.ts` | deterministic bundle writer: canonical JSONL, `candidates_sha256`, derived manifest fields |
 | `src/privacy.ts` | ΔH guard: local plain-text terms + committed SHA-256-only terms, accent-folded scan |
 | `src/config.ts` | env/`.env.council` layering, roster, prompt-version discovery, schema-owned vocabularies |
-| `src/lexicon.ts` | the committed corpus as the exclusion list and known-key set |
-| `src/cli.ts` | `validate`, `propose --dry-run`, `help` |
-| C7 (not here) | provider adapters, propose/critique/merge/score/lint, `rework` |
+| `src/lexicon.ts` | corpus + committed bundles + additive override: exclusion list and occupied keys |
+| `src/cli.ts` | `validate`, `propose`, `privacy hash`, `help` |
+| pipeline modules | provider adapters, propose/critique/merge/score/alternatives/lint |
 
-A bare `council propose` refuses with exit 1 and says the pipeline lands in C7. `--dry-run` is the
-useful half today: it prints the exact prompts, the resolved configuration and the exclusion count,
-and runs the privacy guard - with no network call and no file written.
+`propose` fans out proposals, merges and assigns stable keys, critiques in batches of 25, scores,
+tops up alternatives once when needed, lints, writes and validates a bundle. `rework` and `report`
+remain deferred to L2. Real runs and their data remain owner-gated; offline tests are not real-run acceptance.
+`--dry-run` prints rendered prompts without network calls or writes. With `--replay <file>` it
+previews the complete pipeline's candidates and dropped reasons instead.
 
 ## Install, build, test
 
@@ -29,7 +31,7 @@ npm run build     # tsc -> dist/
 npm test          # node --test test/*.test.mjs (pretest rebuilds)
 ```
 
-Zero runtime dependencies: the provider adapters (C7) use plain `fetch`, and the JSON-Schema subset
+Zero runtime dependencies: the provider adapters use plain `fetch`, and the JSON-Schema subset
 is the one the repo already ships for `content/words` (`tools/content-lint/validate.js`). Dev
 dependencies are only TypeScript and its Node types.
 
@@ -39,6 +41,8 @@ dependencies are only TypeScript and its Node types.
 node dist/cli.js validate content/council [--lexicon <dir>] [--json]
 node dist/cli.js validate tools/council/fixtures/valid-propose
 node dist/cli.js propose --dry-run --topic food --cefr A2 --count 40
+node dist/cli.js privacy hash --privacy privacy.local.json
+node test/e2e-probe.mjs
 node dist/cli.js help
 ```
 
@@ -47,20 +51,39 @@ node dist/cli.js help
   producer fixes one run instead of one error per run.
 - `propose --dry-run` prints the prompts for the discovered versions, the roster, the style-guide
   hash, the exclusion-pair count and the privacy result. `--topic`, `--cefr`, `--count`,
-  `--models`, `--hold`, `--style-guide`, `--privacy`, `--privacy-hashes`, `--lexicon`, `--prompts`,
+  `--models`, `--replay`, `--style-guide`, `--privacy`, `--privacy-hashes`, `--lexicon`, `--prompts`,
   `--out`, `--env-file` and `--prompt-version` override the corresponding configuration.
 - Exit codes are 0/1 only, matching `docs/06-content-cli.md`.
+- `--hold` belongs to the backend's `import-council`, not the producer, and is refused here.
+- Replay JSON maps model ids to reply queues: `{ "provider:model": [{"text":"...JSON..."},
+  {"text":"...critique JSON..."}] }`. Errors use `{ "error": "auth" }` (also `http`, `timeout`,
+  `invalid`, optional numeric `status`). Replay never calls HTTP. Non-dry replay writes a bundle
+  and requires the same local privacy policy as a real run.
 
 ## Configuration
 
 `env.example` is the template; copy it to `.env.council` (gitignored) and fill in the keys. Real
 environment variables win over the file, and `--models` wins over `COUNCIL_MODELS`. Credentials are
-read only by the provider adapters (C7) and are never printed: the dry run lists model ids, never
+read only by the provider adapters and are never printed: the dry run lists model ids, never
 keys.
 
 The request vocabularies (`topic`, `cefr`) are read from
 `content/schema/council-manifest.schema.json`, and the prompt version is the highest
 `prompts/<phase>.vN.md` on disk, so a new prompt is a new file, not an edit.
+
+HTTP adapters support OpenRouter, OpenAI, Anthropic, Google and Mistral. Retry 429/5xx/timeouts
+twice with exponential backoff; retry schema-invalid JSON once with a fixed repair instruction.
+Raw response bodies, headers and keys are never logged or persisted. Failure errors contain
+only phase, class and HTTP status. Both phases require `COUNCIL_MIN_MODELS` healthy models.
+
+## Stable keys and dedupe
+
+`es-<article-free, accent-folded lemma slug>-NN`, lowest free `01`–`99`, allocated in
+`(slug, pos, lemma_norm)` order before critique. Keys never change after assignment, including
+when lint swaps a lemma. Existing `(lemma_norm, pos)` pairs from corpus and committed bundles
+are dropped as `exists` before allocation. `--lexicon` is additive, not a way to hide the corpus.
+DB-only words are invisible to this offline lexicon; importer skip-by-key still prevents overwrite,
+but a duplicate lemma can reach review. An export-lexicon command remains deferred.
 
 ## Bundle writer
 
@@ -81,14 +104,16 @@ The request vocabularies (`topic`, `cefr`) are read from
 ## Prompts
 
 `prompts/propose.v1.md` and `prompts/critique.v1.md` are versioned templates. Placeholders are
-`{{NAME}}` and are filled by the C7 normaliser/renderer:
+`{{NAME}}` and are filled by a single-pass renderer:
 
 | Prompt | Placeholders |
 | --- | --- |
 | `propose.vN.md` | `{{REQUEST}}`, `{{STYLE_GUIDE}}`, `{{CANDIDATE_SCHEMA}}`, `{{EXCLUSION_LIST}}` |
-| `critique.vN.md` | `{{STYLE_GUIDE}}`, `{{CANDIDATE_SCHEMA}}`, `{{CANDIDATES}}` |
+| `critique.vN.md` | `{{REQUEST}}`, `{{STYLE_GUIDE}}`, `{{CANDIDATE_SCHEMA}}`, `{{CANDIDATES}}` |
 
 Neither prompt names the person who reviews the queue, and neither carries learner data (ΔH).
+Unknown or leftover placeholders fail; inserted values are not re-expanded. `prompts/SHA256SUMS`
+pins every versioned file in tests. Top-up reuses the critique prompt with one candidate.
 
 ## Privacy guard
 
@@ -96,17 +121,29 @@ Two lists, normalised identically (NFC, lower-case, accent-folded, whitespace co
 
 - `privacy.local.json` - gitignored; template in `privacy.local.example.json`. Real names,
   usernames, email, the domain. Matched as normalised substrings, so an address stays one hit.
-- `privacy.sha256.json` - committed and **hash-only**, so CI and the lint can run the same scan
-  without the strings entering git. Each entry is `{tokens, sha256}`; the scan hashes every n-gram
-  of that width. Generate one entry with:
+- `privacy.sha256.json` - committed and **hash-only**. Unsalted SHA-256 names can be reversed
+  with a dictionary: the committed list is a CI tripwire, not secrecy; the local list is the real
+  guard. Keep the committed list empty unless the owner accepts that its entries are effectively
+  public. Every non-dry run requires a present, non-empty `privacy.local.json`.
+  Each entry is `{tokens, sha256}`. The version and normalisation must match the loader.
+  Generate the entire sorted, deduplicated document with:
 
   ```
-  node -e "import('./dist/privacy.js').then(m=>{const n=m.normaliseTerm('the-term');console.log(JSON.stringify({tokens:m.tokenise(n).length,sha256:m.termHash(n)}))})"
+  node dist/cli.js privacy hash --privacy privacy.local.json
   ```
 
 A hit aborts before any provider call and the message names the dirty field and the list index,
 never the term. A term shorter than three characters after normalisation is refused: it would
 match everything and protect nothing.
+Hash format is v2: coarse tokens trim boundary punctuation and preserve addresses/domains;
+fine tokens split all non-letter/non-number separators. The scanner checks both sequences.
+Generator uses coarse tokens for terms containing `@` or `.`, fine tokens otherwise. v1 files
+are refused; regenerate from the local list, never migrate old hashes in place. Duplicate entries
+with identical widths are harmless; conflicting widths for one hash are refused.
+
+Every full rendered prompt is scanned immediately before every adapter call (including retries,
+critique and top-up). Model replies and final bundle text are scanned too. Privacy failures write
+only a field/class-only failed manifest, never candidates or dropped text.
 
 ## Parity with the C# importer and the CI linter
 

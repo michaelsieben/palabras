@@ -3,22 +3,25 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CouncilConfigError, REPO_ROOT, TOOL_ROOT, loadConfig } from './config.js';
 import type { ConfigOverrides, CouncilConfig } from './config.js';
-import { exclusionList, loadCorpusLexicon } from './lexicon.js';
-import { PrivacyConfigError, describePrivacyHit, loadPrivacyPolicy, scanForPrivateTerms } from './privacy.js';
+import { exclusionList, loadCorpusLexicon, loadProducerLexicon } from './lexicon.js';
+import { PrivacyConfigError, describePrivacyHit, loadPrivacyPolicy, scanForPrivateTerms, privacyHashDocument } from './privacy.js';
 import type { PrivacyPolicy, PrivacyScanInput } from './privacy.js';
 import { listBundles, validateBundle } from './validate.js';
 import type { BundleValidation } from './validate.js';
+import { promptValues, renderPrompt } from './prompts.js';
+import { runPipeline } from './pipeline.js';
+import type { ProviderAdapter } from './provider.js';
+import { readReplay } from './providers/replay.js';
+import type { CouncilRequest } from './bundle.js';
 
 /**
  * `council` - the offline producer CLI.
  *
- * M3 C6 ships the skeleton: `validate` (the CLI half of the shared bundle contract) and
- * `propose --dry-run` (the exact prompts plus the ΔH privacy check, no network, no writes).
- * C7 adds the propose/critique/merge/score/lint pipeline; until then a bare `propose` refuses
- * instead of pretending to run.
+ * `validate`, `propose` and `privacy hash`. Dry run previews rendered prompts; an optional
+ * replay script exercises the complete pipeline without network calls or bundle writes.
  *
  * Exit codes follow the repo convention (docs/06-content-cli.md): 0 success, 1 anything else.
- * Nothing here calls `fetch` and nothing writes outside an explicit bundle write.
+ * HTTP calls are isolated behind provider.ts's privacy chokepoint. No database access.
  */
 
 export interface CliIo {
@@ -39,11 +42,13 @@ const USAGE = [
   '      Validate one bundle directory or a parent of bundles against the shared contract',
   '      (content/schema/council-*.schema.json + the semantic rules in tools/council/fixtures).',
   '',
-  '  propose --dry-run [--topic <topic>] [--cefr <level>] [--count <n>] [--models <list>]',
-  '          [--hold] [--style-guide <file>] [--privacy <file>] [--privacy-hashes <file>]',
+   '  propose [--dry-run] [--topic <topic>] [--cefr <level>] [--count <n>] [--models <list>]',
+   '          [--replay <file>] [--style-guide <file>] [--privacy <file>] [--privacy-hashes <file>]',
   '          [--lexicon <dir>] [--prompts <dir>] [--out <dir>] [--prompt-version <vN>]',
   '      Print the exact prompts, the resolved configuration and the exclusion count, and run',
-  '      the privacy guard. No network, no files written. The generation pipeline lands in C7.',
+   '      the privacy guard. Dry run: no network or writes; --replay also previews candidates.',
+   '  privacy hash [--privacy <file>]',
+   '      Print a versioned, sorted, deduplicated hash-only document from the local list.',
   '',
   '  help',
   '      This text.',
@@ -209,7 +214,7 @@ function readPrompt(promptsDir: string, phase: 'propose' | 'critique', version: 
   return readFileSync(file, 'utf8');
 }
 
-function runPropose(args: string[], io: CliIo, env: Record<string, string | undefined>): number {
+function runPropose(args: string[], io: CliIo, env: Record<string, string | undefined>, adapter?: ProviderAdapter): number | Promise<number> {
   let parsed: ParsedArgs;
   try {
     parsed = parseArgs(
@@ -226,9 +231,10 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
         '--prompts',
         '--out',
         '--env-file',
-        '--prompt-version',
+         '--prompt-version',
+         '--replay',
       ],
-      ['--dry-run', '--hold']
+      ['--dry-run']
     );
   } catch (error) {
     io.err(`Error: ${(error as Error).message}`);
@@ -238,11 +244,7 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
     io.err(`Error: council propose takes no positional arguments, got "${parsed.positionals.join(' ')}"`);
     return 1;
   }
-  if (!parsed.flags.has('--dry-run')) {
-    io.err('Error: the propose pipeline is not implemented yet (C7 adds provider adapters, critique, merge, score and lint)');
-    io.err('       re-run with --dry-run to print the prompts and run the privacy guard, or use `council validate <dir>`');
-    return 1;
-  }
+  const dryRun = parsed.flags.has('--dry-run');
 
   const modelsFlag = stringFlag(parsed, '--models');
   const overrides: ConfigOverrides = { env };
@@ -304,7 +306,7 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
   let exclusion: string[];
   let lexiconSkipped: number;
   try {
-    const lexicon = loadCorpusLexicon(config.paths.wordsDir);
+    const lexicon = loadProducerLexicon(config.paths.wordsDir);
     exclusion = exclusionList(lexicon.entries);
     lexiconSkipped = lexicon.skipped;
   } catch (error) {
@@ -319,7 +321,7 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
     policy = loadPrivacyPolicy({
       localFile: config.paths.privacy,
       hashFile: config.paths.privacyHashes,
-      requireLocal: privacyFlag !== undefined,
+      requireLocal: !dryRun || privacyFlag !== undefined,
       requireHashes: privacyHashesFlag !== undefined,
     });
   } catch (error) {
@@ -328,6 +330,10 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
       return 1;
     }
     throw error;
+  }
+  if (!dryRun && policy.localTerms.length === 0) {
+    io.err('Error: a real run requires a non-empty privacy.local.json');
+    return 1;
   }
   if (policy.localSource !== null && !existsSync(policy.localSource)) {
     io.err(`WARN privacy list not found at ${displayPath(policy.localSource)}; only the committed hash list protects this run`);
@@ -359,7 +365,7 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
     { field: 'exclusion list (lemma|pos)', text: exclusion.join('\n') },
   ];
   const hits = scanForPrivateTerms(policy, scanInputs);
-  if (hits.length > 0) {
+  if (hits.length > 0 && dryRun) {
     io.err('Error: privacy guard blocked the run before any provider call:');
     for (const hit of hits) {
       io.err(`       ${describePrivacyHit(hit)}`);
@@ -367,11 +373,44 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
     return 1;
   }
 
-  const hold = parsed.flags.has('--hold');
+  const request: CouncilRequest = {};
+  if (topic !== null) request.topic = topic;
+  if (cefr !== null) request.cefr = cefr;
+  if (count !== null) request.count = count;
+  try {
+    const values = promptValues(config, request, exclusion);
+    for (const prompt of prompts) prompt.text = renderPrompt(prompt.text, values);
+    const renderedHits = scanForPrivateTerms(policy, prompts);
+    if (renderedHits.length) throw new Error(describePrivacyHit(renderedHits[0]));
+  } catch (error) {
+    if (dryRun) { io.err(`Error: ${(error as Error).message}`); return 1; }
+    // A real run records prompt/privacy failure through the pipeline's failed-manifest path.
+  }
+  const replay = stringFlag(parsed, '--replay');
+  if (!dryRun || replay !== undefined || adapter !== undefined) {
+    if (config.models.length < config.minModels) {
+      // Pipeline writes the auditable failed manifest even when roster is below minimum.
+      if (config.models.length === 0) { io.err('Error: a generation run requires a model roster'); return 1; }
+    }
+    let transport = adapter;
+    try { if (replay !== undefined) transport = readReplay(replay); }
+    catch (error) { io.err(`Error: ${(error as Error).message}`); return 1; }
+    if (dryRun && !transport) { io.err('Error: a dry run must use replay, never HTTP'); return 1; }
+    return runPipeline({ config, request, policy, dryRun, adapter: transport }).then((result) => {
+      io.out(`council propose${dryRun ? ' (dry run replay)' : ''}: status=${result.manifest.status} candidates=${result.candidates.length} dropped=${result.dropped.length}`);
+      if (result.dir) io.out(`bundle=${displayPath(result.dir)}`);
+      if (dryRun) {
+        for (const candidate of result.candidates) io.out(`candidate: key=${candidate.key} lemma=${candidate.lemma} pos=${candidate.pos}`);
+        for (const drop of result.dropped) io.out(`dropped: reason=${drop.reason}${drop.lemma ? ` lemma=${drop.lemma} pos=${drop.pos}` : ` key=${drop.key}`}`);
+      }
+      if (result.manifest.status === 'failed') io.err(`Error: ${result.manifest.error}`);
+      return result.manifest.status === 'ok' ? 0 : 1;
+    }).catch(() => { io.err('Error: council generation failed (configuration, prompt or output operation)'); return 1; });
+  }
   io.out('council propose (dry run)');
   io.out('mode=propose');
   io.out(
-    `request: topic=${topic ?? '(unset)'} cefr=${cefr ?? '(unset)'} count=${count === null ? '(unset)' : count} hold=${hold}`
+    `request: topic=${topic ?? '(unset)'} cefr=${cefr ?? '(unset)'} count=${count === null ? '(unset)' : count}`
   );
   if (config.models.length === 0) {
     io.out('models=0 WARN no model roster configured (COUNCIL_MODELS or --models); a real run needs one');
@@ -394,14 +433,25 @@ function runPropose(args: string[], io: CliIo, env: Record<string, string | unde
 export function runCli(
   argv: string[],
   io: CliIo = CONSOLE_IO,
-  env: Record<string, string | undefined> = process.env as Record<string, string | undefined>
-): number {
+  env: Record<string, string | undefined> = process.env as Record<string, string | undefined>,
+  adapter?: ProviderAdapter
+): number | Promise<number> {
   const [verb, ...rest] = argv;
   switch (verb) {
     case 'validate':
       return runValidate(rest, io);
     case 'propose':
-      return runPropose(rest, io, env);
+      return runPropose(rest, io, env, adapter);
+    case 'privacy': {
+      try {
+        const [action, ...flags] = rest;
+        if (action !== 'hash') throw new UsageError('usage: council privacy hash [--privacy <file>]');
+        const parsed = parseArgs(flags, ['--privacy'], []);
+        if (parsed.positionals.length) throw new UsageError('privacy hash takes no positional arguments');
+        io.out(JSON.stringify(privacyHashDocument(stringFlag(parsed, '--privacy') ?? path.join(TOOL_ROOT, 'privacy.local.json')), null, 2));
+        return 0;
+      } catch (error) { io.err(`Error: ${(error as Error).message}`); return 1; }
+    }
     case 'help':
     case '--help':
     case '-h': {
@@ -423,5 +473,5 @@ export function runCli(
 
 const entry = process.argv[1];
 if (entry !== undefined && path.resolve(entry) === fileURLToPath(import.meta.url)) {
-  process.exitCode = runCli(process.argv.slice(2));
+  process.exitCode = await runCli(process.argv.slice(2));
 }

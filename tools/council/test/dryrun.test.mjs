@@ -57,7 +57,7 @@ test('propose --dry-run prints both prompts and the resolved configuration witho
     assert.equal(fetchCalls, 0);
     assert.equal(existsSync(outDir), false, 'a dry run must not create the output directory');
     assert.match(result.stdout, /^council propose \(dry run\)$/m);
-    assert.match(result.stdout, /request: topic=food cefr=A2 count=40 hold=false/);
+    assert.match(result.stdout, /request: topic=food cefr=A2 count=40/);
     assert.match(result.stdout, /prompt_version=propose:v1 critique:v1/);
     assert.match(result.stdout, /style_guide=content\/style-guide\.md sha256=[0-9a-f]{64}/);
     assert.match(result.stdout, /excluded_pairs=[1-9][0-9]*/);
@@ -74,11 +74,10 @@ test('propose --dry-run prints both prompts and the resolved configuration witho
   }
 });
 
-test('a bare propose refuses and names the missing pipeline', () => {
+test('a bare propose requires a local privacy list', () => {
   const result = run(['propose', '--topic', 'food']);
   assert.equal(result.exitCode, 1);
-  assert.match(result.stderr, /not implemented yet \(C7/);
-  assert.match(result.stderr, /--dry-run/);
+  assert.match(result.stderr, /privacy list not found|non-empty privacy.local.json/);
 });
 
 test('bad usage exits 1 with a message, never a stack trace', () => {

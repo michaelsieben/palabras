@@ -6,7 +6,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { runCli } from '../dist/cli.js';
-import { normaliseTerm, termHash, tokenise } from '../dist/privacy.js';
+import { normaliseTerm, termHash, tokenise, PRIVACY_SCHEMA, PRIVACY_NORMALISATION } from '../dist/privacy.js';
 
 /**
  * T-20, design ΔH: the guard blocks a planted string before any provider call. In C6 no provider
@@ -110,7 +110,8 @@ test('the committed hash-only list blocks the same string without storing it', (
     writeFileSync(
       hashes,
       JSON.stringify({
-        schema: 'palabras.council.privacy.sha256.v1',
+        schema: PRIVACY_SCHEMA,
+        normalisation: PRIVACY_NORMALISATION,
         algorithm: 'sha256',
         terms: [{ tokens: tokenise(normalised).length, sha256: termHash(normalised) }],
       }),
