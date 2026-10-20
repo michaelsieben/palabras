@@ -34,6 +34,81 @@ function text(tree) {
 const button = (tree, label) => nodes(tree).find(n => n.type === 'button' && text(n) === label)
 const tick = () => new Promise(resolve => setImmediate(resolve))
 const emptyQueue = () => ({ getSnapshot: () => ({ rows: [], storageError: false }), subscribe: () => () => {}, flush: async () => {}, discard: async () => {} })
+test('renew during an in-flight refresh releases controls on settlement without overwriting fresh row state', async () => {
+  let rows = []; let calls = 0; let finishRefresh
+  const actions = []
+  const queue = { ...emptyQueue(), getSnapshot: () => ({ rows, storageError: false }), discard: async () => { rows = [] }, enqueue: async action => actions.push(action) }
+  const h = component('../src/review/ApprovedPanel.tsx', { '../api/review': { getApprovedWords: async (_q, after) => {
+    calls++
+    if (calls === 2) return new Promise(resolve => { finishRefresh = resolve })
+    return { items: [approvedWord(7, { version: calls === 1 ? 7 : 8 })], nextCursor: after ? undefined : 'fresh-next' }
+  } }, './ReviewRowStatus': { ReviewRowStatus: 'RowStatus' } })
+  const render = () => h.render(e => e.ApprovedPanel({ queue }))
+  render(); h.hydrate(); await tick()
+  button(render(), 'Actualizar aprobadas').props.onClick(); await tick()
+  assert.equal(button(render(), 'Siguiente').props.disabled, true)
+  rows = [{ action: reviewAction(7), word: approvedWord(7), state: 'failed', result: 'stale_version' }]
+  render(); h.effect(1); await tick()
+  assert.equal(calls, 3)
+  assert.match(text(render()), /versión 8/)
+  assert.equal(rows.length, 0)
+  assert.equal(button(render(), 'Retirar').props.disabled, true, 'renew must not release another read\'s loading flag')
+  finishRefresh({ items: [approvedWord(7, { version: 7 })], nextCursor: 'obsolete-next' }); await tick()
+  const tree = render()
+  assert.match(text(tree), /versión 8/)
+  assert.doesNotMatch(text(tree), /Cargando|versión 7/)
+  for (const label of ['Retirar', 'Revisar otra vez', 'Siguiente', 'Actualizar aprobadas']) assert.equal(button(tree, label).props.disabled, false, label)
+  assert.equal(button(tree, 'Anterior').props.disabled, true, 'page 1 has no previous page')
+  await button(tree, 'Retirar').props.onClick(); await tick()
+  assert.equal(actions[0].wordVersion, 8)
+  button(render(), 'Siguiente').props.onClick(); render(); h.hydrate(); await tick()
+  assert.equal(button(render(), 'Anterior').props.disabled, false)
+  assert.doesNotMatch(text(render()), /Cargando/)
+})
+test('aborted renew cannot strand the refresh loading owner or publish either stale response', async () => {
+  let rows = []; let calls = 0; let finishRefresh; let finishRenew
+  const queue = { ...emptyQueue(), getSnapshot: () => ({ rows, storageError: false }) }
+  const h = component('../src/review/ApprovedPanel.tsx', { '../api/review': { getApprovedWords: async () => {
+    calls++
+    if (calls === 2) return new Promise(resolve => { finishRefresh = resolve })
+    if (calls === 3) return new Promise(resolve => { finishRenew = resolve })
+    return { items: [approvedWord(1, { version: 8 })], nextCursor: 'fresh-next' }
+  } }, './ReviewRowStatus': { ReviewRowStatus: 'RowStatus' } })
+  const render = () => h.render(e => e.ApprovedPanel({ queue }))
+  render(); h.hydrate(); await tick()
+  button(render(), 'Actualizar aprobadas').props.onClick(); await tick()
+  rows = [{ action: reviewAction(7), word: approvedWord(7), state: 'failed', result: 'stale_version' }]
+  render(); const abortRenew = h.effect(1); await tick(); abortRenew()
+  finishRenew({ items: [approvedWord(1, { version: 10 })] }); await tick()
+  finishRefresh({ items: [approvedWord(1, { version: 9 })] }); await tick()
+  const tree = render()
+  assert.match(text(tree), /versión 8/)
+  assert.doesNotMatch(text(tree), /Cargando|versión 9|versión 10/)
+  for (const label of ['Retirar', 'Siguiente', 'Actualizar aprobadas']) assert.equal(button(tree, label).props.disabled, false, label)
+  assert.equal(rows[0].result, 'stale_version', 'aborted renewal preserves failed decision')
+})
+test('older refresh settlement cannot enable controls while replacement refresh waits for the outbox', async () => {
+  let calls = 0; let finishOld; let finishFlush; let blockFlush = false
+  const queue = { ...emptyQueue(), flush: async () => { if (blockFlush) await new Promise(resolve => { finishFlush = resolve }) } }
+  const h = component('../src/review/ApprovedPanel.tsx', { '../api/review': { getApprovedWords: async () => {
+    calls++
+    if (calls === 2) return new Promise(resolve => { finishOld = resolve })
+    return { items: [approvedWord(1, { version: calls === 1 ? 7 : 8 })], nextCursor: 'next' }
+  } } })
+  const render = () => h.render(e => e.ApprovedPanel({ queue }))
+  render(); h.hydrate(); await tick()
+  button(render(), 'Actualizar aprobadas').props.onClick(); await tick()
+  blockFlush = true
+  nodes(render()).find(n => n.type === 'form').props.onSubmit({ preventDefault() {} })
+  render(); h.hydrate(); await tick()
+  finishOld({ items: [approvedWord(1, { version: 99 })], nextCursor: 'old' }); await tick()
+  assert.equal(button(render(), 'Retirar').props.disabled, true)
+  assert.equal(button(render(), 'Actualizar aprobadas').props.disabled, true)
+  finishFlush(); await tick()
+  assert.match(text(render()), /versión 8/)
+  assert.doesNotMatch(text(render()), /versión 99/)
+  assert.equal(button(render(), 'Retirar').props.disabled, false)
+})
 test('pending decisions disable word refresh and stale refresh handlers cannot discard unsent outbox entries', async () => {
   let row = { action: reviewAction(7), word: approvedWord(7), state: 'failed', result: 'invalid' }
   let calls = 0; const discarded = []

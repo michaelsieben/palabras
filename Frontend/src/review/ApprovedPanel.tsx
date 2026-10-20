@@ -28,6 +28,8 @@ export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQue
   const [busy, setBusy] = useState<number>()
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({})
   const requestId = useRef(0)
+  // Response generations also change on renew; only a replacement refresh owns this flag.
+  const loadingRequest = useRef<object | undefined>(undefined)
   const seenStale = useRef(new Set<string>())
   const seenCursorRestarts = useRef(new Set<string>())
   const mutationBusy = useRef(false)
@@ -35,6 +37,8 @@ export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQue
   const scopeLabel = scope === 'approved' ? 'aprobadas' : 'retiradas'
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const id = ++requestId.current
+    const loadingOwner = {}
+    loadingRequest.current = loadingOwner
     try {
       await queue.flush()
       if (id !== requestId.current || signal?.aborted) return
@@ -52,13 +56,14 @@ export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQue
           seenCursorRestarts.current.add(cursorKey)
           // Invalidate concurrent refreshes; stale-version renew uses the same request generation.
           ++requestId.current
+          loadingRequest.current = undefined // Hand loading to the scheduled page-1 refresh.
           setCursors([undefined]); setNext(undefined); setError(''); setLoading(true)
           setNotice('La lista ha cambiado. Volvemos a la página 1.')
           return
         }
       }
       setError(`No se han podido cargar las ${scopeLabel}. Conéctate y vuelve a intentarlo.`)
-    } finally { if (id === requestId.current && !signal?.aborted) setLoading(false) }
+    } finally { if (loadingRequest.current === loadingOwner) { loadingRequest.current = undefined; setLoading(false) } }
   }, [after, search, scope, scopeLabel, queue])
   useEffect(() => {
     const controller = new AbortController()
@@ -104,7 +109,7 @@ export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQue
       }
       if (request !== requestId.current || signal?.aborted) return
       const wasStale = queue.getSnapshot().rows.some(r => r.result === 'stale_version' && decisions.some(d => d.id === r.action.clientReviewId))
-      setItems(result.items); setNext(result.nextCursor); setCursors(c => c.length === 1 ? c : [undefined]); setError(''); setLoading(false); setNotice(`${wasStale ? 'La palabra ha cambiado. ' : ''}Palabras actualizadas desde la página 1. Revisa el estado y el contenido antes de decidir otra vez.`)
+      setItems(result.items); setNext(result.nextCursor); setCursors(c => c.length === 1 ? c : [undefined]); setError(''); setNotice(`${wasStale ? 'La palabra ha cambiado. ' : ''}Palabras actualizadas desde la página 1. Revisa el estado y el contenido antes de decidir otra vez.`)
       for (const { id, wordId } of decisions) {
         const current = queue.getSnapshot().rows.find(r => r.action.clientReviewId === id)
         if (!current || current.state === 'pending') continue
@@ -117,7 +122,6 @@ export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQue
       }
     } catch {
       if (request !== requestId.current || signal?.aborted) return
-      setLoading(false)
       for (const { wordId } of decisions) setRowErrors(e => ({ ...e, [wordId]: 'No se pudo actualizar esta palabra. La decisión sigue guardada.' }))
     }
   }, [search, scope, queue])
@@ -139,8 +143,8 @@ export function ApprovedPanel({ queue }: { queue: ReturnType<typeof getReviewQue
   // Failed/offline decisions remain actionable across filters, pagination and reloads.
   const detached = rows.filter(r => !items.some(w => w.wordId === r.word.wordId))
   return <section className="review-section" aria-label="Palabras aprobadas y retiradas">
-    <div className="field-tabs" role="group" aria-label="Estado de las palabras">{(['approved', 'rejected'] as const).map(value => <button key={value} aria-pressed={scope === value} disabled={busy !== undefined} onClick={() => { if (value === scope) return; ++requestId.current; setScope(value); setItems([]); setNext(undefined); setCursors([undefined]); setLoading(true); setError(''); setNotice('') }}>{value === 'approved' ? 'Aprobadas' : 'Retiradas'}</button>)}</div>
-    {scope === 'approved' && <form className="review-search" onSubmit={e => { e.preventDefault(); ++requestId.current; setSearch(query.trim()); setNext(undefined); setCursors([undefined]); setLoading(true); setWalk(w => w + 1) }}><label>Buscar aprobadas<input type="search" value={query} onChange={e => setQuery(e.target.value)} /></label><button type="submit">Buscar</button></form>}
+    <div className="field-tabs" role="group" aria-label="Estado de las palabras">{(['approved', 'rejected'] as const).map(value => <button key={value} aria-pressed={scope === value} disabled={busy !== undefined} onClick={() => { if (value === scope) return; ++requestId.current; loadingRequest.current = undefined; setScope(value); setItems([]); setNext(undefined); setCursors([undefined]); setLoading(true); setError(''); setNotice('') }}>{value === 'approved' ? 'Aprobadas' : 'Retiradas'}</button>)}</div>
+    {scope === 'approved' && <form className="review-search" onSubmit={e => { e.preventDefault(); ++requestId.current; loadingRequest.current = undefined; setSearch(query.trim()); setNext(undefined); setCursors([undefined]); setLoading(true); setWalk(w => w + 1) }}><label>Buscar aprobadas<input type="search" value={query} onChange={e => setQuery(e.target.value)} /></label><button type="submit">Buscar</button></form>}
     <p className="note">{scope === 'approved' ? 'Retirar: la palabra dejará de aparecer en el aprendizaje. Se pausarán sus tarjetas; el historial se conservará.' : 'Volver a incluir: las tarjetas pausadas por la retirada volverán como nuevas. El historial se conservará.'}</p>
     <p role="status">{loading ? `Cargando ${scopeLabel}…` : `Página ${cursors.length}`}{notice && ` · ${notice}`}</p>
     {snapshot.storageError && <p className="note" role="status">Almacenamiento sin confirmar. Conserva esta vista y reintenta.</p>}
