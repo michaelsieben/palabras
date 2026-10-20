@@ -23,7 +23,7 @@ export function MuteSheet({ model, navigate }: { model: ReminderModel; navigate(
     <div className="mute-choices">{choices.map(([choice, label]) => <button key={choice} disabled={busy || !model.queue} onClick={() => void choose(choice)}>{label}</button>)}<button onClick={() => navigate('/ajustes')}>Cambiar hora</button><button onClick={() => navigate('/ajustes')}>Volver sin cambios</button></div>
     <p role="status">{message}</p>{error && <p role="alert">{error}</p>}
     {model.outbox.pending > 0 && <p role="status">{model.outbox.pending} cambios pendientes de envío.</p>}
-    {model.outbox.rejected > 0 && <p role="alert">No se pudo aplicar el cambio ({model.outbox.reason}). Revisa tu elección.</p>}
+    {model.outbox.rejected > 0 && <p role="alert">No se pudo aplicar el cambio. Revisa tu elección.</p>}
     {model.outbox.storageError && <p role="alert">No se puede leer el almacenamiento. No se puede confirmar qué cambios están guardados.</p>}
   </section>
 }

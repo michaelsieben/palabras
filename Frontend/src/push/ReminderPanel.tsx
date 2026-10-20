@@ -71,7 +71,7 @@ export function ReminderPanel({ model, navigate }: { model: ReminderModel; navig
       <p className="secondary-text">Al volver a activar tras una baja local, aparece una nueva suscripción. La anterior permanece desactivada.</p>
     </> : !model.devicesError && <p role="status">Comprobando los dispositivos guardados…</p>}
     {outbox.storageError ? <p role="alert">No se puede leer el almacenamiento de este dispositivo. No se puede confirmar qué cambios están guardados. Reintenta antes de cerrar la app.</p> : (outbox.pending > 0 || outbox.error) && <p className="note" role="status">{outbox.pending} cambios guardados, pendientes de envío. Se reintentarán al reconectar.<button onClick={model.queue?.trigger}>Reintentar envío</button></p>}
-    {outbox.rejected > 0 && <p role="alert">Un cambio no se pudo aplicar ({outbox.reason}). Los dispositivos muestran el último estado confirmado del servidor. Comprueba la conexión y vuelve a intentarlo; para reactivar una suscripción, pulsa Activar o Sincronizar explícitamente.</p>}
+    {outbox.rejected > 0 && <p role="alert">Un cambio no se pudo aplicar. Los dispositivos muestran el último estado confirmado del servidor. Comprueba la conexión y vuelve a intentarlo; para reactivar una suscripción, pulsa Activar o Sincronizar explícitamente.</p>}
     <p role="status">{message}</p>{failure && <p className="auth-error" role="alert">{failure}</p>}
   </section>
 }
