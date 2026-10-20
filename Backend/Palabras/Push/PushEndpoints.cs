@@ -36,7 +36,9 @@ internal static class PushEndpoints
         group.MapPost("/test", TestAsync);
     }
 
-    private static IResult? Unavailable(VapidKeyStore keys)
+    // Shared with ReminderEndpoints: the reminder surfaces are inert while push is off, so they
+    // answer the same 503 codes instead of keeping a half-configured feature alive.
+    internal static IResult? Unavailable(VapidKeyStore keys)
     {
         if (!keys.Enabled)
         {
@@ -407,8 +409,9 @@ internal static class PushEndpoints
 
     // Immediate SQLite transaction, matching DayEndpoints.WriteTransaction: two devices (or a
     // resync racing a user click) serialize on the database instead of both inserting the same
-    // endpoint and one failing the unique index.
-    private sealed class PushWriteTransaction : IAsyncDisposable
+    // endpoint and one failing the unique index. ReminderEndpoints reuses it for the settings
+    // upsert so two open panels cannot race the user_id primary key.
+    internal sealed class PushWriteTransaction : IAsyncDisposable
     {
         private readonly DbTransaction _transaction;
         private readonly IDbContextTransaction _scope;

@@ -813,7 +813,400 @@ public sealed class M8PushApiTests
         Assert.Empty(transport.Requests);
     }
 
+    // ---- U5: reminder settings and the action log (plan §3.5/§3.6) -------------
+
+    [Fact]
+    public async Task ReminderSettingsReadDefaultsWithoutWritingARow()
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+
+        using var response = await learner.GetAsync("/api/learn/reminder", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using (var body = await JsonAsync(response))
+        {
+            AssertSettings(body.RootElement, enabled: true, time: "22:00", mutedUntil: null, windowMin: 90,
+                activeDevices: 0);
+        }
+        // "No row" means defaults: a GET must not create the row it just described.
+        await using var database = factory.OpenDatabase();
+        Assert.Empty(await database.ReminderSettings.AsNoTracking().ToListAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ReminderSettingsRoundTripAndAPartialPutKeepsTheFieldsItOmits()
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+
+        using (var put = await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder",
+                   new { time = "21:30", windowMin = 120 }))
+        {
+            Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+            using var body = await JsonAsync(put);
+            AssertSettings(body.RootElement, enabled: true, time: "21:30", mutedUntil: null, windowMin: 120,
+                activeDevices: 0);
+        }
+        await using (var database = factory.OpenDatabase())
+        {
+            var row = await database.ReminderSettings.AsNoTracking().SingleAsync(CancellationToken.None);
+            Assert.Equal(1, row.UserId);
+            Assert.True(row.Enabled);
+            Assert.Equal("21:30", row.ReminderTime);
+            Assert.Equal(120, row.SendWindowMin);
+            Assert.Null(row.MutedUntil);
+            Assert.Equal(Now.ToUnixTimeMilliseconds(), row.UpdatedAtMs);
+        }
+
+        // Disabling alone must not reset the time or the window the first request stored.
+        using (var disable = await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder",
+                   new { enabled = false }))
+        {
+            Assert.Equal(HttpStatusCode.OK, disable.StatusCode);
+            using var body = await JsonAsync(disable);
+            AssertSettings(body.RootElement, enabled: false, time: "21:30", mutedUntil: null, windowMin: 120,
+                activeDevices: 0);
+        }
+        using (var get = await learner.GetAsync("/api/learn/reminder", CancellationToken.None))
+        {
+            using var body = await JsonAsync(get);
+            AssertSettings(body.RootElement, enabled: false, time: "21:30", mutedUntil: null, windowMin: 120,
+                activeDevices: 0);
+        }
+    }
+
+    [Fact]
+    public async Task ActiveDevicesCountsOnlyDeliverableSubscriptions()
+    {
+        using var factory = new PushApplicationFactory(Now, seed: database => database.PushSubscriptions.AddRange(
+            new PushSubscription
+            {
+                UserId = 1, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = "k",
+                CreatedAtMs = 1, UpdatedAtMs = 1, State = PushSubscriptionLifecycle.Active
+            },
+            new PushSubscription
+            {
+                UserId = 1, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = "k",
+                CreatedAtMs = 1, UpdatedAtMs = 1, State = PushSubscriptionLifecycle.Rejected, LastStatus = 403
+            },
+            new PushSubscription
+            {
+                // The learner's own unsubscribe: state + NULL status is the predicate (U4 ruling 3),
+                // and neither of them is a deliverable device.
+                UserId = 1, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = "k",
+                CreatedAtMs = 1, UpdatedAtMs = 1, State = PushSubscriptionLifecycle.Rejected, LastStatus = null
+            }));
+        using var learner = await LoginAsync(factory, "learner");
+
+        using var response = await learner.GetAsync("/api/learn/reminder", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = await JsonAsync(response);
+        AssertSettings(body.RootElement, enabled: true, time: "22:00", mutedUntil: null, windowMin: 90,
+            activeDevices: 1);
+    }
+
+    [Fact]
+    public async Task MuteShortcutsAreComputedInTheLearnerZone()
+    {
+        // 2026-10-20T12:00Z is 2026-10-21 01:00 in Auckland (+13) but still 2026-10-20 in Madrid (+2).
+        using var auckland = new PushApplicationFactory(Now.AddHours(3), seed: database =>
+            database.Users.Single(user => user.Id == 1).Timezone = "Pacific/Auckland");
+        using var learner = await LoginAsync(auckland, "learner");
+
+        await AssertMuteAsync(learner, "tomorrow", "2026-10-22");
+        await AssertMuteAsync(learner, "3d", "2026-10-24");
+        await AssertMuteAsync(learner, "7d", "2026-10-28");
+        using (var disabled = await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder",
+                   new { muteChoice = "disable" }))
+        {
+            Assert.Equal(HttpStatusCode.OK, disabled.StatusCode);
+            using var body = await JsonAsync(disabled);
+            Assert.False(body.RootElement.GetProperty("enabled").GetBoolean());
+            Assert.Null(body.RootElement.GetProperty("mutedUntil").GetString());
+        }
+        // Yesterday in the learner's zone can never be a mute target, even though the same date is
+        // today for the default zone.
+        using (var refused = await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder",
+                   new { mutedUntil = "2026-10-20" }))
+        {
+            await AssertErrorAsync(refused, HttpStatusCode.BadRequest, "invalid_muted_until");
+        }
+
+        using var madrid = new PushApplicationFactory(Now.AddHours(3));
+        using var madridLearner = await LoginAsync(madrid, "learner");
+        await AssertMuteAsync(madridLearner, "tomorrow", "2026-10-21");
+        using var accepted = await SendAsync(madridLearner, HttpMethod.Put, "/api/learn/reminder",
+            new { mutedUntil = "2026-10-20" });
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        using var acceptedBody = await JsonAsync(accepted);
+        AssertSettings(acceptedBody.RootElement, enabled: true, time: "22:00", mutedUntil: "2026-10-20",
+            windowMin: 90, activeDevices: 0);
+    }
+
+    [Theory]
+    [InlineData("00:00")]
+    [InlineData("06:15")]
+    [InlineData("22:00")]
+    [InlineData("23:45")]
+    public async Task FifteenMinuteStepsInsideTheDayAreAccepted(string time)
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+
+        using var response = await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder", new { time });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = await JsonAsync(response);
+        Assert.Equal(time, body.RootElement.GetProperty("time").GetString());
+    }
+
+    [Theory]
+    [InlineData(15)]
+    [InlineData(240)]
+    public async Task WindowBoundsAreInclusive(int windowMin)
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+
+        using var response = await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder", new { windowMin });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = await JsonAsync(response);
+        Assert.Equal(windowMin, body.RootElement.GetProperty("windowMin").GetInt32());
+    }
+
+    [Theory]
+    [InlineData("time", "22:10", "invalid_time")]
+    [InlineData("time", "22:50", "invalid_time")]
+    [InlineData("time", "24:00", "invalid_time")]
+    [InlineData("time", "7:00", "invalid_time")]
+    [InlineData("time", "2350", "invalid_time")]
+    [InlineData("time", "evening", "invalid_time")]
+    [InlineData("window", 14, "invalid_window")]
+    [InlineData("window", 241, "invalid_window")]
+    [InlineData("muted", "2026-10-19", "invalid_muted_until")]
+    [InlineData("muted", "2026-11-20", "invalid_muted_until")]
+    [InlineData("muted", "2026-02-30", "invalid_muted_until")]
+    [InlineData("muted", "tomorrow", "invalid_muted_until")]
+    [InlineData("mute", "soon", "invalid_mute_choice")]
+    [InlineData("mute-conflict-enabled", "3d", "conflicting_mute_choice")]
+    [InlineData("mute-conflict-date", "3d", "conflicting_mute_choice")]
+    public async Task InvalidSettingsAreRejectedByValidationAndNothingIsStored(string shape, object value,
+        string error)
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+        object body = shape switch
+        {
+            "time" => new { time = value },
+            "window" => new { windowMin = value },
+            "muted" => new { mutedUntil = value },
+            "mute" => new { muteChoice = value },
+            "mute-conflict-enabled" => new { muteChoice = value, enabled = false },
+            "mute-conflict-date" => new { muteChoice = value, mutedUntil = "2026-10-25" },
+            _ => throw new ArgumentOutOfRangeException(nameof(shape), shape, null)
+        };
+
+        using var response = await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder", body);
+
+        // A 500 here would mean the frozen CHECK rejected the value instead of the API: validation
+        // must refuse every out-of-contract value before it can reach the table.
+        await AssertErrorAsync(response, HttpStatusCode.BadRequest, error);
+        await using var database = factory.OpenDatabase();
+        Assert.Empty(await database.ReminderSettings.AsNoTracking().ToListAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ANotificationActionIsAuditedAndLinksTodaysDecision()
+    {
+        using var factory = new PushApplicationFactory(Now, seed: database => database.ReminderLogs.Add(
+            new ReminderLog
+            {
+                UserId = 1, LocalDate = "2026-10-20", Kind = "daily", Channel = "webpush", Result = "sent",
+                SkipAvailable = true, CreatedAtMs = 1, UpdatedAtMs = 1
+            }));
+        using var learner = await LoginAsync(factory, "learner");
+
+        using (var skip = await SendAsync(learner, HttpMethod.Post, "/api/learn/notification-action",
+                   new { localDate = "2026-10-20", action = "skip", result = "ok" }))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, skip.StatusCode);
+        }
+        using (var mute = await SendAsync(learner, HttpMethod.Post, "/api/learn/notification-action",
+                   new { localDate = "2026-10-20", action = "mute", result = "ok", muteChoice = "3d" }))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, mute.StatusCode);
+        }
+        // A tap the morning after names yesterday: accepted, and it links nothing because that day
+        // has no decision row in this database.
+        using (var late = await SendAsync(learner, HttpMethod.Post, "/api/learn/notification-action",
+                   new { localDate = "2026-10-19", action = "open", result = "error" }))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, late.StatusCode);
+        }
+
+        await using var database = factory.OpenDatabase();
+        var rows = await database.NotificationActions.AsNoTracking().OrderBy(row => row.Id)
+            .ToListAsync(CancellationToken.None);
+        Assert.Equal(3, rows.Count);
+        Assert.All(rows, row =>
+        {
+            Assert.Equal(1, row.UserId);
+            Assert.Equal(Now.ToUnixTimeMilliseconds(), row.CreatedAtMs);
+        });
+        Assert.Equal(["skip", "mute", "open"], rows.Select(row => row.Action).ToArray());
+        Assert.Equal(["2026-10-20", "2026-10-20", "2026-10-19"], rows.Select(row => row.LocalDate).ToArray());
+        Assert.Equal(rows[0].ReminderLogId, rows[1].ReminderLogId);
+        Assert.NotNull(rows[0].ReminderLogId);
+        Assert.Null(rows[2].ReminderLogId);
+        Assert.Equal("3d", rows[1].MuteChoice);
+        Assert.Null(rows[0].MuteChoice);
+        Assert.Equal("error", rows[2].Result);
+    }
+
+    [Theory]
+    [InlineData("bad-action", "invalid_action")]
+    [InlineData("bad-result", "invalid_result")]
+    [InlineData("bad-date", "invalid_local_date")]
+    [InlineData("future-date", "invalid_local_date")]
+    [InlineData("old-date", "invalid_local_date")]
+    [InlineData("bad-mute", "invalid_mute_choice")]
+    public async Task MalformedNotificationActionsAreRejectedAndNothingIsAudited(string shape, string error)
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+        var body = new Dictionary<string, object?>
+        {
+            ["localDate"] = "2026-10-20",
+            ["action"] = "skip",
+            ["result"] = "ok"
+        };
+        switch (shape)
+        {
+            case "bad-action":
+                body["action"] = "dismiss";
+                break;
+            case "bad-result":
+                body["result"] = "sent";
+                break;
+            case "bad-date":
+                body["localDate"] = "20/10/2026";
+                break;
+            case "future-date":
+                body["localDate"] = "2026-10-21";
+                break;
+            case "old-date":
+                body["localDate"] = "2026-10-18";
+                break;
+            case "bad-mute":
+                body["muteChoice"] = "forever";
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(shape), shape, null);
+        }
+
+        using var response = await SendAsync(learner, HttpMethod.Post, "/api/learn/notification-action", body);
+
+        await AssertErrorAsync(response, HttpStatusCode.BadRequest, error);
+        await using var database = factory.OpenDatabase();
+        Assert.Empty(await database.NotificationActions.AsNoTracking().ToListAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task OnlyALearnerCanReadOrChangeReminderSettings()
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var anonymous = factory.CreateHttpClient();
+        await AssertErrorAsync(await anonymous.GetAsync("/api/learn/reminder", CancellationToken.None),
+            HttpStatusCode.Unauthorized, "unauthorized");
+        await AssertErrorAsync(await SendAsync(anonymous, HttpMethod.Put, "/api/learn/reminder",
+            new { enabled = true }), HttpStatusCode.Unauthorized, "unauthorized");
+        await AssertErrorAsync(await SendAsync(anonymous, HttpMethod.Post, "/api/learn/notification-action",
+            new { localDate = "2026-10-20", action = "open", result = "ok" }), HttpStatusCode.Unauthorized,
+            "unauthorized");
+
+        using var reviewer = await LoginAsync(factory, "reviewer");
+        await AssertErrorAsync(await reviewer.GetAsync("/api/learn/reminder", CancellationToken.None),
+            HttpStatusCode.Forbidden, "forbidden");
+        await AssertErrorAsync(await SendAsync(reviewer, HttpMethod.Put, "/api/learn/reminder",
+            new { enabled = false }), HttpStatusCode.Forbidden, "forbidden");
+        await AssertErrorAsync(await SendAsync(reviewer, HttpMethod.Post, "/api/learn/notification-action",
+            new { localDate = "2026-10-20", action = "open", result = "ok" }), HttpStatusCode.Forbidden,
+            "forbidden");
+
+        await using var database = factory.OpenDatabase();
+        Assert.Empty(await database.ReminderSettings.AsNoTracking().ToListAsync(CancellationToken.None));
+        Assert.Empty(await database.NotificationActions.AsNoTracking().ToListAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task PushOffMeansReminderSettingsAndActionsAnswer503()
+    {
+        using var factory = new PushApplicationFactory(Now, pushEnabled: false);
+        using var learner = await LoginAsync(factory, "learner");
+
+        await AssertErrorAsync(await learner.GetAsync("/api/learn/reminder", CancellationToken.None),
+            HttpStatusCode.ServiceUnavailable, "push_disabled");
+        await AssertErrorAsync(await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder",
+            new { time = "21:00" }), HttpStatusCode.ServiceUnavailable, "push_disabled");
+        await AssertErrorAsync(await SendAsync(learner, HttpMethod.Post, "/api/learn/notification-action",
+            new { localDate = "2026-10-20", action = "open", result = "ok" }), HttpStatusCode.ServiceUnavailable,
+            "push_disabled");
+
+        await using var database = factory.OpenDatabase();
+        Assert.Empty(await database.ReminderSettings.AsNoTracking().ToListAsync(CancellationToken.None));
+        Assert.Empty(await database.NotificationActions.AsNoTracking().ToListAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ReminderWritesRequireXPalabras()
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+
+        using (var put = new HttpRequestMessage(HttpMethod.Put, "/api/learn/reminder")
+               {
+                   Content = JsonContent.Create(new { time = "21:00" })
+               })
+        {
+            using var response = await learner.SendAsync(put, CancellationToken.None);
+            await AssertErrorAsync(response, HttpStatusCode.BadRequest, "missing_x_palabras");
+        }
+        using (var action = new HttpRequestMessage(HttpMethod.Post, "/api/learn/notification-action")
+               {
+                   Content = JsonContent.Create(new { localDate = "2026-10-20", action = "open", result = "ok" })
+               })
+        {
+            using var response = await learner.SendAsync(action, CancellationToken.None);
+            await AssertErrorAsync(response, HttpStatusCode.BadRequest, "missing_x_palabras");
+        }
+        // Reads are not state-changing, so the CSRF header stays optional for GET.
+        using var get = await learner.GetAsync("/api/learn/reminder", CancellationToken.None);
+        Assert.Equal(HttpStatusCode.OK, get.StatusCode);
+    }
+
     // ---- helpers ----------------------------------------------------------
+
+    private static async Task AssertMuteAsync(HttpClient learner, string choice, string expected)
+    {
+        using var response = await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder",
+            new { muteChoice = choice });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = await JsonAsync(response);
+        Assert.Equal(expected, body.RootElement.GetProperty("mutedUntil").GetString());
+    }
+
+    private static void AssertSettings(JsonElement root, bool enabled, string time, string? mutedUntil,
+        int windowMin, int activeDevices)
+    {
+        Assert.Equal(enabled, root.GetProperty("enabled").GetBoolean());
+        Assert.Equal(time, root.GetProperty("time").GetString());
+        Assert.Equal(mutedUntil, root.GetProperty("mutedUntil").GetString());
+        Assert.Equal(windowMin, root.GetProperty("windowMin").GetInt32());
+        Assert.Equal(activeDevices, root.GetProperty("activeDevices").GetInt32());
+    }
 
     private static async Task<int> SubscribeAsync(HttpClient learner, string endpoint,
         (string P256dh, string Auth)? keys = null, string? label = null)

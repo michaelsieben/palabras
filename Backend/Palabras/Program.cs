@@ -314,6 +314,7 @@ app.MapAuthEndpoints();
 app.MapLearnEndpoints();
 app.MapDayEndpoints();
 app.MapPushEndpoints();
+app.MapReminderEndpoints();
 app.MapStatsEndpoints();
 app.MapExportEndpoints();
 // M4 reviewer gate (T-20261019-1606): queue, verdicts and the approved list over word_reviews.
