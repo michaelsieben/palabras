@@ -1356,6 +1356,190 @@ public sealed class M8PushApiTests
         Assert.Equal(HttpStatusCode.OK, get.StatusCode);
     }
 
+    // ---- U8: the read-only device list (plan §3.9) ----------------------------
+
+    [Fact]
+    public async Task TheDeviceListReportsEachStoredDeviceWithoutAnySecret()
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+        var activeEndpoint = Endpoint();
+        var activeKeys = NewSubscriptionKeys();
+        var activeId = await SubscribeAsync(learner, activeEndpoint, activeKeys, label: "OnePlus 15");
+        var revokedEndpoint = Endpoint();
+        var revokedKeys = NewSubscriptionKeys();
+        var revokedId = await SubscribeAsync(learner, revokedEndpoint, revokedKeys, label: "Tab 3");
+
+        // The learner switches the tablet off: the row stays for the audit trail, as `rejected` with
+        // a NULL status, which is exactly what the settings screen must display.
+        using (var deleted = await SendAsync(learner, HttpMethod.Delete, "/api/push/subscription",
+                   new { endpoint = revokedEndpoint }))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        }
+
+        using var response = await learner.GetAsync($"/api/push/subscriptions?currentId={activeId}",
+            CancellationToken.None);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var raw = await response.Content.ReadAsStringAsync(CancellationToken.None);
+        using var body = JsonDocument.Parse(raw);
+        var root = body.RootElement;
+        Assert.False(root.GetProperty("truncated").GetBoolean());
+        var items = root.GetProperty("items").EnumerateArray().ToArray();
+        Assert.Equal(2, items.Length);
+
+        // Active devices first: the phone the learner still wants is row one, its own opt-out second.
+        var first = items[0];
+        Assert.Equal(activeId, first.GetProperty("id").GetInt32());
+        Assert.Equal("OnePlus 15", first.GetProperty("deviceLabel").GetString());
+        Assert.Equal(PushSubscriptionLifecycle.Active, first.GetProperty("state").GetString());
+        Assert.True(first.GetProperty("isCurrent").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, first.GetProperty("lastStatus").ValueKind);
+        Assert.Equal(Now, DateTimeOffset.Parse(first.GetProperty("createdAt").GetString()!,
+            CultureInfo.InvariantCulture));
+        Assert.Equal(Now, DateTimeOffset.Parse(first.GetProperty("updatedAt").GetString()!,
+            CultureInfo.InvariantCulture));
+
+        var second = items[1];
+        Assert.Equal(revokedId, second.GetProperty("id").GetInt32());
+        Assert.Equal("Tab 3", second.GetProperty("deviceLabel").GetString());
+        Assert.Equal(PushSubscriptionLifecycle.Rejected, second.GetProperty("state").GetString());
+        Assert.False(second.GetProperty("isCurrent").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, second.GetProperty("lastStatus").ValueKind);
+
+        // The payload is secret-free: the member set is the whole contract (no endpoint, p256dh or
+        // auth member exists to forget), and none of those stored values appears anywhere in the raw
+        // JSON either.
+        Assert.Equal(["id", "deviceLabel", "state", "lastStatus", "createdAt", "updatedAt", "isCurrent"],
+            first.EnumerateObject().Select(property => property.Name).ToArray());
+        Assert.Equal(first.EnumerateObject().Select(property => property.Name).ToArray(),
+            second.EnumerateObject().Select(property => property.Name).ToArray());
+        Assert.All(items, item => Assert.Equal(JsonValueKind.String, item.GetProperty("state").ValueKind));
+        foreach (var secret in new[]
+                 {
+                     activeEndpoint, revokedEndpoint, activeKeys.P256dh, activeKeys.Auth,
+                     revokedKeys.P256dh, revokedKeys.Auth
+                 })
+        {
+            Assert.DoesNotContain(secret, raw, StringComparison.Ordinal);
+        }
+
+        // An id this account does not own is not a hint that it exists: every row is simply not current.
+        using var foreign = await learner.GetAsync("/api/push/subscriptions?currentId=999999",
+            CancellationToken.None);
+        using var foreignBody = await JsonAsync(foreign);
+        Assert.All(foreignBody.RootElement.GetProperty("items").EnumerateArray(),
+            item => Assert.False(item.GetProperty("isCurrent").GetBoolean()));
+
+        // Deterministic: the same request answers the same sequence and the same state.
+        using var again = await learner.GetAsync($"/api/push/subscriptions?currentId={activeId}",
+            CancellationToken.None);
+        using var againBody = await JsonAsync(again);
+        Assert.Equal([activeId, revokedId], againBody.RootElement.GetProperty("items").EnumerateArray()
+            .Select(item => item.GetProperty("id").GetInt32()).ToArray());
+    }
+
+    [Fact]
+    public async Task TheDeviceListNeverShowsAnotherAccountsDevices()
+    {
+        using var factory = new PushApplicationFactory(Now, seed: database =>
+            database.PushSubscriptions.Add(new PushSubscription
+            {
+                UserId = 2, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = StaleKeyId,
+                DeviceLabel = "not mine", CreatedAtMs = 1, UpdatedAtMs = 1,
+                State = PushSubscriptionLifecycle.Active
+            }));
+        using var learner = await LoginAsync(factory, "learner");
+
+        using var response = await learner.GetAsync("/api/push/subscriptions", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = await JsonAsync(response);
+        Assert.Empty(body.RootElement.GetProperty("items").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task TheDeviceListAnswers200WithAnEmptyListWhilePushIsOff()
+    {
+        // A settings screen pairs this with GET /api/push/config: answering 503 here would make "no
+        // devices" and "push is off" read the same to the UI, which is the ambiguity reviewers rejected.
+        using (var disabled = new PushApplicationFactory(Now, pushEnabled: false))
+        {
+            using var learner = await LoginAsync(disabled, "learner");
+            using var response = await learner.GetAsync("/api/push/subscriptions", CancellationToken.None);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var body = await JsonAsync(response);
+            Assert.Empty(body.RootElement.GetProperty("items").EnumerateArray());
+            Assert.False(body.RootElement.GetProperty("truncated").GetBoolean());
+        }
+
+        // An unusable key file is the second unavailable flavour, and a stored preference list does
+        // not depend on the private key, so it is readable too.
+        using (var unusable = new PushApplicationFactory(Now, keyFileContent: "{ not a key file"))
+        {
+            using var learner = await LoginAsync(unusable, "learner");
+            using var response = await learner.GetAsync("/api/push/subscriptions", CancellationToken.None);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task OnlyALearnerCanReadTheDeviceList()
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var anonymous = factory.CreateHttpClient();
+        await AssertErrorAsync(await anonymous.GetAsync("/api/push/subscriptions", CancellationToken.None),
+            HttpStatusCode.Unauthorized, "unauthorized");
+        using var reviewer = await LoginAsync(factory, "reviewer");
+        await AssertErrorAsync(await reviewer.GetAsync("/api/push/subscriptions", CancellationToken.None),
+            HttpStatusCode.Forbidden, "forbidden");
+    }
+
+    [Fact]
+    public async Task TheDeviceListIsCappedAndSaysWhenItTruncated()
+    {
+        var keyFile = PreMintedKeyFile();
+        using var factory = new PushApplicationFactory(Now, keyFileContent: keyFile.Content, seed: database =>
+        {
+            for (var index = 1; index <= PushEndpoints.MaximumListedSubscriptions + 1; index++)
+            {
+                database.PushSubscriptions.Add(new PushSubscription
+                {
+                    UserId = 1, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = keyFile.KeyId,
+                    CreatedAtMs = index, UpdatedAtMs = index, State = PushSubscriptionLifecycle.Active
+                });
+            }
+        });
+        using var learner = await LoginAsync(factory, "learner");
+
+        using var response = await learner.GetAsync("/api/push/subscriptions", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = await JsonAsync(response);
+        var items = body.RootElement.GetProperty("items").EnumerateArray().ToArray();
+        Assert.Equal(PushEndpoints.MaximumListedSubscriptions, items.Length);
+        Assert.True(body.RootElement.GetProperty("truncated").GetBoolean());
+        // Newest first, and the tiebreaker is the id: a total order, so the cap keeps a stable slice.
+        Assert.Equal(Enumerable.Range(2, PushEndpoints.MaximumListedSubscriptions).Reverse(),
+            items.Select(item => item.GetProperty("id").GetInt32()));
+    }
+
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("0")]
+    [InlineData("-3")]
+    [InlineData("1.5")]
+    public async Task AnUnusableCurrentIdIsRefused(string currentId)
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+
+        using var response = await learner.GetAsync($"/api/push/subscriptions?currentId={currentId}",
+            CancellationToken.None);
+
+        await AssertErrorAsync(response, HttpStatusCode.BadRequest, "invalid_current_id");
+    }
+
     // ---- helpers ----------------------------------------------------------
 
     // A fingerprint no generated key can have, so a row carrying it is provably undeliverable.

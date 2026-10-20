@@ -19,6 +19,10 @@ namespace Palabras.Push;
 internal static class PushEndpoints
 {
     internal const long MaximumBodyBytes = 8 * 1024;
+    // A learner's device list is a handful of browsers. The cap keeps a long-lived account (every
+    // endpoint replacement leaves a rejected row behind) from answering an unbounded body, and the
+    // response says `truncated` when it applies instead of silently hiding rows.
+    internal const int MaximumListedSubscriptions = 50;
     private const string Policy = "learner";
     private const int MaximumEndpointLength = 1024;
     private const int MaximumDeviceLabelLength = 60;
@@ -31,6 +35,7 @@ internal static class PushEndpoints
         ArgumentNullException.ThrowIfNull(app);
         var group = app.MapGroup("/api/push").RequireAuthorization(Policy);
         group.MapGet("/config", ConfigAsync);
+        group.MapGet("/subscriptions", ListAsync);
         group.MapPut("/subscription", SubscribeAsync);
         group.MapDelete("/subscription", UnsubscribeAsync);
         group.MapPost("/test", TestAsync);
@@ -57,6 +62,76 @@ internal static class PushEndpoints
         }
         var current = keys.Keys!;
         return Results.Ok(new PushConfigResponse(current.PublicKey, current.KeyId));
+    }
+
+    // Read-only device list for the U8 settings screen (plan §3.9 / U8): one row per subscription the
+    // calling account owns, with an opaque id, the stored label, the stored state, the last push-service
+    // status and both instants. Nothing in the payload is a secret: the endpoint and the two encryption
+    // keys never leave the database, and this route logs nothing at all.
+    //
+    // `isCurrent` is decided from `?currentId=<id>`, the id PUT /subscription already returns to the
+    // caller, so "this device" is an equality on an integer the client was handed. It is deliberately
+    // not derived from the endpoint (a bearer-like secret that would land in URL and access logs) and
+    // not from the user agent (two phones of the same model share one string — that would be
+    // fingerprinting, not identification). An absent, unknown or another account's id leaves every row
+    // `false`, which is the honest answer: the server cannot know which browser is asking.
+    //
+    // No 503 gate on purpose (review item: pairing with GET /config must not turn "push is off" into an
+    // error): with push off or an unusable VAPID key the answer is still 200 with the rows that are
+    // stored, because the list describes configuration, not delivery. That is also why the state is
+    // reported verbatim — `stale_key` means "this row needs a resubscribe", which the UI can say
+    // without guessing.
+    private static async Task<IResult> ListAsync(HttpContext context, string? currentId,
+        DatabaseSettings settings, CancellationToken cancellationToken)
+    {
+        if (LearnEndpoints.CurrentUserId(context) is not { } userId)
+        {
+            return Error(StatusCodes.Status401Unauthorized, "unauthorized");
+        }
+        int? current = null;
+        if (!string.IsNullOrEmpty(currentId))
+        {
+            if (!int.TryParse(currentId, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed)
+                || parsed <= 0)
+            {
+                return Error(StatusCodes.Status400BadRequest, "invalid_current_id");
+            }
+            current = parsed;
+        }
+        await using var database = settings.CreateContext();
+        // Active devices first, then rows that need a resubscribe, then the learner's own opt-outs; each
+        // group newest-first with the id as a total-order tiebreaker, so two identical requests always
+        // answer the same sequence. The projection never selects the endpoint, p256dh or auth columns.
+        var rows = await database.PushSubscriptions.AsNoTracking()
+            .Where(row => row.UserId == userId)
+            .OrderBy(row => row.State == PushSubscriptionLifecycle.Active
+                ? 0
+                : row.State == PushSubscriptionLifecycle.Rejected ? 2 : 1)
+            .ThenByDescending(row => row.UpdatedAtMs)
+            .ThenByDescending(row => row.Id)
+            .Take(MaximumListedSubscriptions + 1)
+            .Select(row => new
+            {
+                row.Id,
+                row.DeviceLabel,
+                row.State,
+                row.LastStatus,
+                row.CreatedAtMs,
+                row.UpdatedAtMs
+            })
+            .ToListAsync(cancellationToken);
+        var truncated = rows.Count > MaximumListedSubscriptions;
+        var items = rows.Take(MaximumListedSubscriptions)
+            .Select(row => new PushDeviceResponse(
+                row.Id,
+                row.DeviceLabel,
+                row.State,
+                row.LastStatus,
+                DateTimeOffset.FromUnixTimeMilliseconds(row.CreatedAtMs),
+                DateTimeOffset.FromUnixTimeMilliseconds(row.UpdatedAtMs),
+                row.Id == current))
+            .ToArray();
+        return Results.Ok(new PushDevicesResponse(items, truncated));
     }
 
     private static async Task<IResult> SubscribeAsync(PushSubscriptionRequest? request, HttpContext context,
@@ -445,6 +520,22 @@ internal static class PushEndpoints
 }
 
 internal sealed record PushConfigResponse(string PublicKey, string KeyId);
+
+// One device in GET /api/push/subscriptions. Secret-free by construction: there is no member for the
+// endpoint or for either encryption key, so a serialization mistake cannot leak one. `state` is the
+// stored value verbatim (`active` / `stale_key` / `rejected`); `lastStatus` is the HTTP status of the
+// push service's last refusal, and null means "the learner switched this device off" (or nothing has
+// been attempted yet). `deviceLabel` is null only for a row registered without a user agent.
+internal sealed record PushDeviceResponse(
+    int Id,
+    string? DeviceLabel,
+    string State,
+    int? LastStatus,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    bool IsCurrent);
+
+internal sealed record PushDevicesResponse(IReadOnlyList<PushDeviceResponse> Items, bool Truncated);
 
 internal sealed record PushKeysRequest(string? P256dh, string? Auth);
 
