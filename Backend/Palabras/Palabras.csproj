@@ -23,6 +23,9 @@
   <ItemGroup>
     <PackageReference Include="Fsrs.Sharp" Version="[2.0.0]" />
     <PackageReference Include="JsonSchema.Net" Version="[7.4.0]" />
+    <!-- M8 Web Push (RFC 8291/8292) behind IPushTransport: pinned exactly, because the transport
+         seam is the only place this library is allowed to appear (plan §4 U4, R9). -->
+    <PackageReference Include="Lib.Net.Http.WebPush" Version="[3.3.1]" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
     <!-- Patched native SQLite; EF's default transitive 2.1.11 has GHSA-2m69-gcr7-jv3q. -->
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.14" />

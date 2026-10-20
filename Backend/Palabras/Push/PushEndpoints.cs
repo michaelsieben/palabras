@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -32,6 +33,7 @@ internal static class PushEndpoints
         group.MapGet("/config", ConfigAsync);
         group.MapPut("/subscription", SubscribeAsync);
         group.MapDelete("/subscription", UnsubscribeAsync);
+        group.MapPost("/test", TestAsync);
     }
 
     private static IResult? Unavailable(VapidKeyStore keys)
@@ -173,6 +175,55 @@ internal static class PushEndpoints
         }
         await transaction.CommitAsync(cancellationToken);
         return Results.NoContent();
+    }
+
+    // The "Enviar prueba" route (plan §3.4): one test notification to one named device, or to every
+    // device the caller has. It is a real delivery, so it goes through the same sender and the same
+    // 404/410/403/5xx accounting as a reminder; it deliberately records no reminder decision, and
+    // the per-learner cooldown keeps a stuck client from ringing every device on every retry.
+    private static async Task<IResult> TestAsync([FromBody] PushTestRequest? request, HttpContext context,
+        VapidKeyStore keys, PushTestSender tests, PushTestCooldown cooldown, CancellationToken cancellationToken)
+    {
+        if (Unavailable(keys) is { } unavailable)
+        {
+            return unavailable;
+        }
+        if (LearnEndpoints.CurrentUserId(context) is not { } userId)
+        {
+            return Error(StatusCodes.Status401Unauthorized, "unauthorized");
+        }
+        string? endpoint = null;
+        if (request?.Endpoint is not null)
+        {
+            // Only ever used as an equality key against a row this learner registered, so the
+            // https/SSRF validation of PUT /subscription is not repeated here — nothing is ever
+            // fetched from a value the client sends to this route.
+            endpoint = request.Endpoint.Trim();
+            if (endpoint.Length is 0 or > MaximumEndpointLength)
+            {
+                return Error(StatusCodes.Status400BadRequest, "invalid_endpoint");
+            }
+        }
+        var targets = await tests.ResolveTargetsAsync(userId, endpoint, cancellationToken);
+        if (targets.Count == 0)
+        {
+            // An unnamed "all my devices" with nothing to send to is a valid empty answer; a named
+            // endpoint that is not active is the caller asking about a device we no longer have.
+            return endpoint is null
+                ? Results.Ok(new PushTestResponse([]))
+                : Error(StatusCodes.Status404NotFound, "no_active_subscription");
+        }
+        if (!cooldown.TryAcquire(userId, out var retryAfter))
+        {
+            context.Response.Headers.RetryAfter =
+                ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+            return Error(StatusCodes.Status429TooManyRequests, "rate_limited");
+        }
+        var results = await tests.SendAsync(targets, cancellationToken);
+        return Results.Ok(new PushTestResponse(results
+            .Select(result => new PushTestResultResponse(result.SubscriptionId,
+                PushOutcomeClassifier.Wire(result.Outcome), result.StatusCode))
+            .ToArray()));
     }
 
     // Answers the first failure only (with a stable code, never the supplied value) so a client
@@ -401,3 +452,12 @@ internal sealed record PushSubscriptionRequest(
 internal sealed record PushUnsubscribeRequest(string? Endpoint);
 
 internal sealed record PushSubscriptionResponse(int Id, string State);
+
+// Body of POST /api/push/test: absent endpoint means "every active device of mine".
+internal sealed record PushTestRequest(string? Endpoint);
+
+// One line per attempted device. `status` is the push service's answer, or 0 when no HTTP response
+// arrived (timeout, DNS, TLS), matching what the database records.
+internal sealed record PushTestResultResponse(int Id, string Outcome, int? Status);
+
+internal sealed record PushTestResponse(IReadOnlyList<PushTestResultResponse> Results);

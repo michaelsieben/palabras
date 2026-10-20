@@ -164,12 +164,63 @@ public sealed class M8PushCliTests : IDisposable
     [InlineData("push")]
     [InlineData("push", "rotate")]
     [InlineData("push", "status", "extra")]
+    [InlineData("push", "test-send", "--bogus", "x")]
+    [InlineData("push", "test-send", "--endpoint")]
     public async Task InvalidArgumentsFailBeforeDatabaseAccess(params string[] args)
     {
         var result = await Run(Array.Empty<KeyValuePair<string, string?>>(), args);
         Assert.Equal(1, result.Exit);
         Assert.StartsWith("Error: Usage: push status", result.Error);
         Assert.False(File.Exists(Path.Combine(_root, "palabras.db")));
+    }
+
+    [Fact]
+    public async Task TestSendIsRefusedWhilePushIsOff()
+    {
+        var result = await Run(Array.Empty<KeyValuePair<string, string?>>(), "push", "test-send");
+        Assert.Equal(1, result.Exit);
+        Assert.Contains("push is disabled", result.Error);
+        // Nothing was touched: no database, no key, no outbound call.
+        Assert.False(File.Exists(Path.Combine(_root, "palabras.db")));
+        Assert.False(File.Exists(Path.Combine(_root, "vapid.json")));
+    }
+
+    [Fact]
+    public async Task TestSendWithoutADeviceReportsNoTargetAndNeverGeneratesAKey()
+    {
+        var path = Path.Combine(_root, "vapid.json");
+        var store = new VapidKeyStore(new PushSettings(true, path, PushSettings.DefaultSubject),
+            new FakeTimeProvider(Now), Microsoft.Extensions.Logging.Abstractions.NullLogger<VapidKeyStore>.Instance);
+        await store.InitializeAsync(CancellationToken.None);
+
+        var result = await Run(Enabled(path), "push", "test-send");
+
+        Assert.Equal(1, result.Exit);
+        Assert.Contains("targets=0", result.Output);
+        Assert.Contains("no_active_subscription", result.Error);
+    }
+
+    [Fact]
+    public async Task TestSendRejectsAnUnknownUser()
+    {
+        var path = Path.Combine(_root, "vapid.json");
+        var settings = Settings();
+        await using (var database = settings.CreateContext())
+        {
+            await database.Database.MigrateAsync(CancellationToken.None);
+            var stamp = DateTimeOffset.UnixEpoch;
+            database.Users.Add(new User
+            {
+                Id = 1, Username = "learner", Role = "owner", PasswordHash = "hash",
+                CreatedAt = stamp, UpdatedAt = stamp
+            });
+            await database.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var result = await Run(Enabled(path), "push", "test-send", "--user", "ghost");
+
+        Assert.Equal(1, result.Exit);
+        Assert.Contains("unknown user", result.Error);
     }
 
     public void Dispose()

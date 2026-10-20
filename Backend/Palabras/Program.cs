@@ -92,8 +92,15 @@ builder.Services.AddHostedService<DayRolloverService>();
 // M8 Web Push is default-OFF for the same reason (PushSettings): while Push:Enabled is not
 // literally true no key is generated, no route serves subscriptions and nothing is sent. The
 // VAPID key file lives beside the database so a database restore cannot orphan subscriptions.
-builder.Services.AddSingleton(PushSettings.FromConfiguration(builder.Configuration, databaseSettings));
+builder.Services.AddSingleton<PushSettings>(PushSettings.FromConfiguration(builder.Configuration, databaseSettings));
 builder.Services.AddSingleton<VapidKeyStore>();
+// U4: the only outbound HTTP the app performs. Registered here so the transport is a singleton
+// (one connection pool, one VAPID signer) and everything above it depends on IPushTransport.
+builder.Services.AddSingleton<IPushTransport>(services => new WebPushTransport(
+    services.GetRequiredService<PushSettings>(), services.GetRequiredService<ILogger<WebPushTransport>>()));
+builder.Services.AddSingleton<PushSender>();
+builder.Services.AddSingleton<PushTestSender>();
+builder.Services.AddSingleton<PushTestCooldown>();
 // M3b council sync: one startup scan of committed bundles, propose bundles only (Q-M3-7). Missing
 // directory (the shipped default) is a successful no-op, so the app starts exactly as before.
 builder.Services.AddSingleton(ContentSyncSettings.FromConfiguration(builder.Configuration));

@@ -500,7 +500,321 @@ public sealed class M8PushApiTests
         await AssertErrorAsync(response, HttpStatusCode.RequestEntityTooLarge, "payload_too_large");
     }
 
+    // ---- U4: delivery attempt and accounting (plan §3.4, §3.8) -----------------
+
+    [Fact]
+    public async Task ATestSendReachesEveryActiveDeviceExactlyOnce()
+    {
+        var transport = new ScriptedPushTransport();
+        using var factory = new PushApplicationFactory(Now, transport: transport);
+        using var learner = await LoginAsync(factory, "learner");
+        var firstEndpoint = Endpoint();
+        var secondEndpoint = Endpoint();
+        var firstId = await SubscribeAsync(learner, firstEndpoint, label: "OnePlus 15");
+        var secondId = await SubscribeAsync(learner, secondEndpoint, label: "Tab 3");
+
+        using var response = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using (var body = await JsonAsync(response))
+        {
+            var results = body.RootElement.GetProperty("results").EnumerateArray().ToArray();
+            Assert.Equal(2, results.Length);
+            Assert.Equal([firstId, secondId], results.Select(row => row.GetProperty("id").GetInt32()).ToArray());
+            Assert.All(results, row =>
+            {
+                Assert.Equal("delivered", row.GetProperty("outcome").GetString());
+                Assert.Equal(201, row.GetProperty("status").GetInt32());
+            });
+        }
+
+        // One attempt per device, carrying the plan's test payload exactly: no topic, high urgency,
+        // a one-minute TTL and the current VAPID key.
+        Assert.Equal(2, transport.Requests.Count);
+        Assert.All(transport.Requests, request =>
+        {
+            Assert.Equal("{\"v\":1,\"kind\":\"test\"}", request.Payload);
+            Assert.Equal(60, request.TimeToLiveSeconds);
+            Assert.Equal(PushUrgency.High, request.Urgency);
+            Assert.Null(request.Topic);
+        });
+        Assert.Equal([firstEndpoint, secondEndpoint], transport.Requests.Select(request => request.Endpoint).ToArray());
+
+        await using var database = factory.OpenDatabase();
+        var rows = await database.PushSubscriptions.AsNoTracking().ToListAsync(CancellationToken.None);
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, row =>
+        {
+            Assert.Equal(PushSubscriptionLifecycle.Active, row.State);
+            Assert.Equal(201, row.LastStatus);
+            Assert.Equal(Now.ToUnixTimeMilliseconds(), row.LastSuccessAtMs);
+            Assert.Equal(0, row.FailureCount);
+        });
+    }
+
+    [Fact]
+    public async Task AGoneSubscriptionIsRemovedAndTheNextSendSkipsItWithAReason()
+    {
+        var transport = new ScriptedPushTransport();
+        transport.Answer(410);
+        using var factory = new PushApplicationFactory(Now, transport: transport);
+        using var learner = await LoginAsync(factory, "learner");
+        var endpoint = Endpoint();
+        await SubscribeAsync(learner, endpoint);
+
+        using (var gone = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { endpoint }))
+        {
+            Assert.Equal(HttpStatusCode.OK, gone.StatusCode);
+            using var body = await JsonAsync(gone);
+            var result = body.RootElement.GetProperty("results").EnumerateArray().Single();
+            Assert.Equal("gone", result.GetProperty("outcome").GetString());
+            Assert.Equal(410, result.GetProperty("status").GetInt32());
+        }
+        await using (var database = factory.OpenDatabase())
+        {
+            // Expiry is terminal: the row is gone, so nothing can ever send to it again, and the
+            // stored bearer-like endpoint does not linger.
+            Assert.Empty(await database.PushSubscriptions.AsNoTracking().ToListAsync(CancellationToken.None));
+        }
+
+        factory.Time.Advance(TimeSpan.FromSeconds(PushTestCooldown.WindowSeconds + 1));
+        using (var skipped = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { endpoint }))
+        {
+            await AssertErrorAsync(skipped, HttpStatusCode.NotFound, "no_active_subscription");
+        }
+        // Still one attempt in total: the second send never reached the transport.
+        Assert.Single(transport.Requests);
+    }
+
+    [Fact]
+    public async Task ATransientFailureLeavesTheDeviceRetryableWithItsStatus()
+    {
+        var transport = new ScriptedPushTransport();
+        transport.Answer(500);
+        using var factory = new PushApplicationFactory(Now, transport: transport);
+        using var learner = await LoginAsync(factory, "learner");
+        var endpoint = Endpoint();
+        await SubscribeAsync(learner, endpoint);
+
+        using (var failed = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { }))
+        {
+            Assert.Equal(HttpStatusCode.OK, failed.StatusCode);
+            using var body = await JsonAsync(failed);
+            var result = body.RootElement.GetProperty("results").EnumerateArray().Single();
+            Assert.Equal("transient", result.GetProperty("outcome").GetString());
+            Assert.Equal(500, result.GetProperty("status").GetInt32());
+        }
+        await using (var database = factory.OpenDatabase())
+        {
+            var row = await database.PushSubscriptions.AsNoTracking().SingleAsync(CancellationToken.None);
+            // Still active: transient is not gone, so the next tick may try again — but the status
+            // is recorded, because NULL means "the learner removed this device".
+            Assert.Equal(PushSubscriptionLifecycle.Active, row.State);
+            Assert.Equal(500, row.LastStatus);
+            Assert.Equal(1, row.FailureCount);
+            Assert.Equal(Now.ToUnixTimeMilliseconds(), row.LastFailureAtMs);
+        }
+
+        factory.Time.Advance(TimeSpan.FromSeconds(PushTestCooldown.WindowSeconds + 1));
+        using (var retried = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { }))
+        {
+            Assert.Equal(HttpStatusCode.OK, retried.StatusCode);
+        }
+        await using (var database = factory.OpenDatabase())
+        {
+            var row = await database.PushSubscriptions.AsNoTracking().SingleAsync(CancellationToken.None);
+            Assert.Equal(PushSubscriptionLifecycle.Active, row.State);
+            Assert.Equal(0, row.FailureCount);
+            Assert.Equal(201, row.LastStatus);
+        }
+        Assert.Equal(2, transport.Requests.Count);
+    }
+
+    [Fact]
+    public async Task ATimeoutIsRecordedWithTheNoResponseMarkerAndStaysRetryable()
+    {
+        var transport = new ScriptedPushTransport();
+        transport.Answer(status: null, failure: "timeout");
+        using var factory = new PushApplicationFactory(Now, transport: transport);
+        using var learner = await LoginAsync(factory, "learner");
+        await SubscribeAsync(learner, Endpoint());
+
+        using var response = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using (var body = await JsonAsync(response))
+        {
+            var result = body.RootElement.GetProperty("results").EnumerateArray().Single();
+            Assert.Equal("transient", result.GetProperty("outcome").GetString());
+            Assert.Equal(PushOutcomeClassifier.NoResponseStatus, result.GetProperty("status").GetInt32());
+        }
+        await using var database = factory.OpenDatabase();
+        var row = await database.PushSubscriptions.AsNoTracking().SingleAsync(CancellationToken.None);
+        Assert.Equal(PushSubscriptionLifecycle.Active, row.State);
+        Assert.Equal(PushOutcomeClassifier.NoResponseStatus, row.LastStatus);
+        Assert.False(PushSubscriptionLifecycle.IsRevoked(row));
+    }
+
+    [Fact]
+    public async Task ARejectedDeviceStopsSendingButCanHealFromAResync()
+    {
+        var transport = new ScriptedPushTransport();
+        transport.Answer(403);
+        using var factory = new PushApplicationFactory(Now, transport: transport);
+        using var learner = await LoginAsync(factory, "learner");
+        var endpoint = Endpoint();
+        var keys = NewSubscriptionKeys();
+        await SubscribeAsync(learner, endpoint, keys);
+
+        using (var rejected = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { endpoint }))
+        {
+            Assert.Equal(HttpStatusCode.OK, rejected.StatusCode);
+            using var body = await JsonAsync(rejected);
+            Assert.Equal("rejected",
+                body.RootElement.GetProperty("results").EnumerateArray().Single().GetProperty("outcome")
+                    .GetString());
+        }
+        await using (var database = factory.OpenDatabase())
+        {
+            var row = await database.PushSubscriptions.AsNoTracking().SingleAsync(CancellationToken.None);
+            Assert.Equal(PushSubscriptionLifecycle.Rejected, row.State);
+            // Non-null on purpose: a NULL status is the learner's own unsubscribe and could never
+            // heal. This refusal keeps its 403, so an ordinary resync reactivates the device.
+            Assert.Equal(403, row.LastStatus);
+            Assert.False(PushSubscriptionLifecycle.IsRevoked(row));
+        }
+
+        factory.Time.Advance(TimeSpan.FromSeconds(PushTestCooldown.WindowSeconds + 1));
+        using (var again = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { }))
+        {
+            Assert.Equal(HttpStatusCode.OK, again.StatusCode);
+            using var body = await JsonAsync(again);
+            // Only `active` rows are ever sent to.
+            Assert.Empty(body.RootElement.GetProperty("results").EnumerateArray());
+        }
+        Assert.Single(transport.Requests);
+
+        var keyId = await KeyIdAsync(learner);
+        using (var resync = await SendAsync(learner, HttpMethod.Put, "/api/push/subscription",
+                   Payload(endpoint, keys, keyId)))
+        {
+            Assert.Equal(HttpStatusCode.OK, resync.StatusCode);
+        }
+        await using (var database = factory.OpenDatabase())
+        {
+            var row = await database.PushSubscriptions.AsNoTracking().SingleAsync(CancellationToken.None);
+            Assert.Equal(PushSubscriptionLifecycle.Active, row.State);
+            Assert.Null(row.LastStatus);
+        }
+    }
+
+    [Fact]
+    public async Task AStaleKeyDeviceIsMarkedAndNeverSentTo()
+    {
+        var transport = new ScriptedPushTransport();
+        using var factory = new PushApplicationFactory(Now, transport: transport, seed: database =>
+            database.PushSubscriptions.Add(new PushSubscription
+            {
+                UserId = 1, Endpoint = "https://fcm.googleapis.com/fcm/send/old-key", P256dh = "p", Auth = "a",
+                VapidKeyId = "0123456789abcdef", CreatedAtMs = 1, UpdatedAtMs = 1,
+                State = PushSubscriptionLifecycle.Active
+            }));
+        using var learner = await LoginAsync(factory, "learner");
+
+        using var response = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using (var body = await JsonAsync(response))
+        {
+            var result = body.RootElement.GetProperty("results").EnumerateArray().Single();
+            Assert.Equal("stale_key", result.GetProperty("outcome").GetString());
+            Assert.False(result.TryGetProperty("status", out var status) && status.ValueKind != JsonValueKind.Null);
+        }
+        Assert.Empty(transport.Requests);
+        await using var database = factory.OpenDatabase();
+        var row = await database.PushSubscriptions.AsNoTracking().SingleAsync(CancellationToken.None);
+        Assert.Equal(PushSubscriptionLifecycle.StaleKey, row.State);
+    }
+
+    [Fact]
+    public async Task PushOffAnswers503AndNeverCallsTheTransport()
+    {
+        var transport = new ScriptedPushTransport();
+        using var factory = new PushApplicationFactory(Now, pushEnabled: false, transport: transport);
+        using var learner = await LoginAsync(factory, "learner");
+        await AssertErrorAsync(await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { }),
+            HttpStatusCode.ServiceUnavailable, "push_disabled");
+        Assert.Empty(transport.Requests);
+    }
+
+    [Fact]
+    public async Task OnlyALearnerCanTriggerATestSend()
+    {
+        var transport = new ScriptedPushTransport();
+        using var factory = new PushApplicationFactory(Now, transport: transport);
+        using var anonymous = factory.CreateHttpClient();
+        await AssertErrorAsync(await SendAsync(anonymous, HttpMethod.Post, "/api/push/test", new { }),
+            HttpStatusCode.Unauthorized, "unauthorized");
+        using var reviewer = await LoginAsync(factory, "reviewer");
+        await AssertErrorAsync(await SendAsync(reviewer, HttpMethod.Post, "/api/push/test", new { }),
+            HttpStatusCode.Forbidden, "forbidden");
+        Assert.Empty(transport.Requests);
+    }
+
+    [Fact]
+    public async Task TheSecondTestSendWithinThirtySecondsIsRateLimited()
+    {
+        var transport = new ScriptedPushTransport();
+        using var factory = new PushApplicationFactory(Now, transport: transport);
+        using var learner = await LoginAsync(factory, "learner");
+        await SubscribeAsync(learner, Endpoint());
+
+        using (var first = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { }))
+        {
+            Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        }
+        using (var limited = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { }))
+        {
+            await AssertErrorAsync(limited, HttpStatusCode.TooManyRequests, "rate_limited");
+            Assert.Equal("30", Assert.Single(limited.Headers.GetValues("Retry-After")));
+        }
+        factory.Time.Advance(TimeSpan.FromSeconds(PushTestCooldown.WindowSeconds));
+        using (var after = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { }))
+        {
+            Assert.Equal(HttpStatusCode.OK, after.StatusCode);
+        }
+        Assert.Equal(2, transport.Requests.Count);
+    }
+
+    [Fact]
+    public async Task NoDevicesIsAnEmptySuccessAndAnUnknownEndpointIsA404()
+    {
+        var transport = new ScriptedPushTransport();
+        using var factory = new PushApplicationFactory(Now, transport: transport);
+        using var learner = await LoginAsync(factory, "learner");
+        using (var empty = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { }))
+        {
+            Assert.Equal(HttpStatusCode.OK, empty.StatusCode);
+            using var body = await JsonAsync(empty);
+            Assert.Empty(body.RootElement.GetProperty("results").EnumerateArray());
+        }
+        using (var unknown = await SendAsync(learner, HttpMethod.Post, "/api/push/test",
+                   new { endpoint = "https://fcm.googleapis.com/fcm/send/never-registered" }))
+        {
+            await AssertErrorAsync(unknown, HttpStatusCode.NotFound, "no_active_subscription");
+        }
+        Assert.Empty(transport.Requests);
+    }
+
     // ---- helpers ----------------------------------------------------------
+
+    private static async Task<int> SubscribeAsync(HttpClient learner, string endpoint,
+        (string P256dh, string Auth)? keys = null, string? label = null)
+    {
+        var keyId = await KeyIdAsync(learner);
+        using var response = await SendAsync(learner, HttpMethod.Put, "/api/push/subscription",
+            Payload(endpoint, keys ?? NewSubscriptionKeys(), keyId, label));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = await JsonAsync(response);
+        return body.RootElement.GetProperty("id").GetInt32();
+    }
 
     private static string Endpoint() => "https://fcm.googleapis.com/fcm/send/" + Guid.NewGuid().ToString("N");
 
@@ -612,14 +926,16 @@ public sealed class M8PushApiTests
         private readonly bool _pushEnabled;
         private readonly string? _keyFileContent;
         private readonly ILoggerProvider? _loggerProvider;
+        private readonly IPushTransport? _transport;
 
         internal PushApplicationFactory(DateTimeOffset now, bool pushEnabled = true,
             Action<PalabrasDbContext>? seed = null, string? keyFileContent = null,
-            ILoggerProvider? loggerProvider = null)
+            ILoggerProvider? loggerProvider = null, IPushTransport? transport = null)
         {
             _pushEnabled = pushEnabled;
             _keyFileContent = keyFileContent;
             _loggerProvider = loggerProvider;
+            _transport = transport;
             Time = new FakeTimeProvider(now);
             Directory.CreateDirectory(Path.Combine(_root, "wwwroot"));
             File.WriteAllText(Path.Combine(_root, "wwwroot", "index.html"), "<!doctype html><html>test spa</html>");
@@ -678,6 +994,12 @@ public sealed class M8PushApiTests
                 if (_loggerProvider is not null)
                 {
                     services.AddSingleton(_loggerProvider);
+                }
+                if (_transport is not null)
+                {
+                    // Nothing in a test may reach a real push service.
+                    services.RemoveAll<IPushTransport>();
+                    services.AddSingleton(_transport);
                 }
             });
         }
