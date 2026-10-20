@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
@@ -13,11 +14,12 @@ using Palabras.Learn;
 using Palabras.Persistence;
 using Palabras.Content;
 using Palabras.Content.Council;
+using Palabras.Push;
 using Palabras.Review;
 using Palabras.Srs;
 using Palabras.Backup;
 
-if (args.Length > 0 && args[0] is "user" or "import" or "import-council" or "content" or "learn" or "restore-progress")
+if (args.Length > 0 && args[0] is "user" or "import" or "import-council" or "content" or "learn" or "push" or "restore-progress")
 {
     var cliConfiguration = new ConfigurationBuilder().SetBasePath(AppContext.BaseDirectory)
         .AddJsonFile("appsettings.json", optional: true).AddEnvironmentVariables().Build();
@@ -36,6 +38,9 @@ if (args.Length > 0 && args[0] is "user" or "import" or "import-council" or "con
             ? await ContentCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
             : args[0] == "learn"
             ? await LearnCli.RunAsync(args, cliSettings, Console.Out, Console.Error, cliCancellation.Token)
+            : args[0] == "push"
+            ? await PushCli.RunAsync(args, cliSettings, cliConfiguration, Console.Out, Console.Error,
+                cliCancellation.Token)
             : await UserCli.RunAsync(args, cliSettings, Console.In,
                 Console.Out, Console.Error, cliCancellation.Token, Console.IsInputRedirected ? null : UserCli.ReadHiddenPassword);
     }
@@ -84,6 +89,11 @@ builder.Services.AddHostedService<BackupService>();
 // missed-day row is written until M7:DayRolloverEnabled (env M7__DayRolloverEnabled) is true.
 builder.Services.AddSingleton(DayRolloverSettings.FromConfiguration(builder.Configuration));
 builder.Services.AddHostedService<DayRolloverService>();
+// M8 Web Push is default-OFF for the same reason (PushSettings): while Push:Enabled is not
+// literally true no key is generated, no route serves subscriptions and nothing is sent. The
+// VAPID key file lives beside the database so a database restore cannot orphan subscriptions.
+builder.Services.AddSingleton(PushSettings.FromConfiguration(builder.Configuration, databaseSettings));
+builder.Services.AddSingleton<VapidKeyStore>();
 // M3b council sync: one startup scan of committed bundles, propose bundles only (Q-M3-7). Missing
 // directory (the shipped default) is a successful no-op, so the app starts exactly as before.
 builder.Services.AddSingleton(ContentSyncSettings.FromConfiguration(builder.Configuration));
@@ -138,6 +148,17 @@ builder.Services.AddAuthorization(options =>
 });
 var app = builder.Build();
 await DatabaseLifecycle.InitializeAsync(databaseSettings, app.Lifetime.ApplicationStopping);
+// A corrupt VAPID file must disable push FEATURES, not the app: InitializeAsync records the
+// failure and logs one operator message, and the routes then answer 503. Only an unexpected
+// failure reaches this catch, and it is still contained to push.
+try
+{
+    await app.Services.GetRequiredService<VapidKeyStore>().InitializeAsync(app.Lifetime.ApplicationStopping);
+}
+catch (Exception exception) when (exception is not OperationCanceledException)
+{
+    app.Logger.LogError(exception, "Push features are disabled: VAPID key initialization failed unexpectedly.");
+}
 app.UseForwardedHeaders();
 app.UseHostFiltering();
 app.Use(async (context, next) =>
@@ -152,6 +173,26 @@ app.Use(async (context, next) =>
     {
         await AuthEndpoints.WriteError(context.Response, 400, "missing_x_palabras");
         return;
+    }
+    await next(context);
+});
+// Push bodies are three short strings (endpoint, p256dh, auth). Cap them before the binder
+// reads: the endpoint is client-supplied text and must never become an unbounded write.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/push"))
+    {
+        if (context.Request.ContentLength is > PushEndpoints.MaximumBodyBytes)
+        {
+            await AuthEndpoints.WriteError(context.Response, StatusCodes.Status413PayloadTooLarge,
+                "payload_too_large");
+            return;
+        }
+        var sizeFeature = context.Features.Get<IHttpMaxRequestBodySizeFeature>();
+        if (sizeFeature is { IsReadOnly: false })
+        {
+            sizeFeature.MaxRequestBodySize = PushEndpoints.MaximumBodyBytes;
+        }
     }
     await next(context);
 });
@@ -259,6 +300,7 @@ app.MapGet("/api/ping", () => Results.Ok(new { status = "ok", version }));
 app.MapAuthEndpoints();
 app.MapLearnEndpoints();
 app.MapDayEndpoints();
+app.MapPushEndpoints();
 app.MapStatsEndpoints();
 app.MapExportEndpoints();
 // M4 reviewer gate (T-20261019-1606): queue, verdicts and the approved list over word_reviews.

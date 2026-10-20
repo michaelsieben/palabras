@@ -1,0 +1,32 @@
+using Palabras.Persistence;
+
+namespace Palabras.Push;
+
+// The three subscription states are fixed by the U1 CHECK constraint, so revocation has no state
+// of its own. A learner unsubscribe therefore writes `rejected` with `last_status` NULL: every
+// push-service rejection records its HTTP status (U4), so NULL unambiguously means "the learner
+// took this device out". A plain re-subscribe must not resurrect such a row; the client has to
+// say `reactivate: true` (the explicit "Activar recordatorio" click), while a `stale_key` row and
+// a push-service-rejected row heal from an ordinary resync PUT (plan §2.2, §3.8).
+internal static class PushSubscriptionLifecycle
+{
+    internal const string Active = "active";
+    internal const string StaleKey = "stale_key";
+    internal const string Rejected = "rejected";
+
+    internal static bool IsRevoked(PushSubscription subscription)
+    {
+        ArgumentNullException.ThrowIfNull(subscription);
+        return subscription.State == Rejected && subscription.LastStatus is null;
+    }
+
+    // Soft delete: the endpoint stays as the audit key, and a push_deliveries row that referenced
+    // this device keeps its subscription_id (only a 404/410 from the push service deletes rows).
+    internal static void Revoke(PushSubscription subscription, long nowMs)
+    {
+        ArgumentNullException.ThrowIfNull(subscription);
+        subscription.State = Rejected;
+        subscription.LastStatus = null;
+        subscription.UpdatedAtMs = nowMs;
+    }
+}
