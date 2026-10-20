@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
+import { createECDH, createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
 import { chromium } from '@playwright/test'
 import { preview } from 'vite'
@@ -27,6 +27,11 @@ const digest = source => createHash('sha256').update(source).digest('hex')
 const proxyEntries = new Map()
 const requests = []
 let force401 = false
+let pushEnabled = true
+const reminder = { enabled: true, time: '21:30', mutedUntil: '2026-10-23', windowMin: 90, activeDevices: 1 }
+// Real P-256 public-key wire shape, test-only; no subscription or push service.
+const fixtureKey = createECDH('prime256v1')
+const pushConfig = { publicKey: fixtureKey.generateKeys().toString('base64url'), keyId: 'sw-navigation-fixture-key' }
 const origin = testBaseUrl
 const server = await preview({ preview: { host: testHost, port: testPort, strictPort: true }, plugins: [{
   name: 'cookie-gate-hostile-proxy-fixture',
@@ -48,13 +53,19 @@ const server = await preview({ preview: { host: testHost, port: testPort, strict
         res.setHeader('Content-Type', 'application/json')
         res.setHeader('Set-Cookie', 'fixture_session=owner; Path=/; HttpOnly; SameSite=Lax')
         res.end(JSON.stringify({ username: 'fixture-owner', role: 'owner' }))
+      } else if (url.pathname === '/api/push/config') {
+        res.statusCode = pushEnabled ? 200 : 503
+        res.setHeader('Content-Type', 'application/json')
+        res.setHeader('Cache-Control', 'no-store')
+        res.end(JSON.stringify(pushEnabled ? pushConfig : { error: 'push_disabled' }))
       } else if (url.pathname.startsWith('/api/learn/')) {
         // The authenticated learner view (App.tsx:64 → LearnSession) resolves its queue from
         // the API, so the reveal control only exists once a plan is served. Fixtures mirror
         // browser.mjs's fulfillLearn, but over real local HTTP like the auth endpoints above.
         res.setHeader('Content-Type', 'application/json')
         res.setHeader('Cache-Control', 'no-store')
-        if (url.pathname.endsWith('/session/plan')) res.end(JSON.stringify(browserPlan()))
+        if (url.pathname === '/api/learn/reminder') res.end(JSON.stringify(reminder))
+        else if (url.pathname.endsWith('/session/plan')) res.end(JSON.stringify(browserPlan()))
         else if (url.pathname.endsWith('/day/status')) res.end(JSON.stringify({ localDate: '2026-10-18', status: null, streak: 0, skipAvailable: true, skipNextAvailable: null }))
         else if (url.pathname.endsWith('/words')) res.end(JSON.stringify({ items: [] }))
         else if (url.pathname.endsWith('/forecast')) res.end(JSON.stringify({ tomorrow: 2, next7Days: Array.from({ length: 7 }, (_, i) => ({ date: `2026-10-${19 + i}`, due: i === 0 ? 2 : i === 1 ? 7 : 0 })) }))
@@ -108,11 +119,27 @@ try {
   await page.getByLabel('Contraseña', { exact: true }).fill('fixture-only-password')
   await page.getByLabel('Contraseña', { exact: true }).press('Enter')
   await page.getByRole('button', { name: 'Mostrar respuesta' }).waitFor()
+  // Check both configuration contracts over fixture HTTP, not page mocks. The expected
+  // push-off 503 is probed outside page fetches so it cannot hide a console regression.
+  const storedReminder = await page.request.get(origin + '/api/learn/reminder')
+  assert.equal(storedReminder.status(), 200)
+  assert.deepEqual(await storedReminder.json(), reminder)
+  const enabledConfig = await page.request.get(origin + '/api/push/config')
+  assert.equal(enabledConfig.status(), 200)
+  assert.deepEqual(await enabledConfig.json(), pushConfig)
+  pushEnabled = false
+  const disabledConfig = await page.request.get(origin + '/api/push/config')
+  assert.equal(disabledConfig.status(), 503)
+  assert.deepEqual(await disabledConfig.json(), { error: 'push_disabled' })
+  pushEnabled = true
   consoleLog.length = 0; failures.length = 0; responses.length = 0
   const reloadRequestStart = requests.length
+  const reminderLoaded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/learn/reminder' && response.status() === 200)
+  const configLoaded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/push/config' && response.status() === 200)
   const reload = await page.reload()
   assert.equal(reload.status(), 200)
   await page.getByRole('button', { name: 'Mostrar respuesta' }).waitFor()
+  await Promise.all([reminderLoaded, configLoaded])
   assert.equal(new URL(page.url()).pathname, '/')
   assert.deepEqual(failures, [])
   assert.deepEqual(pageErrors, [])

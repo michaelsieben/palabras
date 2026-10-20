@@ -258,7 +258,7 @@ jobs:
           test -f dist/index.html && test -f dist/sw.js || {
             echo "FAIL: the frontend-dist artifact is not laid out at Frontend/dist"; exit 1; }
           echo "dist layout OK: index.html, sw.js"
-      # One step per suite, each on its own PALABRAS_TEST_PORT. All five runners start
+      # One step per suite, each on its own PALABRAS_TEST_PORT. All six runners start
       # `vite preview` with strictPort, so distinct ports mean a suite can never inherit a
       # half-released listener from the suite before it (the old single `test:browser` run gave
       # browser.mjs and reviewBrowser.mjs the same 4173 and left sw-navigation.mjs on a
@@ -294,3 +294,9 @@ jobs:
         env:
           PALABRAS_TEST_PORT: '4184'
         run: npm run test:push:browser
+      # Mocked permission/API integration, not a real push-service delivery proof.
+      - name: Reminder settings browser suite (reminderBrowser.mjs)
+        working-directory: Frontend
+        env:
+          PALABRAS_TEST_PORT: '4185'
+        run: npm run test:reminder:browser
