@@ -249,6 +249,10 @@ jobs:
           path: Frontend/dist
       - name: Verify the downloaded bundle layout
         working-directory: Frontend
+        # This job runs in a container image whose /bin/sh is dash, and GitHub's default
+        # shell for `run:` steps is `sh -e {0}`. `set -o pipefail` is not a dash option, so
+        # without this line the script dies on line 1 with exit 2 before any check runs.
+        shell: bash
         run: |
           set -euo pipefail
           test -f dist/index.html && test -f dist/sw.js || {
