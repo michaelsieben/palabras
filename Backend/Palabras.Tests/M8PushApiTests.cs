@@ -513,6 +513,11 @@ public sealed class M8PushApiTests
         var firstId = await SubscribeAsync(learner, firstEndpoint, label: "OnePlus 15");
         var secondId = await SubscribeAsync(learner, secondEndpoint, label: "Tab 3");
 
+        await using (var before = factory.OpenDatabase())
+        {
+            Assert.Equal(0, await before.PushDeliveries.CountAsync(CancellationToken.None));
+        }
+
         using var response = await SendAsync(learner, HttpMethod.Post, "/api/push/test", new { });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using (var body = await JsonAsync(response))
@@ -549,6 +554,11 @@ public sealed class M8PushApiTests
             Assert.Equal(Now.ToUnixTimeMilliseconds(), row.LastSuccessAtMs);
             Assert.Equal(0, row.FailureCount);
         });
+
+        // A test send is not a reminder decision: push_deliveries.reminder_log_id is NOT NULL and a
+        // synthetic daily/webpush reminder_log row would occupy today's claim key, so the route must
+        // leave the accounting table exactly as it found it.
+        Assert.Equal(0, await database.PushDeliveries.CountAsync(CancellationToken.None));
     }
 
     [Fact]

@@ -125,6 +125,38 @@ public sealed class M8PushSenderTests : IDisposable
     }
 
     [Fact]
+    public async Task AnOversizedPayloadKeepsTheSubscriptionActiveAndRecordsTheAttempt()
+    {
+        // Plan §3.8: 413 is our bug (the payload was too big), not a dead endpoint. Rejecting the
+        // subscription here would silence every reminder until the learner resyncs.
+        var (settings, subscriptionId, logId) = Seed();
+        var transport = new ScriptedPushTransport();
+        transport.Answer(413);
+        var logs = new List<(LogLevel Level, string Message)>();
+
+        var result = await SendAsync(settings, transport, subscriptionId, logId, logs.Add);
+
+        Assert.Equal(PushOutcome.Rejected, result.Outcome);
+        Assert.Equal(413, result.StatusCode);
+        var subscription = await SubscriptionAsync(settings, subscriptionId);
+        Assert.Equal(PushSubscriptionLifecycle.Active, subscription.State);
+        Assert.Equal(413, subscription.LastStatus);
+        Assert.False(PushSubscriptionLifecycle.IsRevoked(subscription));
+        var delivery = Assert.Single(await DeliveriesAsync(settings));
+        Assert.Equal("rejected", delivery.Result);
+        Assert.Equal(413, delivery.LastStatus);
+        Assert.Equal(1, delivery.Attempts);
+        Assert.Contains(logs, entry => entry.Level == LogLevel.Error
+            && entry.Message.Contains("payload was too large", StringComparison.Ordinal));
+
+        // Still deliverable: the next attempt is not skipped as `not_active`.
+        transport.Answer(201);
+        var next = await SendAsync(settings, transport, subscriptionId, logId);
+        Assert.Equal(PushOutcome.Delivered, next.Outcome);
+        Assert.Equal(2, transport.Requests.Count);
+    }
+
+    [Fact]
     public async Task ASubscriptionBoundToAnotherKeyIsMarkedAndNeverSentTo()
     {
         var (settings, subscriptionId, logId) = Seed(vapidKeyId: "0123456789abcdef");

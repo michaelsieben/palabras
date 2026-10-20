@@ -32,7 +32,7 @@ internal static class PushSubscriptionLifecycle
         subscription.UpdatedAtMs = nowMs;
     }
 
-    // A push-service refusal (400/401/403/413 or an unfollowed 3xx). Unlike Revoke this always
+    // A push-service refusal (400/401/403 or an unfollowed 3xx). Unlike Revoke this always
     // carries the status that caused it: `rejected` + NULL is the learner's own unsubscribe, and a
     // refusal that recorded no status would be indistinguishable from it — a row nothing could heal.
     internal static void Reject(PushSubscription subscription, int status, long nowMs)

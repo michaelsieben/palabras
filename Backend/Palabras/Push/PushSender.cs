@@ -100,6 +100,20 @@ internal sealed class PushSender
                     subscription.Id, status, WebPushTransport.HostOf(subscription.Endpoint));
                 break;
             case PushOutcome.Rejected:
+                // Plan §3.8: a 413 is our bug (an oversized payload), not a dead endpoint, so the
+                // subscription stays `active` and keeps receiving reminders. Only the attempt is
+                // recorded as rejected, and `last_status` is still written so the trace is never
+                // NULL — a NULL status on `rejected` would read as a learner unsubscribe.
+                if (status == PushOutcomeClassifier.PayloadTooLargeStatus)
+                {
+                    subscription.LastStatus = status;
+                    subscription.UpdatedAtMs = nowMs;
+                    _logger.LogError(
+                        "Push service rejected subscription {SubscriptionId} ({Status}) at {Host}: " +
+                        "the payload was too large. The subscription stays active; this is our bug to fix.",
+                        subscription.Id, status, WebPushTransport.HostOf(subscription.Endpoint));
+                    break;
+                }
                 // Always with its status: `rejected` + NULL last_status is reserved for the
                 // learner's own unsubscribe and must stay un-healable (PushSubscriptionLifecycle).
                 PushSubscriptionLifecycle.Reject(subscription, status, nowMs);

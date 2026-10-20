@@ -2,7 +2,8 @@ namespace Palabras.Push;
 
 // The four outcomes the plan's response table (§3.8) distinguishes. Expiry (Gone) is terminal for
 // the subscription; Transient is retryable; Rejected stops automatic sends until the device
-// re-subscribes; Delivered is the only success.
+// re-subscribes (except 413, which is our own oversized payload: the sender records the attempt but
+// leaves the subscription active); Delivered is the only success.
 internal enum PushOutcome
 {
     Delivered,
@@ -24,6 +25,10 @@ internal static class PushOutcomeClassifier
     // transport failure has no HTTP status, so it is recorded as 0 — a value HTTP never produces.
     internal const int NoResponseStatus = 0;
 
+    // 413 means the payload was too large — our bug, not a dead endpoint. Plan §3.8 keeps the
+    // subscription `active` on this answer, so the sender records the attempt but never rejects it.
+    internal const int PayloadTooLargeStatus = 413;
+
     internal static PushOutcome Classify(PushTransportResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
@@ -41,7 +46,9 @@ internal static class PushOutcomeClassifier
             408 or 425 or 429 => PushOutcome.Transient,
             >= 500 => PushOutcome.Transient,
             // 400/401/403/413 and any 3xx (redirects are disabled, so a 3xx is a misconfigured
-            // endpoint) mean "do not send this again by itself".
+            // endpoint) mean "do not send this again by itself". 413 is classified here too, but
+            // the sender keeps the subscription active for it (plan §3.8: the payload, not the
+            // endpoint, was at fault).
             _ => PushOutcome.Rejected
         };
     }
