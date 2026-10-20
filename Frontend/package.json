@@ -16,6 +16,7 @@
     "test:browser": "node tests/browser.mjs && node tests/sw-navigation.mjs && node tests/reviewBrowser.mjs",
     "test:browser:main": "node tests/browser.mjs",
     "test:sw:browser": "node tests/sw-navigation.mjs",
+    "test:push:browser": "node tests/pushBrowser.mjs",
     "test:review:browser": "node tests/reviewBrowser.mjs",
     "test:day:browser": "node tests/dayBrowser.mjs",
     "build": "tsc -b && vite build",

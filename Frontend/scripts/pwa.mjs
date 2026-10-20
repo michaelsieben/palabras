@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
+import { installPushHandlers } from './push-worker.mjs'
 
 export async function collectFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true })
@@ -13,6 +14,7 @@ export function workerSource(version, urls) {
 const CACHE = 'palabras-shell-${version}';
 const ASSETS = 'palabras-immutable-assets';
 const SHELL = ${JSON.stringify(urls)};
+(${installPushHandlers.toString()})();
 self.addEventListener('install', event => {
   // Complete the entire static cache before switching controllers.
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));

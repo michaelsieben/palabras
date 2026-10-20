@@ -111,6 +111,8 @@ test('online navigation passes 401/403/500 through unchanged, never cached or ma
 test('built output includes manifest/icons/worker/fallback but excludes dev diagnostic chunk', async () => {
   const files = await collectFiles(fileURLToPath(new URL('../dist/', import.meta.url)))
   for (const name of ['manifest.webmanifest', 'sw.js', 'offline.htm', 'icon-192.png', 'icon-512.png', 'maskable-192.png', 'maskable-512.png']) assert.ok(files.some(file => file.endsWith(name)), `${name} emitted`)
+  const worker = await readFile(new URL('../dist/sw.js', import.meta.url), 'utf8')
+  for (const event of ['push', 'notificationclick', 'pushsubscriptionchange']) assert.match(worker, new RegExp(`self\\.addEventListener\\(["']${event}["']`), `${event} ships in built worker`)
   for (const file of files.filter(file => file.endsWith('.js'))) {
     const source = await readFile(file, 'utf8')
     assert.ok(!source.includes('Diagnóstico en vivo'), 'debug implementation excluded from production')
