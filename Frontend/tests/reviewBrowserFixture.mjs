@@ -15,7 +15,15 @@ export function reviewBrowserFixture(options = {}) {
         const status = url.searchParams.get('status')
         assert.ok(['pending', 'approved', 'rejected', 'all'].includes(status), 'queue must send explicit status')
         if (fixture.failQueue) return route.abort('failed')
-        let items = status === 'rejected' ? fixture.rejected : fixture.pending
+        // `all` is the cross-scope lookup the approved panel uses to resolve an
+        // invalid_transition row (ApprovedPanel renew): it must span every status, and its items
+        // are review items (parseReviewQueue validates them), so approved words are mapped to the
+        // review-item shape the real API returns for `status=all`.
+        const asReviewItem = w => reviewWord(w.wordId, { key: w.key, version: w.version, headword: w.headword, article: w.article, topic: w.topic, status: 'approved' })
+        let items = status === 'rejected' ? fixture.rejected
+          : status === 'approved' ? fixture.approved
+          : status === 'all' ? [...fixture.pending, ...fixture.approved.map(asReviewItem), ...fixture.rejected]
+          : fixture.pending
         const after = url.searchParams.get('after')
         if (after) {
           const index = items.findIndex(w => `${status === 'rejected' || status === 'approved' ? 'd' : 'p'}:${w.wordId}` === after)

@@ -99,8 +99,11 @@ try {
       await page.goto(`${testBaseUrl}/revisar`)
       for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Vale ✓', exact: true }).first().click()
       const outbox = page.getByRole('region', { name: 'Decisiones de este dispositivo' })
-      await expect(outbox).toContainText('La palabra ha cambiado'); await expect(outbox).toContainText('Ya no está en un estado revisable'); await expect(outbox).toContainText('No se pudo aplicar esta decisión')
-      await expect(outbox.getByRole('button', { name: 'Reintentar envío' })).toHaveCount(3)
+      await expect(outbox).toContainText('La palabra ha cambiado'); await expect(outbox).toContainText('El estado ha cambiado. Actualiza la palabra antes de decidir otra vez'); await expect(outbox).toContainText('No se pudo aplicar esta decisión')
+      // invalid_transition is non-retryable (ReviewRowStatus: no "Reintentar envío"), so only the
+      // stale_version and invalid rows keep the retry control.
+      await expect(outbox.getByRole('button', { name: 'Reintentar envío' })).toHaveCount(2)
+      await expect(outbox.getByRole('article').filter({ hasText: 'palabra-2' }).getByRole('button', { name: 'Reintentar envío' })).toHaveCount(0)
       const stale = outbox.getByRole('article').filter({ hasText: 'palabra-1' })
       fixture.pending[0].version = 4
       await stale.getByRole('button', { name: 'Actualizar palabra' }).click()
@@ -240,8 +243,9 @@ try {
       const actionLabel = scope === 'approved' ? 'Retirar' : 'Volver a incluir'
       fixture.outcome = () => 'invalid_transition'
       await page.getByRole('button', { name: actionLabel, exact: true }).click()
-      await expect(page.getByRole('article')).toContainText('Ya no está en un estado revisable')
-      await expect(page.getByRole('button', { name: 'Reintentar envío', exact: true })).toBeVisible()
+      await expect(page.getByRole('article')).toContainText('El estado ha cambiado. Actualiza la palabra antes de decidir otra vez')
+      // The invalid_transition row is refreshed on demand, never replayed by hand.
+      await expect(page.getByRole('button', { name: 'Reintentar envío', exact: true })).toHaveCount(0)
       await page.getByRole('button', { name: 'Actualizar palabra', exact: true }).click()
       const source = scope === 'approved' ? fixture.approved : fixture.rejected
       source[0].version = 9
