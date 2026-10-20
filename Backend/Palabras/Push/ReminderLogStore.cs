@@ -25,7 +25,9 @@ internal sealed record ReminderLogClaim(ReminderLog Row, bool Claimed);
 // A day that was claimed but never attempted (crash between claim and send, restart after
 // windowEnd) is finalised through CompleteAsync with 'window_missed'/'no_target': one transition
 // path, from 'sending' to any final result. CompleteAsync never moves a row that already left
-// 'sending', so two ticks resuming the same claim cannot turn a 'sent' into a 'failed'.
+// 'sending', so two ticks resuming the same claim cannot turn a 'sent' into a 'failed'. A claim
+// that outlives local midnight is caught by the tick's sweep of earlier days (ReminderService),
+// which uses the same transition, so no row stays 'sending' forever.
 //
 // The CHECK value sets are reproduced here as the writer's own contract: a typo becomes an
 // ArgumentOutOfRangeException at the call site instead of a SqliteException from a missing row.

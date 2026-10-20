@@ -155,9 +155,13 @@ internal static class ReminderPlanner
     private static bool IsMuted(string? mutedUntil, DateOnly today) =>
         LearnDayStatus.TryParseLocalDate(mutedUntil, out var muted) && muted >= today;
 
-    // The window end uses the zone offset in effect for `nowLocal`. The window is clipped at 23:59,
-    // so it never crosses the European 02:00/03:00 DST transition; a tick that runs during the window
-    // therefore always evaluates end-of-window with the offset it is actually running under.
+    // The window end is built from the same zone offset as `start` — the offset of the tick's own
+    // instant — so `nowLocal`, `start` and `windowEnd` all carry one offset and it cancels in every
+    // comparison: the decision is pure local wall clock. That is what keeps a window that really does
+    // cross the European 02:00/03:00 DST transition honest (a 01:30 + 90 min window sends only in the
+    // first 01:30-01:59 hour in spring and across both 01:30+02:00 and 02:30+01:00 in autumn). The
+    // 23:59 clip exists only to keep the window inside the learner's local day; it is NOT what avoids
+    // the DST transition, which a window starting before 02:45 still crosses.
     private static DateTimeOffset EndOfWindow(DateOnly date, DateTimeOffset start, int windowMinutes,
         TimeSpan offset)
     {

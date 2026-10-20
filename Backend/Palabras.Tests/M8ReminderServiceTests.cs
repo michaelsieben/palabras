@@ -297,6 +297,118 @@ public sealed class M8ReminderServiceTests
     }
 
     [Fact]
+    public async Task AClaimWhoseProcessDiedBeforeTheWindowClosedIsFinalisedAsWindowMissed()
+    {
+        using var harness = new ReminderHarness(Local("2026-10-20T23:45:00+02:00"));
+        await harness.InitializeAsync();
+        var subscriptionId = harness.SeedSubscription();
+        // The process died between the commit of the claim and the first send, and came back after
+        // windowEnd: nothing was attempted, so the only honest result is `window_missed`.
+        harness.SeedClaim("2026-10-20", subscriptionId);
+
+        var tick = await harness.Service().RunTickAsync(CancellationToken.None);
+
+        Assert.Equal(new ReminderTick(1, 1, 0), tick);
+        Assert.Empty(harness.Transport.Requests);
+        var decision = Assert.Single(await harness.DecisionsAsync());
+        Assert.Equal("window_missed", decision.Result);
+        // Resuming the claim finalises it through the send loop, which recomputes the TTL from the
+        // plan (floor of 60 s once the window has closed); the assertion that matters is the result.
+        Assert.Equal(60, decision.TtlS);
+        Assert.Equal(Instant("2026-10-20T21:30:00Z"), decision.ExpiresAtMs);
+        var delivery = Assert.Single(await harness.DeliveriesAsync());
+        Assert.Equal("pending", delivery.Result);
+        Assert.Equal(0, delivery.Attempts);
+    }
+
+    [Fact]
+    public async Task AClaimWithAttemptsWhoseProcessDiedBeforeTheWindowClosedIsFinalisedAsFailed()
+    {
+        using var harness = new ReminderHarness(Local("2026-10-20T23:45:00+02:00"));
+        await harness.InitializeAsync();
+        var subscriptionId = harness.SeedSubscription();
+        // One attempt was made and classified transient before the process died: `failed` is the
+        // honest result, never a silent `sending` and never `window_missed`.
+        harness.SeedClaim("2026-10-20", subscriptionId, deliveryResult: "transient", attempts: 1);
+
+        var tick = await harness.Service().RunTickAsync(CancellationToken.None);
+
+        Assert.Equal(new ReminderTick(1, 1, 0), tick);
+        Assert.Empty(harness.Transport.Requests);
+        Assert.Equal("failed", Assert.Single(await harness.DecisionsAsync()).Result);
+        var delivery = Assert.Single(await harness.DeliveriesAsync());
+        Assert.Equal("transient", delivery.Result);
+        Assert.Equal(1, delivery.Attempts);
+    }
+
+    [Fact]
+    public async Task AClaimFromThePreviousLocalDayIsFinalisedByTheNextDaysFirstTick()
+    {
+        // 00:05 on the 21st: today's window has not opened, and yesterday's claim is still `sending`
+        // because the tick only ever looks up today's date.
+        using var harness = new ReminderHarness(Local("2026-10-21T00:05:00+02:00"));
+        await harness.InitializeAsync();
+        var subscriptionId = harness.SeedSubscription();
+        harness.SeedClaim("2026-10-20", subscriptionId);
+
+        var tick = await harness.Service().RunTickAsync(CancellationToken.None);
+
+        // The sweep is not today's decision: nothing is recorded for the 21st and no push is tried.
+        Assert.Equal(new ReminderTick(1, 0, 0), tick);
+        Assert.Empty(harness.Transport.Requests);
+        var decision = Assert.Single(await harness.DecisionsAsync());
+        Assert.Equal("2026-10-20", decision.LocalDate);
+        Assert.Equal("window_missed", decision.Result);
+        Assert.Contains(harness.Entries, entry => entry.Level == LogLevel.Information
+            && entry.Message.Contains("outlived its local day", StringComparison.Ordinal));
+
+        // Swept once: the next tick finds nothing left to finalise and decides nothing.
+        harness.Time.Advance(TimeSpan.FromMinutes(1));
+        Assert.Equal(new ReminderTick(1, 0, 0), await harness.Service().RunTickAsync(CancellationToken.None));
+        Assert.Equal("window_missed", Assert.Single(await harness.DecisionsAsync()).Result);
+    }
+
+    [Fact]
+    public async Task AClaimFromAnEarlierDayWithAttemptsIsSweptAsFailedAndTodaysClaimIsResumed()
+    {
+        using var harness = new ReminderHarness(Local("2026-10-20T22:03:00+02:00"));
+        await harness.InitializeAsync();
+        var subscriptionId = harness.SeedSubscription();
+        // The host was down for the whole 19th after one attempt, and today's claim is waiting.
+        harness.SeedClaim("2026-10-19", subscriptionId, deliveryResult: "transient", attempts: 1);
+        harness.SeedClaim("2026-10-20", subscriptionId);
+
+        var tick = await harness.Service().RunTickAsync(CancellationToken.None);
+
+        Assert.Equal(new ReminderTick(1, 1, 1), tick);
+        Assert.Equal("daily-2026-10-20", Assert.Single(harness.Transport.Requests).Topic);
+        var decisions = await harness.DecisionsAsync();
+        Assert.Equal("failed", Assert.Single(decisions, row => row.LocalDate == "2026-10-19").Result);
+        Assert.Equal("sent", Assert.Single(decisions, row => row.LocalDate == "2026-10-20").Result);
+    }
+
+    [Fact]
+    public async Task ATickThatStartsBeforeLocalMidnightKeepsOneDayForItsWholeDecision()
+    {
+        using var harness = new ReminderHarness(Local("2026-10-20T22:05:00+02:00"));
+        await harness.InitializeAsync();
+        var subscriptionId = harness.SeedSubscription();
+        harness.SeedClaim("2026-10-20", subscriptionId);
+        // The first read is 22:05 on the 20th and every later read is 00:05 on the 21st, so a tick
+        // that reads the clock more than once plans one day and looks up another.
+        var clock = new FlippingTimeProvider(Local("2026-10-20T22:05:00+02:00"),
+            Local("2026-10-21T00:05:00+02:00"));
+
+        var tick = await harness.Service(time: clock).RunTickAsync(CancellationToken.None);
+
+        Assert.Equal(new ReminderTick(1, 1, 1), tick);
+        var decision = Assert.Single(await harness.DecisionsAsync());
+        Assert.Equal("2026-10-20", decision.LocalDate);
+        Assert.Equal("sent", decision.Result);
+        Assert.Equal("daily-2026-10-20", Assert.Single(harness.Transport.Requests).Topic);
+    }
+
+    [Fact]
     public async Task ADeviceBoundToAnotherKeyIsRecordedAsNoTargetAndNeverSentTo()
     {
         using var harness = new ReminderHarness(Local("2026-10-20T22:00:00+02:00"));
@@ -572,10 +684,10 @@ public sealed class M8ReminderServiceTests
 
         internal ReminderClaimWriter Writer() => new(Database, new ListLogger<ReminderClaimWriter>(_entries.Add));
 
-        internal ReminderService Service(bool pushEnabled = true) => new(Database,
+        internal ReminderService Service(bool pushEnabled = true, TimeProvider? time = null) => new(Database,
             PushSettings with { Enabled = pushEnabled }, Vapid, Writer(),
-            new PushSender(Database, Transport, Time, new ListLogger<PushSender>(_entries.Add)), Time,
-            NullLoggerFactory.Instance, new ListLogger<ReminderService>(_entries.Add));
+            new PushSender(Database, Transport, Time, new ListLogger<PushSender>(_entries.Add)),
+            time ?? Time, NullLoggerFactory.Instance, new ListLogger<ReminderService>(_entries.Add));
 
         internal int SeedSubscription(string? keyId = null,
             string endpoint = "https://fcm.googleapis.com/fcm/send/device-a",
@@ -628,8 +740,10 @@ public sealed class M8ReminderServiceTests
             database.SaveChanges();
         }
 
-        // A claim whose process died before the first attempt.
-        internal void SeedClaim(string localDate, int subscriptionId)
+        // A claim whose process died before the first attempt (or after one), with the device row it
+        // had already fanned out.
+        internal void SeedClaim(string localDate, int subscriptionId, string deliveryResult = "pending",
+            int attempts = 0)
         {
             using var database = Database.CreateContext();
             var log = new ReminderLog
@@ -651,8 +765,8 @@ public sealed class M8ReminderServiceTests
             {
                 ReminderLogId = log.Id,
                 SubscriptionId = subscriptionId,
-                Attempts = 0,
-                Result = "pending",
+                Attempts = attempts,
+                Result = deliveryResult,
                 UpdatedAtMs = 1
             });
             database.SaveChanges();
@@ -686,6 +800,23 @@ public sealed class M8ReminderServiceTests
                 Directory.Delete(_root, recursive: true);
             }
         }
+    }
+
+    // Answers `first` once and `later` for every read after it, so a caller that reads the clock more
+    // than once in one pass disagrees with itself about which local day it is.
+    private sealed class FlippingTimeProvider : TimeProvider
+    {
+        private readonly DateTimeOffset _first;
+        private readonly DateTimeOffset _later;
+        private int _reads;
+
+        internal FlippingTimeProvider(DateTimeOffset first, DateTimeOffset later)
+        {
+            _first = first;
+            _later = later;
+        }
+
+        public override DateTimeOffset GetUtcNow() => Interlocked.Increment(ref _reads) == 1 ? _first : _later;
     }
 
     private sealed class ListLogger<T> : ILogger<T>

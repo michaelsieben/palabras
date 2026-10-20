@@ -114,10 +114,16 @@ internal static class LearnDayStatus
         return streak;
     }
 
+    internal static Task<DayStatusResponse> ReadAsync(PalabrasDbContext database, int userId,
+        LearnerClock clock, CancellationToken cancellationToken) =>
+        ReadAsync(database, userId, clock.LocalToday, cancellationToken);
+
+    // The same read for a caller that already knows which local day it is asking about. The M8
+    // reminder tick derives "today" once per tick from a single clock read, so its day-status answer
+    // cannot land on the other side of local midnight than the plan and the claim it feeds.
     internal static async Task<DayStatusResponse> ReadAsync(PalabrasDbContext database, int userId,
-        LearnerClock clock, CancellationToken cancellationToken)
+        DateOnly today, CancellationToken cancellationToken)
     {
-        var today = clock.LocalToday;
         var statuses = await LoadStatusesAsync(database, userId, cancellationToken);
         var activeSkips = await LoadActiveSkipDatesAsync(database, userId, cancellationToken);
         var availability = EvaluateSkip(activeSkips, today);

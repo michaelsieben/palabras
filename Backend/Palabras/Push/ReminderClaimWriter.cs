@@ -22,8 +22,16 @@ internal sealed record ReminderDelivery(int Id, int? SubscriptionId, int Attempt
 // U6's caller-owned side of the reminder log (U5 review §4, handoff): ReminderLogStore takes an
 // ambient PalabrasDbContext, so the claim and its push_deliveries rows are written inside ONE
 // `BEGIN IMMEDIATE` transaction opened here. Two ticks (two processes, or a deploy overlapping a
-// tick) therefore serialise on SQLite instead of both reading "no row" and racing the UNIQUE insert,
-// and a lost writer sees SQLITE_BUSY, which is retried instead of failing the tick.
+// tick) therefore serialise the DECISION — the read-ahead, the insert and the delivery fan-out —
+// instead of both reading "no row" and racing the UNIQUE insert, and a lost writer sees
+// SQLITE_BUSY, which is retried instead of failing the tick.
+//
+// It does not serialise the SEND: the transaction commits before delivery, so two ticks resuming
+// the same `sending` claim can both POST, and a window-boundary finaliser can record `failed`
+// while the other process's 201 lands. Delivery is at-least-once within the window by design
+// (plan §2.5): both pushes carry the same Topic, so the push service replaces rather than
+// duplicates the display, and the receipt of a push — not the `result` column — is the truth for
+// "the learner was shown a reminder".
 //
 // Every write goes through ReminderLogStore: this type only owns the transaction boundary, the
 // delivery fan-out and the busy retry. Suppress and finalise are single statements, so they need no
