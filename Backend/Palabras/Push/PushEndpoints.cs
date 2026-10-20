@@ -14,8 +14,9 @@ namespace Palabras.Push;
 
 // M8 Web Push registration routes (plan §3.1-3.3). Learner-only, exactly like /api/learn/*: the
 // cookie's user id selects the owner and no body field ever can. Push is inert until
-// Push:Enabled is literally true; while it is off (or the VAPID key is unusable) every route
-// answers 503 and no subscription row can appear.
+// Push:Enabled is literally true; while it is off (or the VAPID key is unusable) every mutating
+// route answers 503 and no subscription row can appear. GET /api/push/subscriptions is the one
+// exception: it describes stored configuration, so it answers 200 with whatever rows exist.
 internal static class PushEndpoints
 {
     internal const long MaximumBodyBytes = 8 * 1024;
@@ -36,6 +37,7 @@ internal static class PushEndpoints
         var group = app.MapGroup("/api/push").RequireAuthorization(Policy);
         group.MapGet("/config", ConfigAsync);
         group.MapGet("/subscriptions", ListAsync);
+        group.MapDelete("/subscriptions/{id:int}", RevokeAsync);
         group.MapPut("/subscription", SubscribeAsync);
         group.MapDelete("/subscription", UnsubscribeAsync);
         group.MapPost("/test", TestAsync);
@@ -132,6 +134,57 @@ internal static class PushEndpoints
                 row.Id == current))
             .ToArray();
         return Results.Ok(new PushDevicesResponse(items, truncated));
+    }
+
+    // The mutation that pairs with the list (plan §3.9 / U8): switch one stored device off by the
+    // opaque id the list hands out. The id is not a credential — it only ever selects among the
+    // calling account's rows, and another learner's id answers the very same 404 as an id that
+    // never existed, so this route cannot be used to probe for rows (a 403 would be an oracle).
+    // Idempotent: a row the learner already switched off is a no-op success, not a conflict.
+    //
+    // 204, matching DELETE /api/push/subscription, rather than the updated list item: an empty
+    // body is what makes "just revoked" and "already revoked" byte-identical (a returned row would
+    // differ in `updatedAt` and turn the retry into an observable second event), and no response
+    // member can leak the endpoint or the two keys because nothing is written back at all. The
+    // settings screen refetches GET /subscriptions, whose shape it already renders.
+    private static async Task<IResult> RevokeAsync(int id, HttpContext context, DatabaseSettings settings,
+        VapidKeyStore keys, TimeProvider timeProvider, CancellationToken cancellationToken)
+    {
+        if (Unavailable(keys) is { } unavailable)
+        {
+            return unavailable;
+        }
+        if (LearnEndpoints.CurrentUserId(context) is not { } userId)
+        {
+            return Error(StatusCodes.Status401Unauthorized, "unauthorized");
+        }
+        // No row can carry a non-positive id, and answering 404 without a query keeps every
+        // unusable id on the same path as an id this account does not own.
+        if (id <= 0)
+        {
+            return Error(StatusCodes.Status404NotFound, "subscription_not_found");
+        }
+        var nowMs = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
+        await using var database = settings.CreateContext();
+        await using var transaction = await PushWriteTransaction.BeginAsync(database, cancellationToken);
+        var row = await database.PushSubscriptions.SingleOrDefaultAsync(
+            candidate => candidate.Id == id && candidate.UserId == userId, cancellationToken);
+        if (row is null)
+        {
+            return Error(StatusCodes.Status404NotFound, "subscription_not_found");
+        }
+        // Already an explicit opt-out: leave `updatedAt` alone so the second click changes nothing.
+        // A push-service refusal (`rejected` plus a status) becomes an opt-out here — the learner's
+        // decision overrides the sender's, and Revoke clears `last_status`, the same rule U4 keeps.
+        // In both cases the row stays for the audit trail and is re-activatable only by a
+        // `reactivate: true` PUT (U3's 409 `revoked`), never by an ordinary resync.
+        if (!PushSubscriptionLifecycle.IsRevoked(row))
+        {
+            PushSubscriptionLifecycle.Revoke(row, nowMs);
+            await database.SaveChangesAsync(cancellationToken);
+        }
+        await transaction.CommitAsync(cancellationToken);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> SubscribeAsync(PushSubscriptionRequest? request, HttpContext context,

@@ -1540,6 +1540,197 @@ public sealed class M8PushApiTests
         await AssertErrorAsync(response, HttpStatusCode.BadRequest, "invalid_current_id");
     }
 
+    // ---- U8: switch one stored device off by id (plan §3.9) --------------------
+
+    [Fact]
+    public async Task RevokingOneOwnDeviceByIdMarksItRejectedAndKeepsTheRowAuditable()
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+        var endpoint = Endpoint();
+        var deviceKeys = NewSubscriptionKeys();
+        var id = await SubscribeAsync(learner, endpoint, deviceKeys, label: "OnePlus 15");
+        factory.Time.Advance(TimeSpan.FromMinutes(5));
+
+        using var response = await DeleteAsync(learner, $"/api/push/subscriptions/{id}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        // 204 carries no body, so there is nothing that could echo the endpoint or the keys back.
+        Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync(CancellationToken.None));
+
+        await using (var database = factory.OpenDatabase())
+        {
+            var row = await database.PushSubscriptions.AsNoTracking().SingleAsync(CancellationToken.None);
+            Assert.Equal(PushSubscriptionLifecycle.Rejected, row.State);
+            // NULL status is the learner's own opt-out; a push-service refusal always records one.
+            Assert.Null(row.LastStatus);
+            Assert.Equal(Now.AddMinutes(5).ToUnixTimeMilliseconds(), row.UpdatedAtMs);
+            // Soft delete: endpoint and keys stay for the audit trail and a later reactivate.
+            Assert.Equal(endpoint, row.Endpoint);
+            Assert.Equal(deviceKeys.P256dh, row.P256dh);
+        }
+
+        // The list the settings screen reads reports the revoke as `rejected` with a NULL status,
+        // and still calls the row current: the id equality is all `isCurrent` ever was.
+        using var list = await learner.GetAsync($"/api/push/subscriptions?currentId={id}",
+            CancellationToken.None);
+        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+        var raw = await list.Content.ReadAsStringAsync(CancellationToken.None);
+        using var body = JsonDocument.Parse(raw);
+        var item = Assert.Single(body.RootElement.GetProperty("items").EnumerateArray());
+        Assert.Equal(id, item.GetProperty("id").GetInt32());
+        Assert.Equal(PushSubscriptionLifecycle.Rejected, item.GetProperty("state").GetString());
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("lastStatus").ValueKind);
+        Assert.True(item.GetProperty("isCurrent").GetBoolean());
+        Assert.Equal(Now.AddMinutes(5), DateTimeOffset.Parse(item.GetProperty("updatedAt").GetString()!,
+            CultureInfo.InvariantCulture));
+        foreach (var secret in new[] { endpoint, deviceKeys.P256dh, deviceKeys.Auth })
+        {
+            Assert.DoesNotContain(secret, raw, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task RevokingTheSameDeviceTwiceIsANoOpSuccess()
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+        var id = await SubscribeAsync(learner, Endpoint(), NewSubscriptionKeys());
+
+        using (var first = await DeleteAsync(learner, $"/api/push/subscriptions/{id}"))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
+        }
+        await using var database = factory.OpenDatabase();
+        var afterFirst = (await database.PushSubscriptions.AsNoTracking()
+            .SingleAsync(CancellationToken.None)).UpdatedAtMs;
+        factory.Time.Advance(TimeSpan.FromMinutes(5));
+
+        using (var second = await DeleteAsync(learner, $"/api/push/subscriptions/{id}"))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
+            Assert.Equal(string.Empty, await second.Content.ReadAsStringAsync(CancellationToken.None));
+        }
+
+        await using var check = factory.OpenDatabase();
+        var row = await check.PushSubscriptions.AsNoTracking().SingleAsync(CancellationToken.None);
+        Assert.Equal(PushSubscriptionLifecycle.Rejected, row.State);
+        Assert.Null(row.LastStatus);
+        // No second event: the retry is invisible, which is what makes the call safely repeatable.
+        Assert.Equal(afterFirst, row.UpdatedAtMs);
+    }
+
+    [Fact]
+    public async Task RevokingAnotherAccountsDeviceAnswersTheSame404AsAMissingId()
+    {
+        using var factory = new PushApplicationFactory(Now, seed: database =>
+            database.PushSubscriptions.Add(new PushSubscription
+            {
+                UserId = 2, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = StaleKeyId,
+                DeviceLabel = "not mine", CreatedAtMs = 1, UpdatedAtMs = 1,
+                State = PushSubscriptionLifecycle.Active
+            }));
+        using var learner = await LoginAsync(factory, "learner");
+        int foreignId;
+        await using (var database = factory.OpenDatabase())
+        {
+            foreignId = (await database.PushSubscriptions.AsNoTracking()
+                .SingleAsync(CancellationToken.None)).Id;
+        }
+
+        using var foreign = await DeleteAsync(learner, $"/api/push/subscriptions/{foreignId}");
+        var foreignRaw = await foreign.Content.ReadAsStringAsync(CancellationToken.None);
+        await AssertErrorAsync(foreign, HttpStatusCode.NotFound, "subscription_not_found");
+
+        // An id that never existed must be indistinguishable from another account's id: no oracle.
+        using var missing = await DeleteAsync(learner, "/api/push/subscriptions/999999");
+        var missingRaw = await missing.Content.ReadAsStringAsync(CancellationToken.None);
+        await AssertErrorAsync(missing, HttpStatusCode.NotFound, "subscription_not_found");
+        Assert.Equal(missingRaw, foreignRaw);
+
+        // The other account's row is untouched.
+        await using var check = factory.OpenDatabase();
+        var row = await check.PushSubscriptions.AsNoTracking().SingleAsync(CancellationToken.None);
+        Assert.Equal(2, row.UserId);
+        Assert.Equal(PushSubscriptionLifecycle.Active, row.State);
+        Assert.Equal(1, row.UpdatedAtMs);
+    }
+
+    [Fact]
+    public async Task OnlyALearnerCanRevokeADeviceById()
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var anonymous = factory.CreateHttpClient();
+        await AssertErrorAsync(await DeleteAsync(anonymous, "/api/push/subscriptions/1"),
+            HttpStatusCode.Unauthorized, "unauthorized");
+        using var reviewer = await LoginAsync(factory, "reviewer");
+        await AssertErrorAsync(await DeleteAsync(reviewer, "/api/push/subscriptions/1"),
+            HttpStatusCode.Forbidden, "forbidden");
+    }
+
+    [Fact]
+    public async Task ARevokedDeviceComesBackOnlyWithAnExplicitReactivate()
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+        var endpoint = Endpoint();
+        var deviceKeys = NewSubscriptionKeys();
+        var keyId = await KeyIdAsync(learner);
+        var id = await SubscribeAsync(learner, endpoint, deviceKeys, label: "Tab 3");
+        using (var revoked = await DeleteAsync(learner, $"/api/push/subscriptions/{id}"))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, revoked.StatusCode);
+        }
+
+        // U3's contract still holds: an ordinary resync must not resurrect a device the learner
+        // switched off, so the browser has to send `reactivate: true` (the explicit click).
+        await AssertErrorAsync(await SendAsync(learner, HttpMethod.Put, "/api/push/subscription",
+                Payload(endpoint, deviceKeys, keyId, label: "Tab 3")),
+            HttpStatusCode.Conflict, "revoked");
+
+        using (var reactivated = await SendAsync(learner, HttpMethod.Put, "/api/push/subscription",
+                   Payload(endpoint, deviceKeys, keyId, label: "Tab 3", reactivate: true)))
+        {
+            Assert.Equal(HttpStatusCode.OK, reactivated.StatusCode);
+            using var body = await JsonAsync(reactivated);
+            Assert.Equal(id, body.RootElement.GetProperty("id").GetInt32());
+            Assert.Equal(PushSubscriptionLifecycle.Active, body.RootElement.GetProperty("state").GetString());
+        }
+
+        await using var database = factory.OpenDatabase();
+        var row = await database.PushSubscriptions.AsNoTracking().SingleAsync(CancellationToken.None);
+        Assert.Equal(PushSubscriptionLifecycle.Active, row.State);
+        Assert.Null(row.LastStatus);
+    }
+
+    [Fact]
+    public async Task RevokingByDeviceIdIsGatedLikeEveryOtherPushWriteWhenPushIsOff()
+    {
+        // Rows survive a deployment that switches push off; the mutation stays gated exactly like
+        // PUT/DELETE /subscription, so a frozen deployment cannot be edited through this route.
+        var seeded = Endpoint();
+        using var factory = new PushApplicationFactory(Now, pushEnabled: false, seed: database =>
+            database.PushSubscriptions.Add(new PushSubscription
+            {
+                UserId = 1, Endpoint = seeded, P256dh = "p", Auth = "a", VapidKeyId = StaleKeyId,
+                CreatedAtMs = 1, UpdatedAtMs = 1, State = PushSubscriptionLifecycle.Active
+            }));
+        using var learner = await LoginAsync(factory, "learner");
+        int id;
+        await using (var database = factory.OpenDatabase())
+        {
+            id = (await database.PushSubscriptions.AsNoTracking().SingleAsync(CancellationToken.None)).Id;
+        }
+
+        await AssertErrorAsync(await DeleteAsync(learner, $"/api/push/subscriptions/{id}"),
+            HttpStatusCode.ServiceUnavailable, "push_disabled");
+
+        await using var check = factory.OpenDatabase();
+        var row = await check.PushSubscriptions.AsNoTracking().SingleAsync(CancellationToken.None);
+        Assert.Equal(PushSubscriptionLifecycle.Active, row.State);
+        Assert.Equal(1, row.UpdatedAtMs);
+    }
+
     // ---- helpers ----------------------------------------------------------
 
     // A fingerprint no generated key can have, so a row carrying it is provably undeliverable.
@@ -1644,6 +1835,15 @@ public sealed class M8PushApiTests
         object body)
     {
         using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
+        request.Headers.Add("X-Palabras", "1");
+        return await client.SendAsync(request, CancellationToken.None);
+    }
+
+    // DELETE by row id has no body; it still needs the X-Palabras header, which the write guard
+    // checks before authentication ever runs.
+    private static async Task<HttpResponseMessage> DeleteAsync(HttpClient client, string path)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, path);
         request.Headers.Add("X-Palabras", "1");
         return await client.SendAsync(request, CancellationToken.None);
     }
