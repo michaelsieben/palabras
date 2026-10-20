@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Palabras.Accounts;
 using Palabras.Persistence;
@@ -171,6 +172,10 @@ public sealed class M8PushApiTests
     [InlineData("private", "invalid_endpoint_host")]
     [InlineData("ipv6-loopback", "invalid_endpoint_host")]
     [InlineData("localhost", "invalid_endpoint_host")]
+    [InlineData("localhost-dot", "invalid_endpoint_host")]
+    [InlineData("localhost-uppercase", "invalid_endpoint_host")]
+    [InlineData("localhost-uppercase-dot", "invalid_endpoint_host")]
+    [InlineData("loopback-dot", "invalid_endpoint_host")]
     [InlineData("single-label", "invalid_endpoint_host")]
     [InlineData("bad-p256dh", "invalid_p256dh")]
     [InlineData("bad-auth", "invalid_auth")]
@@ -214,6 +219,18 @@ public sealed class M8PushApiTests
             case "localhost":
                 body["endpoint"] = "https://localhost/fcm/send/abc";
                 break;
+            case "localhost-dot":
+                body["endpoint"] = "https://localhost./fcm/send/abc";
+                break;
+            case "localhost-uppercase":
+                body["endpoint"] = "https://LOCALHOST/fcm/send/abc";
+                break;
+            case "localhost-uppercase-dot":
+                body["endpoint"] = "https://LOCALHOST./fcm/send/abc";
+                break;
+            case "loopback-dot":
+                body["endpoint"] = "https://127.0.0.1./fcm/send/abc";
+                break;
             case "single-label":
                 body["endpoint"] = "https://intranet/fcm/send/abc";
                 break;
@@ -242,6 +259,34 @@ public sealed class M8PushApiTests
         await AssertErrorAsync(response, HttpStatusCode.BadRequest, error);
         await using var database = factory.OpenDatabase();
         Assert.Empty(await database.PushSubscriptions.AsNoTracking().ToListAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ARegeneratedKeyWarnsAtStartupThatStoredSubscriptionsAreOrphaned()
+    {
+        var logs = new CapturingLoggerProvider();
+        using var factory = new PushApplicationFactory(Now, loggerProvider: logs, seed: database =>
+            database.PushSubscriptions.Add(new PushSubscription
+            {
+                UserId = 1, Endpoint = "https://fcm.googleapis.com/fcm/send/earlier", P256dh = "p", Auth = "a",
+                VapidKeyId = "0123456789abcdef", CreatedAtMs = 1, UpdatedAtMs = 1, State = "active"
+            }));
+
+        // Touching the host runs Program: a missing key file is generated and then audited.
+        _ = factory.Services;
+
+        var warning = Assert.Single(logs.Entries,
+            entry => entry.Level == LogLevel.Warning && entry.Message.Contains("existing subscriptions",
+                StringComparison.Ordinal));
+        Assert.Contains("1 existing subscriptions are bound to another key", warning.Message,
+            StringComparison.Ordinal);
+        Assert.Contains("current key_id", warning.Message, StringComparison.Ordinal);
+        Assert.True(File.Exists(factory.VapidPath));
+        // The audit reads the private key material only through VapidKeyStore; it never logs it.
+        var keys = await VapidKeyStore.ReadIfPresentAsync(factory.VapidPath, CancellationToken.None);
+        Assert.NotNull(keys);
+        Assert.All(logs.Entries, entry => Assert.DoesNotContain(keys!.PrivateKey, entry.Message,
+            StringComparison.Ordinal));
     }
 
     [Fact]
@@ -526,18 +571,55 @@ public sealed class M8PushApiTests
         Assert.Equal(error, body.RootElement.GetProperty("error").GetString());
     }
 
+    private sealed class CapturingLoggerProvider : ILoggerProvider
+    {
+        internal List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public ILogger CreateLogger(string categoryName) => new CapturingLogger(Entries);
+
+        public void Dispose()
+        {
+        }
+
+        private sealed class CapturingLogger : ILogger
+        {
+            private readonly List<(LogLevel Level, string Message)> _entries;
+
+            internal CapturingLogger(List<(LogLevel Level, string Message)> entries)
+            {
+                _entries = entries;
+            }
+
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+                Func<TState, Exception?, string> formatter)
+            {
+                lock (_entries)
+                {
+                    _entries.Add((logLevel, formatter(state, exception)));
+                }
+            }
+        }
+    }
+
     private sealed class PushApplicationFactory : WebApplicationFactory<Program>
     {
         private static readonly string PasswordHash = new AccountPasswordHasher().Hash(Password);
         private readonly string _root = Path.Combine("/tmp", "palabras-push", Guid.NewGuid().ToString("N"));
         private readonly bool _pushEnabled;
         private readonly string? _keyFileContent;
+        private readonly ILoggerProvider? _loggerProvider;
 
         internal PushApplicationFactory(DateTimeOffset now, bool pushEnabled = true,
-            Action<PalabrasDbContext>? seed = null, string? keyFileContent = null)
+            Action<PalabrasDbContext>? seed = null, string? keyFileContent = null,
+            ILoggerProvider? loggerProvider = null)
         {
             _pushEnabled = pushEnabled;
             _keyFileContent = keyFileContent;
+            _loggerProvider = loggerProvider;
             Time = new FakeTimeProvider(now);
             Directory.CreateDirectory(Path.Combine(_root, "wwwroot"));
             File.WriteAllText(Path.Combine(_root, "wwwroot", "index.html"), "<!doctype html><html>test spa</html>");
@@ -593,6 +675,10 @@ public sealed class M8PushApiTests
             {
                 services.RemoveAll<TimeProvider>();
                 services.AddSingleton<TimeProvider>(Time);
+                if (_loggerProvider is not null)
+                {
+                    services.AddSingleton(_loggerProvider);
+                }
             });
         }
 

@@ -254,10 +254,18 @@ internal static class PushEndpoints
     // SSRF guard (plan §3.2, R8): the server will POST to this URL, so the host must not be the
     // machine itself or a private network. IP literals are checked directly; a public hostname that
     // resolves to a private address (DNS rebinding) is out of scope for the default posture — the
-    // deferred allow-list (D5) is the stronger mitigation.
+    // deferred allow-list (D5) is the stronger mitigation, and the deferred sender (U4) must use
+    // AllowAutoRedirect=false so a public host cannot bounce the POST to a private one.
     private static bool IsPublicHost(string host)
     {
         var candidate = host.StartsWith('[') && host.EndsWith(']') ? host[1..^1] : host;
+        // "localhost." and "localhost" are the same host: without normalising, the trailing dot
+        // would slip past every literal check below and a dotted IP literal past IPAddress.TryParse.
+        candidate = candidate.TrimEnd('.').ToLowerInvariant();
+        if (candidate.Length == 0)
+        {
+            return false;
+        }
         if (IPAddress.TryParse(candidate, out var address))
         {
             return !IsPrivateAddress(address);

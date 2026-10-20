@@ -52,6 +52,13 @@ internal static class PushCli
             }
             await output.WriteLineAsync("vapid_key_path=" + push.VapidKeyPath);
             await output.WriteLineAsync("subject=" + push.Subject);
+            // `vapid_key_id` is the fingerprint stored on every row (frozen schema), so the orphan
+            // count is exact. With no readable key there is nothing to compare against, and the
+            // existing vapid_key=absent|corrupt line says why.
+            await output.WriteLineAsync(keys is null
+                ? "bound_to_other_key=unknown"
+                : "bound_to_other_key=" + await VapidKeyAudit.CountBoundToOtherKeyAsync(database, keys.KeyId,
+                    cancellationToken));
 
             var counts = await database.PushSubscriptions.AsNoTracking()
                 .GroupBy(row => new { row.UserId, row.State })

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
@@ -180,6 +181,82 @@ public sealed class M8VapidKeyStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task AFreshInstallWithAnEmptyDatabaseWarnsAboutNoOrphans()
+    {
+        var path = Path.Combine(_root, "vapid.json");
+        var settings = Settings();
+        await using (var database = settings.CreateContext())
+        {
+            await database.Database.MigrateAsync(CancellationToken.None);
+        }
+        var logger = new CapturingLogger<VapidKeyAudit>();
+        var store = new VapidKeyStore(new PushSettings(true, path, PushSettings.DefaultSubject),
+            new FakeTimeProvider(Now), NullLogger());
+
+        await store.InitializeAsync(CancellationToken.None);
+        var orphaned = await VapidKeyAudit.WarnIfOrphanedAsync(store, settings, logger, CancellationToken.None);
+
+        Assert.True(store.GeneratedOnLoad);
+        Assert.Equal(0, orphaned);
+        Assert.DoesNotContain(logger.Entries, entry => entry.Level == LogLevel.Warning);
+    }
+
+    [Fact]
+    public async Task ARegeneratedKeyWarnsThatExistingSubscriptionsAreOrphaned()
+    {
+        var path = Path.Combine(_root, "vapid.json");
+        var settings = Settings();
+        const string earlierKeyId = "0123456789abcdef";
+        await using (var database = settings.CreateContext())
+        {
+            await database.Database.MigrateAsync(CancellationToken.None);
+            var stamp = DateTimeOffset.UnixEpoch;
+            database.Users.Add(new User
+            {
+                Id = 1, Username = "learner", Role = "owner", PasswordHash = "hash",
+                CreatedAt = stamp, UpdatedAt = stamp
+            });
+            database.PushSubscriptions.AddRange(
+                new PushSubscription
+                {
+                    UserId = 1, Endpoint = "https://fcm.googleapis.com/fcm/send/a", P256dh = "p", Auth = "a",
+                    VapidKeyId = earlierKeyId, CreatedAtMs = 1, UpdatedAtMs = 1, State = "active"
+                },
+                new PushSubscription
+                {
+                    UserId = 1, Endpoint = "https://fcm.googleapis.com/fcm/send/b", P256dh = "p", Auth = "a",
+                    VapidKeyId = earlierKeyId, CreatedAtMs = 1, UpdatedAtMs = 1, State = "stale_key"
+                });
+            await database.SaveChangesAsync(CancellationToken.None);
+        }
+        var logger = new CapturingLogger<VapidKeyAudit>();
+        var store = new VapidKeyStore(new PushSettings(true, path, PushSettings.DefaultSubject),
+            new FakeTimeProvider(Now), NullLogger());
+
+        await store.InitializeAsync(CancellationToken.None);
+        var keys = Assert.IsType<VapidKeys>(store.Keys);
+        var orphaned = await VapidKeyAudit.WarnIfOrphanedAsync(store, settings, logger, CancellationToken.None);
+
+        Assert.True(store.GeneratedOnLoad);
+        Assert.Equal(2, orphaned);
+        var warning = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Warning);
+        Assert.Contains("2 existing subscriptions are bound to another key", warning.Message,
+            StringComparison.Ordinal);
+        Assert.Contains(keys.KeyId, warning.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(keys.PrivateKey, warning.Message, StringComparison.Ordinal);
+
+        // A later start reads the same file and must not repeat the warning: nothing new was minted.
+        var reloaded = new VapidKeyStore(new PushSettings(true, path, PushSettings.DefaultSubject),
+            new FakeTimeProvider(Now), NullLogger());
+        await reloaded.InitializeAsync(CancellationToken.None);
+        var secondLogger = new CapturingLogger<VapidKeyAudit>();
+        Assert.Equal(0, await VapidKeyAudit.WarnIfOrphanedAsync(reloaded, settings, secondLogger,
+            CancellationToken.None));
+        Assert.False(reloaded.GeneratedOnLoad);
+        Assert.DoesNotContain(secondLogger.Entries, entry => entry.Level == LogLevel.Warning);
+    }
+
+    [Fact]
     public void Base64UrlDecodingAcceptsTheUrlAlphabetAndRejectsStandardBase64()
     {
         Assert.True(VapidKeyStore.TryDecodeBase64Url("AA-_", out var urlSafe));
@@ -207,6 +284,8 @@ public sealed class M8VapidKeyStoreTests : IDisposable
     {
         internal List<string> Messages { get; } = [];
 
+        internal List<(LogLevel Level, string Message)> Entries { get; } = [];
+
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
         public bool IsEnabled(LogLevel logLevel) => true;
@@ -214,7 +293,9 @@ public sealed class M8VapidKeyStoreTests : IDisposable
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
-            Messages.Add(formatter(state, exception));
+            var message = formatter(state, exception);
+            Messages.Add(message);
+            Entries.Add((logLevel, message));
         }
     }
 }

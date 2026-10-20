@@ -41,6 +41,8 @@ public sealed class M8PushCliTests : IDisposable
         Assert.Equal(0, result.Exit);
         Assert.Contains("push_enabled=true", result.Output);
         Assert.Contains("vapid_key=absent", result.Output);
+        // Without a readable key there is no fingerprint to compare rows against.
+        Assert.Contains("bound_to_other_key=unknown", result.Output);
         Assert.False(File.Exists(path));
     }
 
@@ -93,6 +95,7 @@ public sealed class M8PushCliTests : IDisposable
         Assert.Contains("vapid_key=ready", result.Output);
         Assert.Contains("vapid_key_id=" + keys.KeyId, result.Output);
         Assert.Contains("vapid_key_path=" + path, result.Output);
+        Assert.Contains("bound_to_other_key=0", result.Output);
         Assert.Contains("subscription user=learner active=1 stale_key=0 rejected=1 total=2", result.Output);
         Assert.Contains("subscriptions_total=2", result.Output);
         Assert.Contains("reminder_window_min=90", result.Output);
@@ -101,6 +104,48 @@ public sealed class M8PushCliTests : IDisposable
         // The private key never leaves the file.
         Assert.DoesNotContain(keys.PrivateKey, result.Output);
         Assert.DoesNotContain(keys.PrivateKey, result.Error);
+    }
+
+    [Fact]
+    public async Task StatusCountsSubscriptionsBoundToAnEarlierKey()
+    {
+        var path = Path.Combine(_root, "vapid.json");
+        var settings = Settings();
+        await using (var database = settings.CreateContext())
+        {
+            await database.Database.MigrateAsync(CancellationToken.None);
+            var stamp = DateTimeOffset.UnixEpoch;
+            database.Users.Add(new User
+            {
+                Id = 1, Username = "learner", Role = "owner", PasswordHash = "hash",
+                CreatedAt = stamp, UpdatedAt = stamp
+            });
+            database.PushSubscriptions.AddRange(
+                new PushSubscription
+                {
+                    UserId = 1, Endpoint = "https://fcm.googleapis.com/fcm/send/a", P256dh = "p", Auth = "a",
+                    VapidKeyId = "0123456789abcdef", CreatedAtMs = 1, UpdatedAtMs = 1, State = "active"
+                },
+                new PushSubscription
+                {
+                    UserId = 1, Endpoint = "https://fcm.googleapis.com/fcm/send/b", P256dh = "p", Auth = "a",
+                    VapidKeyId = "fedcba9876543210", CreatedAtMs = 1, UpdatedAtMs = 1, State = "stale_key"
+                });
+            await database.SaveChangesAsync(CancellationToken.None);
+        }
+        var store = new VapidKeyStore(new PushSettings(true, path, PushSettings.DefaultSubject),
+            new FakeTimeProvider(Now),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<VapidKeyStore>.Instance);
+        await store.InitializeAsync(CancellationToken.None);
+        var keys = Assert.IsType<VapidKeys>(store.Keys);
+
+        var result = await Run(Enabled(path));
+
+        Assert.Equal(0, result.Exit);
+        // Neither earlier fingerprint matches the current key, so both rows are orphaned.
+        Assert.Contains("bound_to_other_key=2", result.Output);
+        Assert.Contains("vapid_key_id=" + keys.KeyId, result.Output);
+        Assert.DoesNotContain(keys.PrivateKey, result.Output);
     }
 
     [Fact]

@@ -30,6 +30,7 @@ internal sealed class VapidKeyStore
     private VapidKeys? _keys;
     private string? _failure;
     private bool _initialized;
+    private bool _generated;
 
     public VapidKeyStore(PushSettings settings, TimeProvider time, ILogger<VapidKeyStore> logger)
     {
@@ -48,6 +49,11 @@ internal sealed class VapidKeyStore
     // Operator-facing reason when an enabled key file could not be used; never key material.
     internal string? Failure => _failure;
 
+    // True only when this start published a new key file. Startup uses it to warn that rows which
+    // carry another fingerprint are now orphaned; a race that loses to another process reads the
+    // winner's key and reports false.
+    internal bool GeneratedOnLoad => _generated;
+
     internal async Task InitializeAsync(CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
@@ -64,8 +70,10 @@ internal sealed class VapidKeyStore
             }
             try
             {
-                var created = !File.Exists(_settings.VapidKeyPath);
-                _keys = await LoadOrCreateAsync(_settings.VapidKeyPath, _time, cancellationToken);
+                var (keys, created) =
+                    await LoadOrCreateAsync(_settings.VapidKeyPath, _time, cancellationToken);
+                _keys = keys;
+                _generated = created;
                 _failure = null;
                 if (created)
                 {
@@ -82,6 +90,7 @@ internal sealed class VapidKeyStore
             catch (Exception exception) when (IsConfigurationFailure(exception))
             {
                 _keys = null;
+                _generated = false;
                 _failure = exception.Message;
                 _logger.LogError(
                     "Push features are disabled: the VAPID key file {Path} could not be used ({Reason}). " +
@@ -106,18 +115,21 @@ internal sealed class VapidKeyStore
         return await ReadAsync(path, cancellationToken);
     }
 
-    internal static async Task<VapidKeys> LoadOrCreateAsync(string path, TimeProvider time,
+    // Created reports whether this call published the file: a lost write race reads the winner's
+    // key back and therefore reports false, so startup never warns about a key it did not mint.
+    internal static async Task<(VapidKeys Keys, bool Created)> LoadOrCreateAsync(string path, TimeProvider time,
         CancellationToken cancellationToken)
     {
         if (File.Exists(path))
         {
-            return await ReadAsync(path, cancellationToken);
+            return (await ReadAsync(path, cancellationToken), false);
         }
         var generated = Generate(time);
         await WriteAtomicallyAsync(path, generated, cancellationToken);
         // Re-read the published file: when two processes raced, the winner's key is the one on
         // disk and both must report the same fingerprint.
-        return await ReadAsync(path, cancellationToken);
+        var published = await ReadAsync(path, cancellationToken);
+        return (published, string.Equals(published.KeyId, generated.KeyId, StringComparison.Ordinal));
     }
 
     internal static VapidKeys Generate(TimeProvider time)

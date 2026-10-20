@@ -17,6 +17,8 @@ internal static class PushSubscriptionLifecycle
     internal static bool IsRevoked(PushSubscription subscription)
     {
         ArgumentNullException.ThrowIfNull(subscription);
+        // U4 must write a non-null last_status on every push-service rejection: only the learner's
+        // explicit unsubscribe may leave it NULL, or the row could never heal.
         return subscription.State == Rejected && subscription.LastStatus is null;
     }
 

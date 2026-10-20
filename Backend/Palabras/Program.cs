@@ -153,7 +153,13 @@ await DatabaseLifecycle.InitializeAsync(databaseSettings, app.Lifetime.Applicati
 // failure reaches this catch, and it is still contained to push.
 try
 {
-    await app.Services.GetRequiredService<VapidKeyStore>().InitializeAsync(app.Lifetime.ApplicationStopping);
+    var vapid = app.Services.GetRequiredService<VapidKeyStore>();
+    await vapid.InitializeAsync(app.Lifetime.ApplicationStopping);
+    // A generated key beside a populated database means the key file was lost while the data
+    // survived: every stored subscription is now bound to a key nothing will accept. Say it once,
+    // loudly, instead of failing silently at 22:00 (plan §2.2).
+    await VapidKeyAudit.WarnIfOrphanedAsync(vapid, databaseSettings,
+        app.Services.GetRequiredService<ILogger<VapidKeyAudit>>(), app.Lifetime.ApplicationStopping);
 }
 catch (Exception exception) when (exception is not OperationCanceledException)
 {
