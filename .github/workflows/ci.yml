@@ -258,7 +258,7 @@ jobs:
           test -f dist/index.html && test -f dist/sw.js || {
             echo "FAIL: the frontend-dist artifact is not laid out at Frontend/dist"; exit 1; }
           echo "dist layout OK: index.html, sw.js"
-      # One step per suite, each on its own PALABRAS_TEST_PORT. All four runners start
+      # One step per suite, each on its own PALABRAS_TEST_PORT. All five runners start
       # `vite preview` with strictPort, so distinct ports mean a suite can never inherit a
       # half-released listener from the suite before it (the old single `test:browser` run gave
       # browser.mjs and reviewBrowser.mjs the same 4173 and left sw-navigation.mjs on a
@@ -286,3 +286,11 @@ jobs:
         env:
           PALABRAS_TEST_PORT: '4183'
         run: npm run test:day:browser
+      # U7 push handlers against the built worker. The push event is injected through CDP
+      # (ServiceWorker.deliverPushMessage): synthetic, with no real push service and no
+      # subscription, so a pass proves the shipped sw.js listeners, not remote delivery.
+      - name: Push notification browser suite (pushBrowser.mjs)
+        working-directory: Frontend
+        env:
+          PALABRAS_TEST_PORT: '4184'
+        run: npm run test:push:browser
