@@ -6,6 +6,8 @@ namespace Palabras.Push;
 
 // One decision row, created or already present. `Claimed` says which of the two this call is: a
 // second caller that loses the UNIQUE key gets the winner's row back instead of an exception.
+// `Claimed == false` is NOT "someone else owns today": it only means the row already existed, and a
+// resumed row whose Result is still 'sending' is sendable. Branch on Row.Result, never on Claimed.
 internal sealed record ReminderLogClaim(ReminderLog Row, bool Claimed);
 
 // M8 reminder decision log (plan §2.3/§2.4, design-amendment.md ΔF :642-647). The frozen schema
@@ -19,6 +21,11 @@ internal sealed record ReminderLogClaim(ReminderLog Row, bool Claimed);
 // - finished:    CompleteAsync -> result='sent' | 'failed' | 'gone'
 // A day that was done, skipped, muted or disabled deliberately writes NO row (plan §2.4), so an
 // absent row means "there was no decision", not "the decision was suppressed".
+//
+// A day that was claimed but never attempted (crash between claim and send, restart after
+// windowEnd) is finalised through CompleteAsync with 'window_missed'/'no_target': one transition
+// path, from 'sending' to any final result. CompleteAsync never moves a row that already left
+// 'sending', so two ticks resuming the same claim cannot turn a 'sent' into a 'failed'.
 //
 // The CHECK value sets are reproduced here as the writer's own contract: a typo becomes an
 // ArgumentOutOfRangeException at the call site instead of a SqliteException from a missing row.
@@ -36,6 +43,10 @@ internal static class ReminderLogStore
 
     private static readonly string[] TerminalResults = [SentResult, FailedResult, GoneResult];
     private static readonly string[] SuppressedResults = [WindowMissedResult, NoTargetResult];
+    // Everything CompleteAsync may write. `sending` is deliberately absent: it is the state a row
+    // must be in to be finalisable, never a result of finalising.
+    private static readonly string[] FinalResults =
+        [SentResult, FailedResult, GoneResult, WindowMissedResult, NoTargetResult];
 
     // The learner-day key the whole feature agrees on (yyyy-MM-dd via LearnDayStatus.Key), so the
     // log, day_status and the notification payload can never disagree about "today".
@@ -44,6 +55,9 @@ internal static class ReminderLogStore
     internal static bool IsTerminalResult(string result) => Array.IndexOf(TerminalResults, result) >= 0;
 
     internal static bool IsSuppressedResult(string result) => Array.IndexOf(SuppressedResults, result) >= 0;
+
+    // True for every result a decided day can carry (sent|failed|gone|window_missed|no_target).
+    internal static bool IsFinalResult(string result) => Array.IndexOf(FinalResults, result) >= 0;
 
     // Today's decision for this learner, or null when nothing was decided yet — the reader behind
     // "did we remind this learner today, and why not".
@@ -92,7 +106,9 @@ internal static class ReminderLogStore
 
     // A decision that produced no send at all (the window had already closed, or every device was
     // undeliverable). Terminal on insert: a later tick reads the row back and stops reconsidering
-    // the day, which is what makes the outcome honest after downtime.
+    // the day, which is what makes the outcome honest after downtime. This never rewrites an
+    // existing row — when a claim already owns today, the caller finalises it with CompleteAsync
+    // (suppressed results are accepted there), which is the only transition out of 'sending'.
     internal static async Task<ReminderLogClaim> SuppressAsync(PalabrasDbContext database, int userId,
         DateOnly localDate, string result, bool skipAvailable, long nowMs, CancellationToken cancellationToken)
     {
@@ -119,36 +135,34 @@ internal static class ReminderLogStore
         return await InsertOrReadAsync(database, row, cancellationToken);
     }
 
-    // Finalises a claimed row. `ttl_s` and `expires_at_ms` are replaced with the last attempt's
-    // values (plan §2.4 recomputes them per attempt), and `updated_at_ms` is the completion instant.
-    // Returns false when the row no longer exists, so a caller cannot believe it recorded anything.
+    // Finalises a claimed row: the ONE transition out of 'sending', to a terminal
+    // (sent|failed|gone) or suppressed (window_missed|no_target) result. `ttl_s` and
+    // `expires_at_ms` are replaced with the last attempt's values (plan §2.4 recomputes them per
+    // attempt), and `updated_at_ms` is the completion instant.
+    // Returns false when nothing was recorded: the row no longer exists, or it already left
+    // 'sending' (another tick finished it). A decided row is never rewritten, so plan §2.4's
+    // "any sent ⇒ sent" holds even when two ticks resume the same claim.
+    // Keyed by reminderLogId only — an internal API; the caller passes the id it just claimed.
     internal static async Task<bool> CompleteAsync(PalabrasDbContext database, int reminderLogId, string result,
         int? ttlSeconds, long? expiresAtMs, long nowMs, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(database);
-        if (!IsTerminalResult(result))
+        if (!IsFinalResult(result))
         {
             throw new ArgumentOutOfRangeException(nameof(result), result,
-                "Only sent, failed and gone are final reminder results.");
+                "Only sent, failed, gone, window_missed and no_target finalise a reminder decision.");
         }
-        var row = await database.ReminderLogs.SingleOrDefaultAsync(
-            candidate => candidate.Id == reminderLogId, cancellationToken);
-        if (row is null)
-        {
-            return false;
-        }
-        row.Result = result;
-        if (ttlSeconds is { } ttl)
-        {
-            row.TtlS = ttl;
-        }
-        if (expiresAtMs is { } expires)
-        {
-            row.ExpiresAtMs = expires;
-        }
-        row.UpdatedAtMs = nowMs;
-        await database.SaveChangesAsync(cancellationToken);
-        return true;
+        // One atomic conditional UPDATE: the WHERE clause carries "still 'sending'", so a second
+        // tick resuming the same claim updates zero rows instead of overwriting a decided one.
+        // Loading the row and saving it back would be a read-then-write race between the two ticks.
+        var updated = await database.ReminderLogs
+            .Where(row => row.Id == reminderLogId && row.Result == SendingResult)
+            .ExecuteUpdateAsync(setter => setter
+                .SetProperty(row => row.Result, result)
+                .SetProperty(row => row.TtlS, row => ttlSeconds ?? row.TtlS)
+                .SetProperty(row => row.ExpiresAtMs, row => expiresAtMs ?? row.ExpiresAtMs)
+                .SetProperty(row => row.UpdatedAtMs, nowMs), cancellationToken);
+        return updated > 0;
     }
 
     // The UNIQUE (user_id, local_date, kind, channel) is the claim, so losing the insert is a

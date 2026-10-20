@@ -13,8 +13,10 @@ namespace Palabras.Push;
 // a database row appearing. PUT is an upsert of the merged result, because a partial body (only the
 // time, or only a mute shortcut) must not silently reset the fields it omitted.
 //
-// Push stays default-OFF: while Push:Enabled is not literally true these routes answer 503 like
-// every other reminder surface, so a half-enabled feature can never be configured or audited.
+// Settings are a preference, not delivery: GET and PUT answer 200 even while push is off or the
+// VAPID key file is unusable, so a first deploy can configure 21:30 before enabling push and a key
+// fault can never hide what is stored. Only the action audit stays behind the 503 gate — it is
+// produced by real notifications, and keeping junk out of `notification_actions` is worth it.
 internal static class ReminderEndpoints
 {
     private const string Policy = "learner";
@@ -48,10 +50,6 @@ internal static class ReminderEndpoints
     private static async Task<IResult> GetAsync(HttpContext context, DatabaseSettings settings, VapidKeyStore keys,
         CancellationToken cancellationToken)
     {
-        if (PushEndpoints.Unavailable(keys) is { } unavailable)
-        {
-            return unavailable;
-        }
         if (LearnEndpoints.CurrentUserId(context) is not { } userId)
         {
             return Error(StatusCodes.Status401Unauthorized, "unauthorized");
@@ -64,17 +62,13 @@ internal static class ReminderEndpoints
         }
         var stored = await database.ReminderSettings.AsNoTracking()
             .SingleOrDefaultAsync(row => row.UserId == userId, cancellationToken);
-        return Results.Ok(await ComposeAsync(database, userId, stored, cancellationToken));
+        return Results.Ok(await ComposeAsync(database, userId, stored, keys, cancellationToken));
     }
 
     private static async Task<IResult> PutAsync(ReminderSettingsRequest? request, HttpContext context,
         DatabaseSettings settings, TimeProvider timeProvider, ILoggerFactory loggerFactory, VapidKeyStore keys,
         CancellationToken cancellationToken)
     {
-        if (PushEndpoints.Unavailable(keys) is { } unavailable)
-        {
-            return unavailable;
-        }
         if (LearnEndpoints.CurrentUserId(context) is not { } userId)
         {
             return Error(StatusCodes.Status401Unauthorized, "unauthorized");
@@ -107,6 +101,8 @@ internal static class ReminderEndpoints
 
         // Mute shortcuts are exclusive: they compute the date from the learner's local today, and
         // mixing them with an explicit date or an enabled flag would make the request ambiguous.
+        // "cancel" is the explicit un-mute (ΔC.3.1 has no un-mute action, but clearing a mute is one
+        // preference write, not a disable/re-enable dance that could leave reminders off).
         if (request.MuteChoice is not null)
         {
             var choice = request.MuteChoice.Trim();
@@ -128,6 +124,10 @@ internal static class ReminderEndpoints
                 case "disable":
                     enabled = false;
                     // Disabling supersedes a mute that would only have paused today.
+                    mutedUntil = null;
+                    break;
+                case "cancel":
+                    // Un-mute without touching `enabled`: the action audit's own vocabulary.
                     mutedUntil = null;
                     break;
                 default:
@@ -178,7 +178,7 @@ internal static class ReminderEndpoints
         await database.SaveChangesAsync(cancellationToken);
         // Composed before the commit: the context's transaction is finished after CommitAsync, and
         // a query on a committed raw transaction is not guaranteed to still be associated.
-        var response = await ComposeAsync(database, userId, stored, cancellationToken);
+        var response = await ComposeAsync(database, userId, stored, keys, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return Results.Ok(response);
     }
@@ -251,19 +251,27 @@ internal static class ReminderEndpoints
     }
 
     private static async Task<ReminderResponse> ComposeAsync(PalabrasDbContext database, int userId,
-        ReminderSettings? stored, CancellationToken cancellationToken)
+        ReminderSettings? stored, VapidKeyStore keys, CancellationToken cancellationToken)
     {
         // Counted by state, never by last_status: a fresh row and a healed row both have a NULL
-        // status (U4 review ruling 3), and only `state` answers "will this device ring".
-        var activeDevices = await database.PushSubscriptions.AsNoTracking()
-            .CountAsync(row => row.UserId == userId && row.State == PushSubscriptionLifecycle.Active,
-                cancellationToken);
+        // status (U4 review ruling 3), and only `state` answers "will this device ring". The key
+        // fingerprint is part of the answer too: a row bound to a rotated-out VAPID key is still
+        // `active` but the sender refuses it, so counting it would claim a device that cannot ring.
+        // A null key store (push off, or an unusable key file) therefore counts nothing.
+        var currentKeyId = keys.Keys?.KeyId;
+        var activeDevices = currentKeyId is null
+            ? 0
+            : await database.PushSubscriptions.AsNoTracking()
+                .CountAsync(row => row.UserId == userId && row.State == PushSubscriptionLifecycle.Active
+                    && row.VapidKeyId == currentKeyId, cancellationToken);
         return new ReminderResponse(stored?.Enabled ?? true, stored?.ReminderTime ?? DefaultTime,
             stored?.MutedUntil, stored?.SendWindowMin ?? DefaultWindowMinutes, activeDevices);
     }
 
     // "HH:mm" in 00:00-23:45, 15-minute steps (D6). Strict two-digit parsing: "7:00" is a client
     // bug, not a time to guess at, and 23:45 is the last value because the next step is midnight.
+    // The minute bound is explicit: `22:60` is not a time, and without it the 15-minute check alone
+    // would accept and store it (the frozen CHECK only requires length = 5).
     internal static bool TryParseTime(string? raw, out string normalized)
     {
         normalized = "";
@@ -279,7 +287,7 @@ internal static class ReminderEndpoints
         }
         var hour = ((value[0] - '0') * 10) + (value[1] - '0');
         var minute = ((value[3] - '0') * 10) + (value[4] - '0');
-        if (hour > 23 || minute % TimeStepMinutes != 0)
+        if (hour > 23 || minute > 59 || minute % TimeStepMinutes != 0)
         {
             return false;
         }
@@ -297,7 +305,8 @@ internal sealed record ReminderResponse(bool Enabled, string Time, string? Muted
     int ActiveDevices);
 
 // Body of PUT /api/learn/reminder. Every field is optional and an absent field keeps its stored
-// value; `muteChoice` is exclusive and computes `mutedUntil` from the learner's local today.
+// value; `muteChoice` is exclusive and computes `mutedUntil` from the learner's local today
+// (tomorrow|3d|7d), clears it (cancel) or disables reminders (disable).
 internal sealed record ReminderSettingsRequest(bool? Enabled, string? Time, int? WindowMin, string? MutedUntil,
     string? MuteChoice);
 

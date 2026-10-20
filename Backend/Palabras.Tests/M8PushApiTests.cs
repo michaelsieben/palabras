@@ -879,24 +879,34 @@ public sealed class M8PushApiTests
     [Fact]
     public async Task ActiveDevicesCountsOnlyDeliverableSubscriptions()
     {
-        using var factory = new PushApplicationFactory(Now, seed: database => database.PushSubscriptions.AddRange(
-            new PushSubscription
-            {
-                UserId = 1, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = "k",
-                CreatedAtMs = 1, UpdatedAtMs = 1, State = PushSubscriptionLifecycle.Active
-            },
-            new PushSubscription
-            {
-                UserId = 1, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = "k",
-                CreatedAtMs = 1, UpdatedAtMs = 1, State = PushSubscriptionLifecycle.Rejected, LastStatus = 403
-            },
-            new PushSubscription
-            {
-                // The learner's own unsubscribe: state + NULL status is the predicate (U4 ruling 3),
-                // and neither of them is a deliverable device.
-                UserId = 1, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = "k",
-                CreatedAtMs = 1, UpdatedAtMs = 1, State = PushSubscriptionLifecycle.Rejected, LastStatus = null
-            }));
+        // The app loads a pre-minted key, so a seeded row can carry the fingerprint delivery needs.
+        var keyFile = PreMintedKeyFile();
+        using var factory = new PushApplicationFactory(Now, keyFileContent: keyFile.Content,
+            seed: database => database.PushSubscriptions.AddRange(
+                new PushSubscription
+                {
+                    UserId = 1, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = keyFile.KeyId,
+                    CreatedAtMs = 1, UpdatedAtMs = 1, State = PushSubscriptionLifecycle.Active
+                },
+                new PushSubscription
+                {
+                    UserId = 1, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = keyFile.KeyId,
+                    CreatedAtMs = 1, UpdatedAtMs = 1, State = PushSubscriptionLifecycle.Rejected, LastStatus = 403
+                },
+                new PushSubscription
+                {
+                    // The learner's own unsubscribe: state + NULL status is the predicate (U4 ruling 3),
+                    // and neither of them is a deliverable device.
+                    UserId = 1, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = keyFile.KeyId,
+                    CreatedAtMs = 1, UpdatedAtMs = 1, State = PushSubscriptionLifecycle.Rejected, LastStatus = null
+                },
+                new PushSubscription
+                {
+                    // Bound to a rotated-out fingerprint: still `active`, but the sender refuses it,
+                    // so counting it would claim a device that cannot ring.
+                    UserId = 1, Endpoint = Endpoint(), P256dh = "p", Auth = "a", VapidKeyId = StaleKeyId,
+                    CreatedAtMs = 1, UpdatedAtMs = 1, State = PushSubscriptionLifecycle.Active
+                }));
         using var learner = await LoginAsync(factory, "learner");
 
         using var response = await learner.GetAsync("/api/learn/reminder", CancellationToken.None);
@@ -981,6 +991,11 @@ public sealed class M8PushApiTests
     [InlineData("time", "22:10", "invalid_time")]
     [InlineData("time", "22:50", "invalid_time")]
     [InlineData("time", "24:00", "invalid_time")]
+    [InlineData("time", "22:60", "invalid_time")]
+    [InlineData("time", "22:75", "invalid_time")]
+    [InlineData("time", "00:90", "invalid_time")]
+    [InlineData("time", "-1:00", "invalid_time")]
+    [InlineData("time", "12:5", "invalid_time")]
     [InlineData("time", "7:00", "invalid_time")]
     [InlineData("time", "2350", "invalid_time")]
     [InlineData("time", "evening", "invalid_time")]
@@ -993,6 +1008,8 @@ public sealed class M8PushApiTests
     [InlineData("mute", "soon", "invalid_mute_choice")]
     [InlineData("mute-conflict-enabled", "3d", "conflicting_mute_choice")]
     [InlineData("mute-conflict-date", "3d", "conflicting_mute_choice")]
+    [InlineData("mute-conflict-enabled", "cancel", "conflicting_mute_choice")]
+    [InlineData("mute-conflict-date", "cancel", "conflicting_mute_choice")]
     public async Task InvalidSettingsAreRejectedByValidationAndNothingIsStored(string shape, object value,
         string error)
     {
@@ -1016,6 +1033,116 @@ public sealed class M8PushApiTests
         await AssertErrorAsync(response, HttpStatusCode.BadRequest, error);
         await using var database = factory.OpenDatabase();
         Assert.Empty(await database.ReminderSettings.AsNoTracking().ToListAsync(CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData("22:60")]
+    [InlineData("22:75")]
+    [InlineData("00:90")]
+    [InlineData("24:00")]
+    [InlineData("-1:00")]
+    [InlineData("12:5")]
+    [InlineData("22:1O")]
+    [InlineData("")]
+    public void TimeValidationRefusesImpossibleValues(string raw)
+    {
+        // The minute bound is its own check: a 15-minute step alone accepts "22:60", which the
+        // frozen length=5 CHECK would happily store.
+        Assert.False(ReminderEndpoints.TryParseTime(raw, out var normalized));
+        Assert.Equal("", normalized);
+    }
+
+    [Theory]
+    [InlineData("00:00")]
+    [InlineData("09:15")]
+    [InlineData("23:45")]
+    public void TimeValidationAcceptsFifteenMinuteStepsInsideTheDay(string raw)
+    {
+        Assert.True(ReminderEndpoints.TryParseTime(raw, out var normalized));
+        Assert.Equal(raw, normalized);
+    }
+
+    [Fact]
+    public async Task AnImpossibleTimeIsRefusedAndTheStoredRowIsUnchanged()
+    {
+        using var factory = new PushApplicationFactory(Now, seed: database => database.ReminderSettings.Add(
+            new ReminderSettings
+            {
+                UserId = 1, Enabled = false, ReminderTime = "21:30", MutedUntil = "2026-10-22",
+                SendWindowMin = 120, UpdatedAtMs = 1
+            }));
+        using var learner = await LoginAsync(factory, "learner");
+
+        foreach (var time in new[] { "22:60", "24:00", "-1:00", "12:5" })
+        {
+            using var response = await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder", new { time });
+            await AssertErrorAsync(response, HttpStatusCode.BadRequest, "invalid_time");
+        }
+
+        // "Unchanged" is a property of the seeded row, not of an empty table: B1 was exactly the
+        // case where an invalid value was accepted, so this asserts the stored row survived.
+        await using var database = factory.OpenDatabase();
+        var row = await database.ReminderSettings.AsNoTracking().SingleAsync(CancellationToken.None);
+        Assert.False(row.Enabled);
+        Assert.Equal("21:30", row.ReminderTime);
+        Assert.Equal("2026-10-22", row.MutedUntil);
+        Assert.Equal(120, row.SendWindowMin);
+        Assert.Equal(1, row.UpdatedAtMs);
+    }
+
+    [Fact]
+    public async Task CancelClearsAMuteInOneWriteWithoutTouchingEnabled()
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+
+        using (var mute = await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder",
+                   new { muteChoice = "7d" }))
+        {
+            Assert.Equal(HttpStatusCode.OK, mute.StatusCode);
+            using var body = await JsonAsync(mute);
+            Assert.Equal("2026-10-27", body.RootElement.GetProperty("mutedUntil").GetString());
+        }
+        // One PUT ends the mute; no disable→enable dance that could leave reminders switched off.
+        using (var cancel = await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder",
+                   new { muteChoice = "cancel" }))
+        {
+            Assert.Equal(HttpStatusCode.OK, cancel.StatusCode);
+            using var body = await JsonAsync(cancel);
+            AssertSettings(body.RootElement, enabled: true, time: "22:00", mutedUntil: null, windowMin: 90,
+                activeDevices: 0);
+        }
+
+        await using var database = factory.OpenDatabase();
+        var row = await database.ReminderSettings.AsNoTracking().SingleAsync(CancellationToken.None);
+        Assert.Null(row.MutedUntil);
+        Assert.True(row.Enabled);
+    }
+
+    [Fact]
+    public async Task AMissingBodyIsRefusedOnBothWriteRoutes()
+    {
+        using var factory = new PushApplicationFactory(Now);
+        using var learner = await LoginAsync(factory, "learner");
+
+        foreach (var (method, path) in new[]
+                 {
+                     (HttpMethod.Put, "/api/learn/reminder"),
+                     (HttpMethod.Post, "/api/learn/notification-action")
+                 })
+        {
+            using var request = new HttpRequestMessage(method, path)
+            {
+                Content = new StringContent("null", Encoding.UTF8, "application/json")
+            };
+            request.Headers.Add("X-Palabras", "1");
+            using var response = await learner.SendAsync(request, CancellationToken.None);
+            await AssertErrorAsync(response, HttpStatusCode.BadRequest, "missing_body");
+        }
+
+        await using var database = factory.OpenDatabase();
+        Assert.Empty(await database.ReminderSettings.AsNoTracking().ToListAsync(CancellationToken.None));
+        Assert.Empty(await database.NotificationActions.AsNoTracking().ToListAsync(CancellationToken.None));
     }
 
     [Fact]
@@ -1142,22 +1269,64 @@ public sealed class M8PushApiTests
     }
 
     [Fact]
-    public async Task PushOffMeansReminderSettingsAndActionsAnswer503()
+    public async Task ReminderSettingsAreReadableAndWritableWhilePushIsOff()
     {
         using var factory = new PushApplicationFactory(Now, pushEnabled: false);
         using var learner = await LoginAsync(factory, "learner");
 
-        await AssertErrorAsync(await learner.GetAsync("/api/learn/reminder", CancellationToken.None),
-            HttpStatusCode.ServiceUnavailable, "push_disabled");
-        await AssertErrorAsync(await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder",
-            new { time = "21:00" }), HttpStatusCode.ServiceUnavailable, "push_disabled");
+        // A preference is honest while inert: the panel reads defaults and can store 21:30 before
+        // an operator enables push, without a restart in between.
+        using (var get = await learner.GetAsync("/api/learn/reminder", CancellationToken.None))
+        {
+            Assert.Equal(HttpStatusCode.OK, get.StatusCode);
+            using var body = await JsonAsync(get);
+            AssertSettings(body.RootElement, enabled: true, time: "22:00", mutedUntil: null, windowMin: 90,
+                activeDevices: 0);
+        }
+        using (var put = await SendAsync(learner, HttpMethod.Put, "/api/learn/reminder",
+                   new { time = "21:30", windowMin = 120 }))
+        {
+            Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+            using var body = await JsonAsync(put);
+            AssertSettings(body.RootElement, enabled: true, time: "21:30", mutedUntil: null, windowMin: 120,
+                activeDevices: 0);
+        }
+        // Only the action audit stays gated: it is produced by real notifications, and a delivery
+        // that never happened must not write into that table.
         await AssertErrorAsync(await SendAsync(learner, HttpMethod.Post, "/api/learn/notification-action",
             new { localDate = "2026-10-20", action = "open", result = "ok" }), HttpStatusCode.ServiceUnavailable,
             "push_disabled");
 
         await using var database = factory.OpenDatabase();
-        Assert.Empty(await database.ReminderSettings.AsNoTracking().ToListAsync(CancellationToken.None));
+        var row = await database.ReminderSettings.AsNoTracking().SingleAsync(CancellationToken.None);
+        Assert.Equal("21:30", row.ReminderTime);
+        Assert.Equal(120, row.SendWindowMin);
         Assert.Empty(await database.NotificationActions.AsNoTracking().ToListAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AKeyFileFaultCannotHideStoredReminderSettings()
+    {
+        // push_unavailable used to gate GET as well, so an unusable VAPID file hid a stored
+        // preference that no key is needed to read. Settings keep answering; only delivery is off.
+        using var factory = new PushApplicationFactory(Now, keyFileContent: "{ not a key file",
+            seed: database => database.ReminderSettings.Add(new ReminderSettings
+            {
+                UserId = 1, Enabled = false, ReminderTime = "21:30", MutedUntil = "2026-10-22",
+                SendWindowMin = 120, UpdatedAtMs = 1
+            }));
+        using var learner = await LoginAsync(factory, "learner");
+
+        using (var get = await learner.GetAsync("/api/learn/reminder", CancellationToken.None))
+        {
+            Assert.Equal(HttpStatusCode.OK, get.StatusCode);
+            using var body = await JsonAsync(get);
+            AssertSettings(body.RootElement, enabled: false, time: "21:30", mutedUntil: "2026-10-22",
+                windowMin: 120, activeDevices: 0);
+        }
+        await AssertErrorAsync(await SendAsync(learner, HttpMethod.Post, "/api/learn/notification-action",
+            new { localDate = "2026-10-20", action = "open", result = "ok" }), HttpStatusCode.ServiceUnavailable,
+            "push_unavailable");
     }
 
     [Fact]
@@ -1188,6 +1357,24 @@ public sealed class M8PushApiTests
     }
 
     // ---- helpers ----------------------------------------------------------
+
+    // A fingerprint no generated key can have, so a row carrying it is provably undeliverable.
+    private const string StaleKeyId = "0000000000000000";
+
+    // A pre-minted VAPID key file so a seeded subscription can carry the fingerprint the running
+    // app will load at startup; the app never mints a key a test could not predict.
+    private static (string Content, string KeyId) PreMintedKeyFile()
+    {
+        var keys = VapidKeyStore.Generate(TimeProvider.System);
+        var content = JsonSerializer.Serialize(new
+        {
+            V = 1,
+            PublicKey = keys.PublicKey,
+            PrivateKey = keys.PrivateKey,
+            CreatedAt = keys.CreatedAt.ToString("O", CultureInfo.InvariantCulture)
+        });
+        return (content, keys.KeyId);
+    }
 
     private static async Task AssertMuteAsync(HttpClient learner, string choice, string expected)
     {

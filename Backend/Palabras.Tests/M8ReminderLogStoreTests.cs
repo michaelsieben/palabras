@@ -129,7 +129,7 @@ public sealed class M8ReminderLogStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task SuppressDoesNotReplaceAClaimedSend()
+    public async Task SuppressDoesNotReplaceAClaimedSendAndTheClaimCanBeFinalisedAsSuppressed()
     {
         var settings = Seed();
 
@@ -142,8 +142,20 @@ public sealed class M8ReminderLogStoreTests : IDisposable
 
         Assert.False(suppressed.Claimed);
         Assert.Equal(claim.Row.Id, suppressed.Row.Id);
+        Assert.Equal("sending", (await database.ReminderLogs.AsNoTracking()
+            .SingleAsync(CancellationToken.None)).Result);
+
+        // The crash-after-claim + restart-after-windowEnd path (plan §2.4): the claimed day is
+        // finalised through CompleteAsync, which is now allowed to write a suppressed result.
+        var finalised = await ReminderLogStore.CompleteAsync(database, claim.Row.Id,
+            ReminderLogStore.WindowMissedResult, ttlSeconds: null, expiresAtMs: null, nowMs: NowMs + 120_000,
+            CancellationToken.None);
+
+        Assert.True(finalised);
         var row = await database.ReminderLogs.AsNoTracking().SingleAsync(CancellationToken.None);
-        Assert.Equal("sending", row.Result);
+        Assert.Equal("window_missed", row.Result);
+        Assert.Equal(NowMs, row.CreatedAtMs);
+        Assert.Equal(NowMs + 120_000, row.UpdatedAtMs);
     }
 
     [Fact]
@@ -180,10 +192,9 @@ public sealed class M8ReminderLogStoreTests : IDisposable
 
     [Theory]
     [InlineData("sending")]
-    [InlineData("window_missed")]
-    [InlineData("no_target")]
     [InlineData("nonsense")]
-    public async Task OnlyFinalResultsCanCompleteADecision(string result)
+    [InlineData("")]
+    public async Task OnlyDecidedResultsCanCompleteADecision(string result)
     {
         var settings = Seed();
 
@@ -194,6 +205,90 @@ public sealed class M8ReminderLogStoreTests : IDisposable
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => ReminderLogStore.CompleteAsync(database,
             claim.Row.Id, result, ttlSeconds: null, expiresAtMs: null, nowMs: NowMs, CancellationToken.None));
         Assert.Equal("sending", (await database.ReminderLogs.AsNoTracking().SingleAsync(CancellationToken.None)).Result);
+    }
+
+    [Theory]
+    [InlineData("sent")]
+    [InlineData("failed")]
+    [InlineData("gone")]
+    [InlineData("window_missed")]
+    [InlineData("no_target")]
+    public async Task EveryDecidedResultCanFinaliseAClaim(string result)
+    {
+        var settings = Seed();
+
+        await using var database = settings.CreateContext();
+        var claim = await ReminderLogStore.ClaimAsync(database, 1, Today, skipAvailable: true, ttlSeconds: 300,
+            expiresAtMs: NowMs + 300_000, nowMs: NowMs, CancellationToken.None);
+
+        Assert.True(await ReminderLogStore.CompleteAsync(database, claim.Row.Id, result, ttlSeconds: null,
+            expiresAtMs: null, nowMs: NowMs + 1, CancellationToken.None));
+        Assert.Equal(result, (await database.ReminderLogs.AsNoTracking()
+            .SingleAsync(CancellationToken.None)).Result);
+    }
+
+    [Fact]
+    public async Task ADecidedDayIsNeverRewritten()
+    {
+        var settings = Seed();
+
+        await using var database = settings.CreateContext();
+        var claim = await ReminderLogStore.ClaimAsync(database, 1, Today, skipAvailable: true, ttlSeconds: 300,
+            expiresAtMs: NowMs + 300_000, nowMs: NowMs, CancellationToken.None);
+        Assert.True(await ReminderLogStore.CompleteAsync(database, claim.Row.Id, ReminderLogStore.SentResult,
+            ttlSeconds: 120, expiresAtMs: NowMs + 120_000, nowMs: NowMs + 30_000, CancellationToken.None));
+
+        // Two ticks resume the same claim; plan §2.4 says any `sent` ⇒ `sent`, so the later
+        // finisher must report that it recorded nothing instead of downgrading the audit.
+        Assert.False(await ReminderLogStore.CompleteAsync(database, claim.Row.Id, ReminderLogStore.FailedResult,
+            ttlSeconds: 10, expiresAtMs: NowMs + 10_000, nowMs: NowMs + 60_000, CancellationToken.None));
+        // A suppressed result must not overwrite a decided send either.
+        Assert.False(await ReminderLogStore.CompleteAsync(database, claim.Row.Id,
+            ReminderLogStore.WindowMissedResult, ttlSeconds: null, expiresAtMs: null, nowMs: NowMs + 90_000,
+            CancellationToken.None));
+
+        var row = await database.ReminderLogs.AsNoTracking().SingleAsync(CancellationToken.None);
+        Assert.Equal("sent", row.Result);
+        Assert.Equal(120, row.TtlS);
+        Assert.Equal(NowMs + 30_000, row.UpdatedAtMs);
+    }
+
+    [Fact]
+    public async Task TwoTicksResumingTheSameClaimFinaliseItOnce()
+    {
+        var settings = Seed();
+
+        await using (var first = settings.CreateContext())
+        {
+            await ReminderLogStore.ClaimAsync(first, 1, Today, skipAvailable: true, ttlSeconds: 300,
+                expiresAtMs: NowMs + 300_000, nowMs: NowMs, CancellationToken.None);
+        }
+        await using var tickA = settings.CreateContext();
+        await using var tickB = settings.CreateContext();
+        // Both ticks resume today's claim (the row already exists, so neither is the creator); a
+        // resumed row is sendable because `Claimed` is not ownership, only `Result` decides.
+        var resumeA = await ReminderLogStore.ClaimAsync(tickA, 1, Today, skipAvailable: true, ttlSeconds: 300,
+            expiresAtMs: NowMs + 300_000, nowMs: NowMs + 1_000, CancellationToken.None);
+        var resumeB = await ReminderLogStore.ClaimAsync(tickB, 1, Today, skipAvailable: true, ttlSeconds: 300,
+            expiresAtMs: NowMs + 300_000, nowMs: NowMs + 1_000, CancellationToken.None);
+        Assert.False(resumeA.Claimed);
+        Assert.False(resumeB.Claimed);
+        Assert.Equal("sending", resumeA.Row.Result);
+        Assert.Equal("sending", resumeB.Row.Result);
+
+        // The finalisers are sequential here on purpose: SQLite's deferred write transactions turn
+        // a simultaneous second writer into SQLITE_BUSY, which is the caller's retry contract (U6),
+        // not this store's. What matters is that the transition is a single conditional UPDATE, so
+        // whichever finisher runs second changes zero rows instead of downgrading the first.
+        Assert.True(await ReminderLogStore.CompleteAsync(tickA, resumeA.Row.Id, ReminderLogStore.SentResult,
+            ttlSeconds: 120, expiresAtMs: NowMs + 120_000, nowMs: NowMs + 2_000, CancellationToken.None));
+        Assert.False(await ReminderLogStore.CompleteAsync(tickB, resumeB.Row.Id, ReminderLogStore.FailedResult,
+            ttlSeconds: 60, expiresAtMs: NowMs + 60_000, nowMs: NowMs + 2_000, CancellationToken.None));
+
+        await using var database = settings.CreateContext();
+        var row = await database.ReminderLogs.AsNoTracking().SingleAsync(CancellationToken.None);
+        Assert.Equal("sent", row.Result);
+        Assert.Single(await database.ReminderLogs.AsNoTracking().ToListAsync(CancellationToken.None));
     }
 
     [Theory]
