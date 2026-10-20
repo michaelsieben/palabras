@@ -58,6 +58,12 @@ const server = await preview({ preview: { host: testHost, port: testPort, strict
         res.setHeader('Content-Type', 'application/json')
         res.setHeader('Cache-Control', 'no-store')
         res.end(JSON.stringify(pushEnabled ? pushConfig : { error: 'push_disabled' }))
+      } else if (url.pathname === '/api/push/subscriptions') {
+        // The settings panel reads the signed-in device list on every app open. Serve it here
+        // so it never falls through to the proxy, which has no backend and answers 502.
+        res.setHeader('Content-Type', 'application/json')
+        res.setHeader('Cache-Control', 'no-store')
+        res.end(JSON.stringify({ items: [], truncated: false }))
       } else if (url.pathname.startsWith('/api/learn/')) {
         // The authenticated learner view (App.tsx:64 → LearnSession) resolves its queue from
         // the API, so the reveal control only exists once a plan is served. Fixtures mirror
@@ -150,6 +156,8 @@ try {
     assert.ok(responses.some(response => new URL(response.url).pathname === path && response.status === 200 && !response.worker), 'controlled reload received network 200 for ' + path)
   }
   assert.equal(new URL(page.url()).pathname, '/')
+  assert.ok(requests.slice(reloadRequestStart).some(request => request.path.startsWith('/api/push/subscriptions') && request.signedIn), 'controlled reload requested the signed-in device list')
+  assert.ok(responses.some(response => new URL(response.url).pathname === '/api/push/subscriptions' && response.status === 200 && !response.worker), 'controlled reload received network 200 for the device list')
   assert.deepEqual(failures, [])
   assert.deepEqual(pageErrors, [])
   assert.deepEqual(consoleLog.filter(message => message.type === 'error'), [])
