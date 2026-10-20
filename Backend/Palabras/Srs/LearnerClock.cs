@@ -29,6 +29,11 @@ internal sealed class LearnerClock
     public DateOnly LocalDateOf(DateTimeOffset utc) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(utc, _zone).DateTime);
 
+    // The local wall-clock instant of a UTC instant: what the M8 reminder planner compares a stored
+    // reminder time against. A pure function of the supplied instant, exactly like LocalDateOf, so a
+    // DST day reports the offset in effect at that instant and no second conversion exists.
+    public DateTimeOffset LocalTimeOf(DateTimeOffset utc) => TimeZoneInfo.ConvertTime(utc, _zone);
+
     public DateTimeOffset ClampReviewedAt(DateTimeOffset reviewedAt)
     {
         DateTimeOffset now = _timeProvider.GetUtcNow();

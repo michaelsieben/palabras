@@ -101,6 +101,11 @@ builder.Services.AddSingleton<IPushTransport>(services => new WebPushTransport(
 builder.Services.AddSingleton<PushSender>();
 builder.Services.AddSingleton<PushTestSender>();
 builder.Services.AddSingleton<PushTestCooldown>();
+// U6: the reminder trigger. One minute tick in-process (never a second container or a cron):
+// default-OFF with Push:Enabled, it reads day_status but never writes it, so the M7 gate stays
+// independent. The claim writer owns the BEGIN IMMEDIATE claim transaction and its busy retry.
+builder.Services.AddSingleton<ReminderClaimWriter>();
+builder.Services.AddHostedService<ReminderService>();
 // M3b council sync: one startup scan of committed bundles, propose bundles only (Q-M3-7). Missing
 // directory (the shipped default) is a successful no-op, so the app starts exactly as before.
 builder.Services.AddSingleton(ContentSyncSettings.FromConfiguration(builder.Configuration));
