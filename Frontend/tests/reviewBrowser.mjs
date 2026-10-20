@@ -250,9 +250,16 @@ try {
       const source = scope === 'approved' ? fixture.approved : fixture.rejected
       source[0].version = 9
       fixture.outcome = () => 'stale_version'
+      const sentBefore = fixture.sent.length
       await page.getByRole('button', { name: actionLabel, exact: true }).click()
+      // `outcome` is read when the request is served, not when the click happens. Let this decision
+      // be acknowledged before arming the next outcome: the panel is deliberately non-actionable
+      // while a decision is in flight, and a decision served as `duplicate` correctly replaces the
+      // action with a row. Waiting proves the stale row is discarded and the refresh reached v9.
+      await expect.poll(() => fixture.sent.length, { timeout: 5000 }).toBe(sentBefore + 1)
+      await expect(page.locator('.review-row-status')).toHaveCount(0)
       await expect(page.getByRole('article')).toContainText('versión 9')
-      await expect(page.getByRole('button', { name: actionLabel, exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: actionLabel, exact: true })).toBeEnabled()
       fixture.outcome = () => 'duplicate'
       await page.getByRole('button', { name: actionLabel, exact: true }).click()
       await expect(page.getByRole('article')).toContainText('Decisión ya confirmada')
