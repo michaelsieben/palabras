@@ -129,6 +129,14 @@ fieldset { border: 0; margin: 0; padding: 0; }
 .bottom-nav a { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 10px 8px; border-radius: 12px; text-decoration: none; font-weight: 550; color: var(--muted); }
 .bottom-nav [aria-current=page] { background: var(--soft); color: var(--accent); }
 .settings { max-width: 42rem; }
+.settings-stack { display: grid; gap: 20px; max-width: 42rem; }
+.reminder-panel form { margin-block: 24px; padding-block: 20px; border-block: 1px solid var(--line); }
+.reminder-panel h3 { margin-top: 24px; font-size: 1.1rem; }
+.reminder-devices { list-style: none; padding: 0; }
+.reminder-devices li { display: grid; gap: 6px; padding: 16px; background: var(--soft); border-radius: 12px; }
+.reminder-devices span { font-size: .875rem; overflow-wrap: anywhere; }
+.mute-choices { display: grid; gap: 12px; }
+.mute-choices button { text-align: left; }
 .build-info { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px; }
 .build-info h3 { font-size: .95rem; margin: 0 0 8px; }
 .build-info dl { display: grid; gap: 4px; margin: 0; font-size: .8rem; }

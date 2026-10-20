@@ -107,7 +107,22 @@ export function installPushHandlers() {
     })())
   })
   self.addEventListener('pushsubscriptionchange', event => {
-    event.waitUntil((async () => {
+    const heal = async () => {
+      // Same durable device flag and Web Lock as the settings surface. Fail closed
+      // if browser storage/locks are unavailable; app-open resync can retry later.
+      const optedOut = await new Promise((resolve, reject) => {
+        const request = indexedDB.open('palabras-push-device', 1)
+        request.onupgradeneeded = () => request.result.createObjectStore('rows', { keyPath: 'id' })
+        request.onerror = request.onblocked = () => reject(new Error('Push device storage unavailable'))
+        request.onsuccess = () => {
+          const db = request.result
+          const tx = db.transaction('rows', 'readonly')
+          const value = tx.objectStore('rows').get('opt-out')
+          tx.oncomplete = () => { resolve(value.result?.optedOut === true); db.close() }
+          tx.onerror = tx.onabort = () => { db.close(); reject(new Error('Push device storage failed')) }
+        }
+      })
+      if (optedOut) return
       // Only heal an existing subscription, never create initial opt-in from a worker event.
       if (!event.oldSubscription && !event.newSubscription) return
       const response = await fetch('/api/push/config', readOptions)
@@ -119,7 +134,7 @@ export function installPushHandlers() {
       const base64 = config.publicKey.replaceAll('-', '+').replaceAll('_', '/')
       const decoded = atob(base64 + '='.repeat((4 - base64.length % 4) % 4))
       const key = Uint8Array.from(decoded, character => character.charCodeAt(0))
-      const supplied = event.newSubscription
+      const supplied = event.newSubscription ?? await self.registration.pushManager.getSubscription()
       const suppliedKey = supplied?.options?.applicationServerKey
       const matchesKey = suppliedKey && new Uint8Array(suppliedKey).length === key.length
         && new Uint8Array(suppliedKey).every((byte, index) => byte === key[index])
@@ -128,8 +143,14 @@ export function installPushHandlers() {
       const serialized = subscription.toJSON()
       await fetch('/api/push/subscription', jsonRequest('PUT', {
         endpoint: serialized.endpoint, keys: serialized.keys, keyId: config.keyId,
-        replacesEndpoint: event.oldSubscription?.endpoint, reactivate: true,
+        replacesEndpoint: event.oldSubscription?.endpoint,
       }))
+    }
+    // A passive event must never resurrect a revoked server row. Only an explicit
+    // Activar/Sincronizar click sends reactivate:true from the SPA outbox.
+    event.waitUntil((async () => {
+      if (!event.oldSubscription && !event.newSubscription) return
+      await navigator.locks.request('palabras-push-device', heal)
     })().catch(() => { /* Chrome may never emit this; authenticated app-open resync heals later. */ }))
   })
 }

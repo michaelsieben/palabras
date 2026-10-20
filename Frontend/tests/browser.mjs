@@ -26,6 +26,7 @@ async function mockSession(context) {
   const identity = { username: 'demo', role: 'owner' }
   await context.route('**/api/auth/me', route => route.fulfill({ json: identity }))
   await context.route('**/api/learn/**', route => fulfillLearn(route))
+  await context.route('**/api/push/**', route => route.fulfill({ status: 503, json: { error: 'push_disabled' } }))
   const review = reviewBrowserFixture({ pending: [reviewWord(1, { alternatives: [{ id: 10, field: 'gloss', text: 'potatoes (as a dish)', reason: 'Prepared alternative' }] }), reviewWord(2)] })
   await context.route('**/api/review/**', route => review.fulfill(route))
   return identity
@@ -50,6 +51,7 @@ try {
   await authContext.route('**/api/**', async route => {
     const request = route.request()
     const path = new URL(request.url()).pathname
+    if (path.startsWith('/api/push/')) return route.fulfill({ status: 503, json: { error: 'push_disabled' } })
     if (path.startsWith('/api/learn/')) return fulfillLearn(route)
     if (path.startsWith('/api/review/')) return authReview.fulfill(route)
     if (request.method() !== 'GET') assert.equal(request.headers()['x-palabras'], '1')
@@ -228,7 +230,7 @@ try {
     assert.deepEqual(errors, [])
     // Two online app loads; both offline navigations serve signed-out-neutral fallback.
     assert.equal(apiRequests.filter(request => request.pathname === '/api/auth/me').length, 2)
-    assert.ok(apiRequests.every(request => request.pathname.startsWith('/api/learn/') || request.pathname.startsWith('/api/review/') || (request.method === 'GET' && request.pathname === '/api/auth/me')))
+    assert.ok(apiRequests.every(request => request.pathname.startsWith('/api/learn/') || request.pathname.startsWith('/api/review/') || (request.method === 'GET' && ['/api/auth/me', '/api/push/config'].includes(request.pathname))))
     console.log(JSON.stringify({ viewport, learner, grading, reviewer, drawer, textScale200: scaled, offlineNavigation: 'neutral fallback', revealFocus: 'ok', editAlternative: 'ok', pageErrors: errors, apiRequests }))
     await context.close()
   }

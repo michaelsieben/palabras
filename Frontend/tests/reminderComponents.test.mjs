@@ -1,0 +1,69 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { runInNewContext } from 'node:vm'
+import ts from 'typescript'
+import { ApiError } from '../src/api/client.ts'
+import * as api from '../src/push/api.ts'
+import { permissionCopy } from '../src/push/pushClient.ts'
+
+// Real TSX handlers and virtual tree, not a rendered browser or device proof.
+function component(file, apiOverrides = {}) {
+  const state = []; let i = 0
+  const jsx = (type, props) => ({ type, props })
+  const react = { useState(initial) { const n = i++; if (!(n in state)) state[n] = typeof initial === 'function' ? initial() : initial; return [state[n], value => { state[n] = value }] }, useEffect() {} }
+  const source = ts.transpileModule(readFileSync(new URL(file, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
+  const exports = {}
+  runInNewContext(source, { exports, require: name => ({ react, 'react/jsx-runtime': { jsx, jsxs: jsx }, '../api/client': { ApiError }, './api': { ...api, ...apiOverrides }, './pushClient': { permissionCopy } })[name], Date, Math, FormData })
+  return fn => { i = 0; return fn(exports) }
+}
+function nodes(t) { return Array.isArray(t) ? t.flatMap(nodes) : t && typeof t === 'object' ? [t, ...nodes(t.props?.children)] : [] }
+function text(t) { return Array.isArray(t) ? t.map(text).join('') : t && typeof t === 'object' ? text(t.props?.children) : t == null || t === false ? '' : String(t) }
+const button = (tree, label) => nodes(tree).find(n => n.type === 'button' && text(n) === label)
+const tick = () => new Promise(resolve => setImmediate(resolve))
+function model(state = 'subscribed', availability = { kind: 'available', config: { publicKey: 'k', keyId: 'id' } }) {
+  return { reminder: { enabled: true, time: '22:00', mutedUntil: null, windowMin: 90, activeDevices: 0 }, availability, device: { state, endpoint: state === 'subscribed' ? 'https://push.test/device' : null }, error: '', outbox: { pending: 0, rejected: 0, error: false, lastState: '', reason: '' }, client: { sync: async () => {}, optOut: async () => {} }, queue: { enqueue: async () => {}, trigger() {} }, refresh: async () => {} }
+}
+for (const reason of ['push_disabled', 'push_unavailable']) test(`503 ${reason}: no disponible, never zero devices; preferences remain accessible`, () => {
+  const render = component('../src/push/ReminderPanel.tsx'); const m = model('subscribed', { kind: 'unavailable', reason })
+  const tree = render(e => e.ReminderPanel({ model: m, navigate() {} }))
+  assert.match(text(tree), /Recordatorios no disponibles/)
+  assert.doesNotMatch(text(tree), /0 dispositivos pueden/)
+  assert.equal(button(tree, 'Enviar prueba').props.disabled, true)
+  assert.equal(button(tree, 'Sincronizar este dispositivo'), undefined)
+  assert.ok(button(tree, 'Guardar preferencias'))
+})
+for (const state of ['unsupported', 'default', 'denied', 'granted-unsubscribed', 'subscribed', 'opted-out']) test(`UI permission ${state} presents honest explanation and action`, () => {
+  const render = component('../src/push/ReminderPanel.tsx'); const m = model(state)
+  const tree = render(e => e.ReminderPanel({ model: m, navigate() {} }))
+  assert.ok(text(tree).includes(permissionCopy[state]))
+  if (['unsupported', 'denied'].includes(state)) assert.equal(button(tree, 'Activar recordatorio'), undefined)
+  else assert.ok(button(tree, state === 'subscribed' ? 'Sincronizar este dispositivo' : 'Activar recordatorio'))
+  if (state === 'denied') assert.match(text(tree), /Información del sitio.*Notificaciones.*Permitir/)
+})
+test('test button gets 429 cooldown, no success claim; 503 receives honest no-disponible message', async () => {
+  let status = 429
+  const render = component('../src/push/ReminderPanel.tsx', { sendTest: async () => { throw new ApiError('http', status, {}, '45') } })
+  const m = model(); const view = () => render(e => e.ReminderPanel({ model: m, navigate() {} }))
+  button(view(), 'Enviar prueba').props.onClick(); await tick()
+  assert.match(text(view()), /Demasiadas pruebas/)
+  assert.equal(button(view(), 'Reintentar prueba en 45 s').props.disabled, true)
+  status = 503
+  // Invoke original handler directly to exercise server 503 even before a config refresh.
+  const second = component('../src/push/ReminderPanel.tsx', { sendTest: async () => { throw new ApiError('http', 503) } })
+  const view2 = () => second(e => e.ReminderPanel({ model: m, navigate() {} }))
+  button(view2(), 'Enviar prueba').props.onClick(); await tick()
+  assert.match(text(view2()), /Prueba no disponible/)
+})
+test('mute sheet queues each exclusive shortcut; cancel one write, back/change-time no mutation', async () => {
+  const writes = []; const navigations = []; const m = model()
+  m.queue.enqueue = async mutation => writes.push(mutation)
+  const render = component('../src/push/MuteSheet.tsx'); const view = () => render(e => e.MuteSheet({ model: m, navigate: p => navigations.push(p) }))
+  for (const [label, choice] of [['Hasta mañana (mañana incluido)', 'tomorrow'], ['Pausar 3 días', '3d'], ['Pausar 7 días', '7d'], ['Desactivar en toda la cuenta', 'disable'], ['Cancelar silencio y reanudar', 'cancel']]) {
+    button(view(), label).props.onClick(); await tick()
+    assert.deepEqual(JSON.parse(JSON.stringify(writes.at(-1))), { kind: 'reminder', body: { muteChoice: choice } })
+  }
+  button(view(), 'Cambiar hora').props.onClick(); button(view(), 'Volver sin cambios').props.onClick()
+  assert.equal(writes.length, 5); assert.deepEqual(navigations, ['/ajustes', '/ajustes'])
+  assert.match(text(view()), /Silenciar no salta el día/)
+})

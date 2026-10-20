@@ -4,13 +4,15 @@ export class ApiError extends Error {
   readonly kind: ApiErrorKind
   readonly status: number | undefined
   readonly body: unknown
+  readonly retryAfter: string | null
 
-  constructor(kind: ApiErrorKind, status?: number, body?: unknown) {
+  constructor(kind: ApiErrorKind, status?: number, body?: unknown, retryAfter: string | null = null) {
     super(`API: ${kind}`)
     this.name = 'ApiError'
     this.kind = kind
     this.status = status
     this.body = body
+    this.retryAfter = retryAfter
   }
 }
 
@@ -44,7 +46,7 @@ export async function apiRequest(path: `/api/${string}`, init: RequestInit = {})
       if (response.ok) throw new ApiError('invalid-response', response.status)
     }
   }
-  if (!response.ok) throw new ApiError(response.status === 401 ? 'unauthorized' : response.status === 403 ? 'forbidden' : 'http', response.status, body)
+  if (!response.ok) throw new ApiError(response.status === 401 ? 'unauthorized' : response.status === 403 ? 'forbidden' : 'http', response.status, body, response.headers.get('Retry-After'))
   return body
 }
 

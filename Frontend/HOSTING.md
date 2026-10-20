@@ -19,7 +19,7 @@ app.UseStaticFiles(new StaticFileOptions
 });
 ```
 
-If the host uses `MapStaticAssets` instead, apply equivalent response headers to those endpoints before response start. Ensure `.webmanifest` is served as `application/manifest+json` and `/sw.js` as JavaScript, never SPA fallback HTML. Routes `/login`, `/`, `/sesion`, `/palabras`, `/revisar`, `/aprobadas`, `/ajustes` need the usual SPA fallback to `index.html`; `/login` must remain public. Do not apply SPA fallback to `/api/*`.
+If the host uses `MapStaticAssets` instead, apply equivalent response headers to those endpoints before response start. Ensure `.webmanifest` is served as `application/manifest+json` and `/sw.js` as JavaScript, never SPA fallback HTML. Routes `/login`, `/`, `/sesion`, `/palabras`, `/revisar`, `/aprobadas`, `/ajustes`, `/ajustes/recordatorio` need the usual SPA fallback to `index.html`; `/login` must remain public. Do not apply SPA fallback to `/api/*`.
 
 Production acceptance: request `/sw.js` and `/manifest.webmanifest` directly from app and through HTTPS nginx; both must respond with `Cache-Control: no-cache`. This is outstanding until the backend owner integrates and verifies it.
 

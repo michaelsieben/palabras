@@ -13,16 +13,24 @@ const subscription = (endpoint = 'https://push.test/new', key = keyBytes) => ({
 })
 const daily = { v: 1, kind: 'daily', localDate: '2026-10-20', expiresAt: '2099-10-20T21:30:00Z', streak: 12, skipAvailable: true, url: '/?start=1' }
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status })
-function harness({ maxActions = 2, fetcher, windows = [], subscribeError, displayError, source = workerSource('push-test', []) } = {}) {
+function harness({ maxActions = 2, fetcher, windows = [], subscribeError, displayError, optedOut = false, existing = null, source = workerSource('push-test', []) } = {}) {
   const events = {}; const notifications = []; const requests = []; const opened = []; const subscribed = []
   const context = createContext({
     URL, Response, Uint8Array, atob, Notification: { maxActions },
+    navigator: { locks: { request: async (name, work) => { assert.equal(name, 'palabras-push-device'); return work() } } },
+    indexedDB: { open: () => {
+      const request = { result: { close() {}, transaction: () => {
+        const tx = { objectStore: () => ({ get: () => ({ result: { optedOut } }) }) }
+        queueMicrotask(() => tx.oncomplete()); return tx
+      } } }
+      queueMicrotask(() => request.onsuccess()); return request
+    } },
     self: {
       location: { origin: 'https://palabras.test' },
       addEventListener: (name, handler) => { events[name] = handler },
       registration: {
         showNotification: async (title, options) => { if (displayError) throw new Error('denied'); notifications.push({ title, ...structuredClone(options) }) },
-        pushManager: { subscribe: async options => { subscribed.push(options); if (subscribeError) throw new Error('denied'); return subscription() } },
+        pushManager: { getSubscription: async () => existing, subscribe: async options => { subscribed.push(options); if (subscribeError) throw new Error('denied'); return subscription() } },
       },
       clients: {
         matchAll: async options => { assert.equal(options.type, 'window'); assert.equal(options.includeUncontrolled, true); return windows },
@@ -56,7 +64,7 @@ test('actual built worker executes all three push handlers without bundler-only 
   const h = harness({ source })
   await h.push(daily); await h.click(); await h.dispatch('pushsubscriptionchange', { oldSubscription: subscription() })
   assert.equal(h.notifications.length, 1); assert.equal(h.opened.length, 1)
-  assert.equal(JSON.parse(h.requests.at(-1).body).reactivate, true)
+  assert.equal(JSON.parse(h.requests.at(-1).body).reactivate, undefined)
 })
 
 test('daily push renders factual Spanish copy, stable tag, silent replacement and deep-link data', async () => {
@@ -166,7 +174,7 @@ test('skip 401 opens login next=/ajustes and records unauthenticated', async () 
   assert.deepEqual(h.notifications, []); assert.equal(JSON.parse(h.requests.at(-1).body).result, 'unauthenticated')
 })
 
-test('subscription change decodes VAPID key, re-subscribes and PUTs reactivate:true with replaced endpoint', async () => {
+test('subscription change decodes VAPID key and resyncs without explicit reactivation', async () => {
   const h = harness()
   await h.dispatch('pushsubscriptionchange', { oldSubscription: subscription('https://push.test/old') })
   assert.equal(h.subscribed.length, 1); assert.equal(h.subscribed[0].userVisibleOnly, true)
@@ -174,18 +182,32 @@ test('subscription change decodes VAPID key, re-subscribes and PUTs reactivate:t
   const write = h.requests.at(-1); assert.equal(write.url, '/api/push/subscription'); assert.equal(write.method, 'PUT')
   assert.deepEqual(JSON.parse(write.body), {
     endpoint: 'https://push.test/new', keys: { p256dh: 'device-key', auth: 'device-auth' },
-    keyId: 'key-id', replacesEndpoint: 'https://push.test/old', reactivate: true,
+    keyId: 'key-id', replacesEndpoint: 'https://push.test/old',
   })
 })
 
 test('subscription change uses matching browser-provided subscription, rotates mismatched key', async () => {
   const h = harness()
   await h.dispatch('pushsubscriptionchange', { oldSubscription: subscription('https://push.test/old'), newSubscription: subscription() })
-  assert.deepEqual(h.subscribed, []); assert.equal(JSON.parse(h.requests.at(-1).body).reactivate, true)
+  assert.deepEqual(h.subscribed, []); assert.equal(JSON.parse(h.requests.at(-1).body).reactivate, undefined)
   let unsubscribed = false
   const rotated = { ...subscription('https://push.test/rotated', new Uint8Array([1])), unsubscribe: async () => { unsubscribed = true } }
   await h.dispatch('pushsubscriptionchange', { oldSubscription: subscription(), newSubscription: rotated })
   assert.equal(unsubscribed, true); assert.equal(h.subscribed.length, 1)
+})
+
+test('durable per-device opt-out stops worker healing before any fetch or subscribe', async () => {
+  const h = harness({ optedOut: true })
+  await h.dispatch('pushsubscriptionchange', { oldSubscription: subscription(), newSubscription: subscription() })
+  assert.deepEqual(h.requests, []); assert.deepEqual(h.subscribed, [])
+})
+test('missing browser event subscription heals an existing mismatched local key', async () => {
+  let unsubscribed = false
+  const existing = { ...subscription('https://push.test/old', new Uint8Array([1])), unsubscribe: async () => { unsubscribed = true } }
+  const h = harness({ existing })
+  await h.dispatch('pushsubscriptionchange', { oldSubscription: existing })
+  assert.equal(unsubscribed, true); assert.equal(h.subscribed.length, 1)
+  assert.equal(JSON.parse(h.requests.at(-1).body).reactivate, undefined)
 })
 
 test('signed-out, reviewer, push-off config responses are quiet no-ops with no subscription write', async () => {
