@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../api/client'
-import { retryDeadline, sendTest, windowCopy } from './api'
+import { deviceLabel, deviceStateCopy, retryDeadline, sendTest, windowCopy } from './api'
 import { permissionCopy } from './pushClient'
 import type { ReminderModel } from './useReminder'
 
@@ -43,7 +43,6 @@ export function ReminderPanel({ model, navigate }: { model: ReminderModel; navig
     <p>{permissionCopy[device.state]}</p>
     <div className="answer-buttons">
       {availability.kind === 'available' && !['unsupported', 'denied'].includes(device.state) && <button className="primary" disabled={busy} onClick={() => void action(() => model.client!.sync(availability, true))}>{device.state === 'subscribed' ? 'Sincronizar este dispositivo' : 'Activar recordatorio'}</button>}
-      {device.endpoint && device.state !== 'opted-out' && <button disabled={busy} onClick={() => void action(() => model.client!.optOut(), 'Este dispositivo queda desactivado. La baja del servidor se enviará al reconectar.')}>Desactivar en este dispositivo</button>}
       <button disabled={busy} onClick={() => void model.refresh()}>Comprobar disponibilidad</button>
     </div>
     {reminder && <form key={`${reminder.enabled}:${reminder.time}`} onSubmit={event => {
@@ -60,10 +59,19 @@ export function ReminderPanel({ model, navigate }: { model: ReminderModel; navig
     {reminder?.mutedUntil && <p className="note">Silenciado hasta el {reminder.mutedUntil}, incluido. Después se reanuda si tu cuenta sigue activada.</p>}
     <div className="answer-buttons"><button onClick={() => navigate('/ajustes/recordatorio')}>Silenciar o reanudar</button><button disabled={busy || waiting > 0 || availability.kind !== 'available' || device.state !== 'subscribed' || outbox.pending > 0 || !device.endpoint} onClick={() => void test()}>{waiting ? `Reintentar prueba en ${waiting} s` : 'Enviar prueba'}</button></div>
     <h3>Dispositivos</h3>
-    <ul className="reminder-devices"><li><strong>Este dispositivo</strong><span>state: {device.state === 'opted-out' ? 'revoked' : outbox.lastState || (device.endpoint ? 'sin confirmar' : 'sin suscripción')}</span><span>{permissionCopy[device.state]}</span></li></ul>
-    <p className="secondary-text">El servidor solo ofrece el total de dispositivos disponibles, no sus nombres ni sus estados individuales. Esta lista muestra el dispositivo actual; no es una lista completa de tu cuenta.</p>
+    {model.devicesError && <p role="alert">{model.devicesError}</p>}
+    {model.devices ? <>
+      <ul className="reminder-devices">{model.devices.items.map(row => <li key={row.id}>
+        <strong>{deviceLabel(row, navigator.userAgent)}{row.isCurrent ? ' — Este dispositivo' : ''}</strong>
+        <span>{deviceStateCopy(row)}</span>
+        {availability.kind === 'available' && <button disabled={busy || outbox.pending > 0 || (row.state === 'rejected' && row.lastStatus === null)} aria-label={`Desactivar dispositivo ${row.id}${row.isCurrent ? ' (este dispositivo)' : ''}`} onClick={() => void action(() => model.revoke(row), 'Baja guardada; pendiente de confirmación del servidor. La lista se actualizará al confirmar.')}>Desactivar</button>}
+      </li>)}</ul>
+      {!model.devices.items.length && availability.kind === 'available' && <p>No hay suscripciones guardadas en tu cuenta.</p>}
+      {model.devices.truncated && <p className="note">Se muestran los primeros 50 dispositivos. Hay más suscripciones guardadas en tu cuenta.</p>}
+      <p className="secondary-text">Al volver a activar tras una baja local, aparece una nueva suscripción. La anterior permanece desactivada.</p>
+    </> : !model.devicesError && <p role="status">Comprobando los dispositivos guardados…</p>}
     {outbox.storageError ? <p role="alert">No se puede leer el almacenamiento de este dispositivo. No se puede confirmar qué cambios están guardados. Reintenta antes de cerrar la app.</p> : (outbox.pending > 0 || outbox.error) && <p className="note" role="status">{outbox.pending} cambios guardados, pendientes de envío. Se reintentarán al reconectar.<button onClick={model.queue?.trigger}>Reintentar envío</button></p>}
-    {outbox.rejected > 0 && <p role="alert">Un cambio no se pudo aplicar ({outbox.reason}). Si la suscripción fue revocada o cambió la clave, pulsa Activar o Sincronizar explícitamente.</p>}
+    {outbox.rejected > 0 && <p role="alert">Un cambio no se pudo aplicar ({outbox.reason}). Los dispositivos muestran el último estado confirmado del servidor. Comprueba la conexión y vuelve a intentarlo; para reactivar una suscripción, pulsa Activar o Sincronizar explícitamente.</p>}
     <p role="status">{message}</p>{failure && <p className="auth-error" role="alert">{failure}</p>}
   </section>
 }

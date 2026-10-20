@@ -5,6 +5,20 @@ export type MuteChoice = 'tomorrow' | '3d' | '7d' | 'disable' | 'cancel'
 // Shortcuts are exclusive with enabled/mutedUntil: cancel clears the mute in one write.
 export type ReminderWrite = { muteChoice: MuteChoice; enabled?: never; mutedUntil?: never } | { enabled?: boolean; time?: string; windowMin?: number; mutedUntil?: string | null; muteChoice?: never }
 export type PushConfig = { publicKey: string; keyId: string }
+export type PushDevice = { id: number; deviceLabel: string | null; state: 'active' | 'stale_key' | 'rejected'; lastStatus: number | null; createdAtMs: number; updatedAtMs: number; isCurrent: boolean }
+export type DeviceList = { items: PushDevice[]; truncated: boolean }
+export function parseDevices(body: unknown): DeviceList {
+  const list = body as DeviceList | null
+  if (!list || !Array.isArray(list.items) || list.items.length > 50 || typeof list.truncated !== 'boolean' || list.items.some(d => !d || !Number.isSafeInteger(d.id) || d.id <= 0 || (d.deviceLabel !== null && typeof d.deviceLabel !== 'string') || !['active', 'stale_key', 'rejected'].includes(d.state) || (d.lastStatus !== null && !Number.isInteger(d.lastStatus)) || !Number.isSafeInteger(d.createdAtMs) || !Number.isSafeInteger(d.updatedAtMs) || typeof d.isCurrent !== 'boolean')) throw new ApiError('invalid-response')
+  return list
+}
+export const getDevices = async (currentId: number | null) => parseDevices(await apiRequest(currentId === null ? '/api/push/subscriptions' : `/api/push/subscriptions?currentId=${currentId}`))
+export function deviceStateCopy(device: PushDevice): string {
+  return device.state === 'active' ? 'Activo con la clave actual' : device.state === 'stale_key' ? 'Necesita volver a suscribirse' : device.lastStatus === null ? 'Desactivado' : 'Rechazado por el servicio de notificaciones'
+}
+export function deviceLabel(device: PushDevice, userAgent: string): string {
+  return device.deviceLabel ?? (device.isCurrent ? userAgent.slice(0, 60) || 'Este dispositivo' : 'Dispositivo')
+}
 export type Availability = { kind: 'available'; config: PushConfig } | { kind: 'unavailable'; reason: 'push_disabled' | 'push_unavailable' } | { kind: 'unknown' }
 export type SubscriptionWrite = { endpoint: string; keys: { p256dh: string; auth: string }; keyId: string; replacesEndpoint?: string; reactivate?: true }
 export function parseReminder(body: unknown): Reminder {

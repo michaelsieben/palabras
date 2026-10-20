@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { ApiError, apiRequest } from '../src/api/client.ts'
-import { getAvailability, parseReminder, retryDeadline, sendTest, windowCopy } from '../src/push/api.ts'
+import { getAvailability, getDevices, parseDevices, parseReminder, retryDeadline, sendTest, windowCopy } from '../src/push/api.ts'
 import { createPushClient, permissionState } from '../src/push/pushClient.ts'
-import { createPushQueue } from '../src/push/outbox.ts'
+import { createPushQueue, sendMutation } from '../src/push/outbox.ts'
 import { consumeStart, loginDestination, routeAccess } from '../src/routeAccess.ts'
 
 const bytes = new Uint8Array([4, ...Array.from({ length: 64 }, (_, i) => i)])
@@ -144,4 +144,62 @@ test('login preserves only known mute/start handoffs; start flag consumed once; 
   for (const target of ['//evil.test/?start=1', '/login?next=/?start=1', '/ajustes/recordatorio?url=https://evil.test']) assert.equal(loginDestination('?next=' + encodeURIComponent(target), owner), '/')
   assert.equal(consumeStart('?start=1'), '/'); assert.equal(consumeStart(''), null)
   assert.equal(routeAccess('/ajustes/recordatorio', reviewer), 'forbidden')
+})
+test('list fetch uses only acknowledged currentId and validates three states/truncated', async t => {
+  const list = { items: ['active', 'stale_key', 'rejected'].map((state, i) => ({ id: i + 1, deviceLabel: null, state, lastStatus: null, createdAtMs: 1, updatedAtMs: 2, isCurrent: i === 0 })), truncated: true }
+  const urls = []
+  t.mock.method(globalThis, 'fetch', async url => { urls.push(url); return Response.json(list) })
+  assert.deepEqual(await getDevices(42), list)
+  assert.deepEqual(await getDevices(null), list)
+  assert.deepEqual(urls, ['/api/push/subscriptions?currentId=42', '/api/push/subscriptions'])
+  assert.throws(() => parseDevices({ ...list, truncated: undefined }), /invalid-response/)
+  assert.throws(() => parseDevices({ ...list, items: [{ ...list.items[0], state: 'revoked' }] }), /invalid-response/)
+})
+test('per-id revoke sends bodyless DELETE with CSRF header and accepts empty 204', async t => {
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    assert.equal(url, '/api/push/subscriptions/12'); assert.equal(init.method, 'DELETE')
+    assert.equal(init.headers.get('X-Palabras'), '1'); assert.equal(init.body, undefined)
+    return new Response(null, { status: 204 })
+  })
+  assert.equal(await sendMutation({ kind: 'revoke', body: { id: 12, current: false } }), undefined)
+})
+test('current per-id opt-out persists and queues before browser unsubscribe; remote revoke never touches browser', async () => {
+  const h = environment({ subscribed: true }); await h.client.optOut(12)
+  assert.deepEqual(h.calls, ['flag:true', 'enqueue', 'unsubscribe'])
+  assert.deepEqual(h.writes, [{ kind: 'revoke', body: { id: 12, current: true } }])
+  const q = createPushQueue(store(), { online: () => true, send: async () => undefined })
+  await q.enqueue({ kind: 'revoke', body: { id: 13, current: false } }); q.start(); await q.flush(); q.stop()
+  assert.deepEqual(h.calls, ['flag:true', 'enqueue', 'unsubscribe'])
+})
+test('acknowledged PUT id survives reload and subsequent revoke; resubscribe replaces identity with new row id', async () => {
+  const storage = store(); let id = 7
+  const q = createPushQueue(storage, { online: () => true, send: async row => row.kind === 'subscribe' ? { id, state: 'active' } : undefined })
+  const subscribe = { kind: 'subscribe', body: { endpoint: 'e', keys: { p256dh: 'p', auth: 'a' }, keyId: 'k' } }
+  await q.enqueue(subscribe); q.start(); await q.flush()
+  assert.equal(q.getSnapshot().currentId, 7)
+  await q.enqueue({ kind: 'revoke', body: { id: 7, current: true } }); await q.flush(); q.stop()
+  const reloaded = createPushQueue(storage, { online: () => false }); reloaded.start(); await reloaded.flush(); reloaded.stop()
+  assert.equal(reloaded.getSnapshot().currentId, 7)
+  id = 8; await q.enqueue({ ...subscribe, body: { ...subscribe.body, endpoint: 'new', reactivate: true } }); q.start(); await q.flush(); q.stop()
+  assert.equal(q.getSnapshot().currentId, 8); assert.equal(q.getSnapshot().lastState, 'active')
+})
+test('silent subscribe 409 revoked is off/explicit-click state, not rejected error and not retried', async () => {
+  let calls = 0
+  const q = createPushQueue(store(), { online: () => true, send: async () => { calls++; throw new ApiError('http', 409, { error: 'revoked' }) } })
+  await q.enqueue({ kind: 'subscribe', body: { endpoint: 'e', keys: { p256dh: 'p', auth: 'a' }, keyId: 'k' } }); q.start(); await q.flush(); await q.flush(); q.stop()
+  assert.equal(calls, 1); assert.equal(q.getSnapshot().lastState, 'revoked'); assert.equal(q.getSnapshot().rejected, 0); assert.equal(q.getSnapshot().pending, 0)
+})
+for (const reason of ['push_disabled', 'push_unavailable']) test(`revoke 503 ${reason} stops replay and maps server availability, not generic failure`, async () => {
+  let calls = 0
+  const q = createPushQueue(store(), { online: () => true, send: async () => { calls++; throw new ApiError('http', 503, { error: reason }) } })
+  await q.enqueue({ kind: 'revoke', body: { id: 1, current: false } }); q.start(); await q.flush(); await q.flush(); q.stop()
+  assert.equal(calls, 1); assert.equal(q.getSnapshot().unavailable, reason); assert.equal(q.getSnapshot().rejected, 0); assert.equal(q.getSnapshot().pending, 0)
+})
+test('failed revoke stays pending offline/network; 404 remains visible rather than looking successful', async () => {
+  for (const status of [undefined, 404]) {
+    const q = createPushQueue(store(), { online: () => true, send: async () => { throw new ApiError(status ? 'http' : 'network', status, { error: 'subscription_not_found' }) } })
+    await q.enqueue({ kind: 'revoke', body: { id: 1, current: false } }); q.start(); await q.flush(); q.stop()
+    assert.equal(q.getSnapshot().pending, status ? 0 : 1); assert.equal(q.getSnapshot().rejected, status ? 1 : 0)
+    assert.notEqual(q.getSnapshot().lastState, 'revoked')
+  }
 })

@@ -14,6 +14,7 @@ export const browserPlan = (typed = false) => ({
 
 export async function fulfillLearn(route, typed = false) {
   const path = new URL(route.request().url()).pathname
+  if (path === '/api/push/subscriptions') return route.fulfill({ json: { items: [], truncated: false } })
   if (path.startsWith('/api/push/')) return route.fulfill({ status: 503, json: { error: 'push_disabled' } })
   if (path.endsWith('/reminder')) return route.fulfill({ json: { enabled: true, time: '22:00', mutedUntil: null, windowMin: 90, activeDevices: 0 } })
   if (path.endsWith('/plan')) return route.fulfill({ json: browserPlan(typed) })

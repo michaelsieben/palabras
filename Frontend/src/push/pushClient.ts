@@ -77,19 +77,22 @@ export function createPushClient(enqueue: (mutation: Mutation) => Promise<void>,
     if (cleanup) { await cleanup.unsubscribe(); return inspect() }
     return result
   }
-  async function optOut() {
+  async function optOut(id?: number) {
     let mutation: Mutation | undefined
     let cleanup: PushSubscription | undefined
     const result = await env.lock(async () => {
       // Worker reads this same durable flag, under the same cross-context Web Lock.
       await env.setOptOut(true)
-      const subscription = await (await env.registration()).pushManager.getSubscription()
-      if (subscription) { mutation = { kind: 'unsubscribe', body: { endpoint: subscription.endpoint } }; cleanup = subscription }
+      let subscription: PushSubscription | null = null
+      try { subscription = await (await env.registration()).pushManager.getSubscription() } catch { /* A known server id can still be revoked without a local worker. */ }
+      if (id !== undefined) mutation = { kind: 'revoke', body: { id, current: true } }
+      else if (subscription) mutation = { kind: 'unsubscribe', body: { endpoint: subscription.endpoint } }
+      if (subscription) cleanup = subscription
       return inspect()
     })
     if (mutation) await enqueue(mutation)
     // Do not lose the only known endpoint until the deletion is durably queued.
-    if (cleanup) await cleanup.unsubscribe()
+    if (cleanup && !await cleanup.unsubscribe()) throw new Error('La baja está guardada, pero Chrome no ha quitado la suscripción local. Reintenta.')
     return result
   }
   return { inspect, sync, optOut }
