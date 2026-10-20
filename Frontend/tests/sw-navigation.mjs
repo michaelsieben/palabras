@@ -98,6 +98,7 @@ const server = await preview({ preview: { host: testHost, port: testPort, strict
 }] })
 
 let browser
+let phase = 'initial login and worker control'
 try {
   browser = await chromium.launch({ headless: true })
   const context = await browser.newContext({ serviceWorkers: 'allow' })
@@ -119,6 +120,9 @@ try {
   await page.getByLabel('Contraseña', { exact: true }).fill('fixture-only-password')
   await page.getByLabel('Contraseña', { exact: true }).press('Enter')
   await page.getByRole('button', { name: 'Mostrar respuesta' }).waitFor()
+  // The reveal control only settles the learner plan, not the independent reminder
+  // refresh or worker discovery. Finish those before toggling fixture config/reloading.
+  await page.waitForLoadState('networkidle')
   // Check both configuration contracts over fixture HTTP, not page mocks. The expected
   // push-off 503 is probed outside page fetches so it cannot hide a console regression.
   const storedReminder = await page.request.get(origin + '/api/learn/reminder')
@@ -132,14 +136,19 @@ try {
   assert.equal(disabledConfig.status(), 503)
   assert.deepEqual(await disabledConfig.json(), { error: 'push_disabled' })
   pushEnabled = true
+  phase = 'controlled reload and reminder/config responses'
   consoleLog.length = 0; failures.length = 0; responses.length = 0
   const reloadRequestStart = requests.length
-  const reminderLoaded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/learn/reminder' && response.status() === 200)
-  const configLoaded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/push/config' && response.status() === 200)
   const reload = await page.reload()
   assert.equal(reload.status(), 200)
   await page.getByRole('button', { name: 'Mostrar respuesta' }).waitFor()
-  await Promise.all([reminderLoaded, configLoaded])
+  await page.waitForLoadState('networkidle')
+  // Assert persistent fixture/browser records after the finite load settles. No live
+  // response subscription can consume an earlier refresh or leave an orphan waiter.
+  for (const path of ['/api/learn/reminder', '/api/push/config']) {
+    assert.ok(requests.slice(reloadRequestStart).some(request => request.path === path && request.signedIn), 'controlled reload requested ' + path)
+    assert.ok(responses.some(response => new URL(response.url).pathname === path && response.status === 200 && !response.worker), 'controlled reload received network 200 for ' + path)
+  }
   assert.equal(new URL(page.url()).pathname, '/')
   assert.deepEqual(failures, [])
   assert.deepEqual(pageErrors, [])
@@ -149,6 +158,7 @@ try {
   console.log('RELOAD NETWORK ' + JSON.stringify({ server: requests.slice(reloadRequestStart), browser: responses, console: consoleLog, failures, pageErrors }))
 
   await context.clearCookies()
+  phase = 'anonymous navigation'
   const anonymousStart = requests.length
   await page.goto(origin + '/sesion')
   await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).waitFor()
@@ -162,6 +172,7 @@ try {
   console.log('PROOF (b): remove cookie, navigate /sesion; worker checks real /me 401, redirects to network /login; protected shell never fetched; CacheStorage has ' + cachedPaths.length + ' static paths and zero login/index/API entries.')
 
   await context.addCookies([{ name: 'fixture_session', value: 'owner', url: origin, httpOnly: true }])
+  phase = '401 and offline navigation'
   force401 = true
   const raw401 = await page.evaluate(async () => { const response = await fetch('/api/auth/me', { cache: 'no-store' }); return { status: response.status, body: await response.text() } })
   assert.deepEqual(raw401, { status: 401, body: '{"error":"unauthorized"}' })
@@ -181,6 +192,7 @@ try {
   console.log('PROOF (c): direct /me remains 401 with exact JSON; authority 401 prevents even deliberately public stale proxy shell; no offline fallback on 401; actual offline API rejects and offline navigation is session-neutral.')
 
   await page.goto(origin + '/')
+  phase = 'two-tab worker replacement'
   await page.getByRole('button', { name: 'Mostrar respuesta' }).waitFor()
   const second = await context.newPage()
   await second.goto(origin + '/')
@@ -217,12 +229,18 @@ try {
   console.log('ATOMICITY: old hashed chunk remains fetchable after activation; legacy index.html and API cache entries deleted; new cache fully installed before skipWaiting; both tabs reload rather than continuing mixed documents.')
 
   // Discovery also runs on focus/visibility, without waiting for a navigation.
+  // A replacement reload starts its own discovery. A synthetic focus during that
+  // check is deliberately ignored by usePwa's `checking` guard; settle it first.
+  await page.waitForLoadState('networkidle')
   const focused = changed + '\n/* focus-update */\n'
+  phase = 'focus worker replacement'
   await writeFile(workerFile, focused)
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
   await page.waitForFunction(hash => navigator.serviceWorker.controller?.scriptURL.endsWith(hash), digest(focused))
   await page.getByRole('button', { name: 'Mostrar respuesta' }).waitFor()
+  await page.waitForLoadState('networkidle')
   const visible = focused + '\n/* visibility-update */\n'
+  phase = 'visibility worker replacement'
   await writeFile(workerFile, visible)
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
   await page.waitForFunction(hash => navigator.serviceWorker.controller?.scriptURL.endsWith(hash), digest(visible))
@@ -231,6 +249,7 @@ try {
   await context.close()
   await writeFile(workerFile, originalWorker)
   const legacyContext = await browser.newContext({ serviceWorkers: 'allow' })
+  phase = 'legacy worker migration'
   const legacyPage = await legacyContext.newPage()
   await legacyPage.goto(origin + '/legacy-bootstrap')
   await legacyPage.evaluate(async () => {
@@ -250,6 +269,9 @@ try {
   assert.ok(!(await legacyPage.evaluate(() => caches.keys())).includes('palabras-shell-legacy-migration'))
   console.log('MIGRATION: installed legacy cache-first worker with protected index.html redirect in cache; network bootstrap to new client replaces it automatically; subsequent normal login reload succeeds, obsolete HTML cache removed. Does not prove recovery when old cached frontend never loads new client code.')
   await legacyContext.close()
+} catch (error) {
+  console.error('SW NAVIGATION FAILURE ' + JSON.stringify({ phase, requests }))
+  throw error
 } finally {
   await writeFile(workerFile, originalWorker)
   await browser?.close()
