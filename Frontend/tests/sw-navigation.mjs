@@ -4,6 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { chromium } from '@playwright/test'
 import { preview } from 'vite'
 import { browserPlan } from './learnBrowser.mjs'
+import { testBaseUrl, testHost, testPort } from './browserConfig.mjs'
 
 // Test-only cookie gate + hostile URL-keyed proxy. No Playwright API mocks:
 // worker-originated /me and every navigation reach real local HTTP middleware.
@@ -26,8 +27,8 @@ const digest = source => createHash('sha256').update(source).digest('hex')
 const proxyEntries = new Map()
 const requests = []
 let force401 = false
-const origin = 'http://127.0.0.1:4174'
-const server = await preview({ preview: { host: '127.0.0.1', port: 4174, strictPort: true }, plugins: [{
+const origin = testBaseUrl
+const server = await preview({ preview: { host: testHost, port: testPort, strictPort: true }, plugins: [{
   name: 'cookie-gate-hostile-proxy-fixture',
   configurePreviewServer(server) {
     server.middlewares.use(async (req, res, next) => {

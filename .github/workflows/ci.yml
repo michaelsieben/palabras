@@ -218,42 +218,67 @@ jobs:
       options: --ipc=host
     steps:
       - uses: actions/checkout@v4
+      # Node 24 is the floor in Frontend/package.json (`>=24.21.0 <25`); the image's own Node
+      # is pinned to the same version so `npm ci` and the suites never run on a runner default.
       - uses: actions/setup-node@v4
         with:
           node-version: '24.21.0'
           cache: npm
           cache-dependency-path: Frontend/package-lock.json
-      # The suite serves the built bundle through `vite preview`, so it needs the test
-      # toolchain (vite, @playwright/test) but no second frontend build.
+      # The suites serve the bundle the build job produced through `vite preview`, so they need
+      # the test toolchain (vite, @playwright/test) but no second frontend build.
       - run: npm ci
         working-directory: Frontend
+      # The image carries the browsers for *its* driver build, but the driver actually used is
+      # the one Frontend/package-lock.json resolves (`@playwright/test: ^1.64.1`). When those
+      # two drift, every suite dies inside chromium.launch with
+      # "Executable doesn't exist at /ms-playwright/chromium_headless_shell-<rev>". Installing
+      # from the lockfile's own driver plus the Chromium system libraries makes the pairing
+      # explicit and does not depend on the image tag staying in lockstep with the lockfile.
+      - name: Install the locked Playwright Chromium and system dependencies
+        working-directory: Frontend
+        run: npm exec -- playwright install --with-deps chromium
+      # Explicit ordering: the build job publishes Frontend/dist *before* this job starts
+      # (needs: build), and nothing here rebuilds it. The layout is asserted once, right after
+      # the download, so a changed artifact shape fails with a clear message instead of as a
+      # missing-file error inside Playwright.
       - name: Download the bundle built by the build job
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
           path: Frontend/dist
-      # browser.mjs binds 127.0.0.1:4173 and sw-navigation.mjs binds 127.0.0.1:4174, both with
-      # strictPort. Each job gets its own network namespace, so these are private and fixed:
-      # nothing can collide with them and no dynamic port allocation is needed.
-      - name: Run the browser and Service Worker suites
+      - name: Verify the downloaded bundle layout
         working-directory: Frontend
         run: |
           set -euo pipefail
-          # The suites serve ../dist through vite preview. A changed artifact layout must fail
-          # here with a clear message instead of as a missing-file error inside Playwright.
           test -f dist/index.html && test -f dist/sw.js || {
             echo "FAIL: the frontend-dist artifact is not laid out at Frontend/dist"; exit 1; }
-          npm run test:browser
-      # Focused M7 day-status suite (dayBrowser.mjs -> learnBrowser/dayPanelBrowser): day panel,
-      # acceptance flow and the panel harness, without the full browser suite above.
-      # It starts `vite preview` through the same browserConfig helper, so PALABRAS_TEST_PORT
-      # moves it off the browser suite's 4173 and sw-navigation.mjs's fixed 4174 - an explicit
-      # override rather than a second hard-coded port, and the run above has already closed
-      # its server anyway (each job has its own network namespace).
-      - name: Run the M7 day-status browser suite
+          echo "dist layout OK: index.html, sw.js"
+      # One step per suite, each on its own PALABRAS_TEST_PORT. All four runners start
+      # `vite preview` with strictPort, so distinct ports mean a suite can never inherit a
+      # half-released listener from the suite before it (the old single `test:browser` run gave
+      # browser.mjs and reviewBrowser.mjs the same 4173 and left sw-navigation.mjs on a
+      # hard-coded 4174 that ignored the override entirely).
+      # No suite is skipped or made non-blocking: every step is a hard gate.
+      - name: Browser suite (browser.mjs)
         working-directory: Frontend
         env:
-          PALABRAS_TEST_PORT: '4175'
-        # The dist layout was already asserted by the step above and nothing between the two
-        # steps touches it, so the suite runs directly.
+          PALABRAS_TEST_PORT: '4180'
+        run: npm run test:browser:main
+      - name: Service Worker navigation suite (sw-navigation.mjs)
+        working-directory: Frontend
+        env:
+          PALABRAS_TEST_PORT: '4181'
+        run: npm run test:sw:browser
+      - name: Reviewer browser suite (reviewBrowser.mjs)
+        working-directory: Frontend
+        env:
+          PALABRAS_TEST_PORT: '4182'
+        run: npm run test:review:browser
+      # Focused M7 day-status suite (dayBrowser.mjs -> learnBrowser/dayPanelBrowser): day panel,
+      # acceptance flow and the panel harness, without the full browser suite above.
+      - name: M7 day-status browser suite (dayBrowser.mjs)
+        working-directory: Frontend
+        env:
+          PALABRAS_TEST_PORT: '4183'
         run: npm run test:day:browser
